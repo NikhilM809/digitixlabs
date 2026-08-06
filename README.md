@@ -121,13 +121,57 @@ git pull origin cursor/employee-leave-attendance-fc8e
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\setup-windows.ps1
 
-# 3. Set up the database (PostgreSQL must be running)
+# 3. Set up PostgreSQL (pick ONE option below)
+# 4. Push schema and seed data
 npm run db:push
 npm run db:seed
 
-# 4. Start the app
+# 5. Start the app
 npm run dev
 ```
+
+#### Option A — PostgreSQL with Docker Desktop (easiest)
+
+```powershell
+docker compose up postgres -d
+npm run db:push
+npm run db:seed
+npm run dev
+```
+
+#### Option B — Local PostgreSQL on Windows
+
+1. Install [PostgreSQL 16](https://www.postgresql.org/download/windows/) if not installed.
+2. Make sure the **PostgreSQL** Windows service is running (Services app → `postgresql-x64-16`).
+3. Create the database user and database (replace `16` with your version if different):
+
+```powershell
+& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -f scripts\setup-postgres-windows.sql
+```
+
+Enter your `postgres` superuser password when prompted.
+
+4. Then run:
+
+```powershell
+npm run db:push
+npm run db:seed
+npm run dev
+```
+
+#### Option C — Use your existing PostgreSQL login
+
+If you already have PostgreSQL with different credentials, edit `.env.local`:
+
+```
+DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/YOUR_DATABASE?schema=public"
+```
+
+Then run `npm run db:push` and `npm run db:seed`.
+
+**Database login error on sign-in:**
+
+If login shows `Authentication failed against the database server, the provided database credentials for hrms are not valid`, PostgreSQL is running but the `hrms` user does not exist or the password is wrong. Run Option A or B above, or update `DATABASE_URL` in `.env.local` to match your setup.
 
 **If you still see "server configuration issue":**
 

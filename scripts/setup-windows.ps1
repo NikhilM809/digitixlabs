@@ -30,10 +30,15 @@ if (Test-Path ".next") { Remove-Item -Recurse -Force ".next" }
 Write-Host ""
 Write-Host "=== Setup complete ===" -ForegroundColor Green
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Make sure PostgreSQL is running"
+Write-Host "  1. Set up PostgreSQL (see scripts\setup-postgres-windows.sql)"
 Write-Host "  2. Run: npm run db:push"
 Write-Host "  3. Run: npm run db:seed"
 Write-Host "  4. Run: npm run dev"
 Write-Host "  5. Open: http://localhost:3000/login"
+Write-Host ""
+Write-Host "PostgreSQL quick setup (run as postgres superuser):" -ForegroundColor Cyan
+Write-Host '  & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -f scripts\setup-postgres-windows.sql'
+Write-Host ""
+Write-Host "Or use Docker: docker compose up postgres -d" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Login: admin@digitixlabs.com / Admin@123" -ForegroundColor Yellow
