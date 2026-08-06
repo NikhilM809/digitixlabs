@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { authConfig } from "@/lib/auth.config";
 import type { RoleName } from "@prisma/client";
 
 declare module "next-auth" {
@@ -46,14 +47,7 @@ declare module "@auth/core/jwt" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 60, // 30 minutes session timeout
-  },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
+  ...authConfig,
   providers: [
     Credentials({
       name: "credentials",
@@ -102,43 +96,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id;
-        token.employeeId = user.employeeId;
-        token.firstName = user.firstName;
-        token.lastName = user.lastName;
-        token.role = user.role;
-        token.avatar = user.avatar;
-        token.departmentId = user.departmentId;
-        token.mustChangePassword = user.mustChangePassword;
-      }
-
-      if (trigger === "update" && session) {
-        token.firstName = session.firstName ?? token.firstName;
-        token.lastName = session.lastName ?? token.lastName;
-        token.avatar = session.avatar ?? token.avatar;
-        token.mustChangePassword = session.mustChangePassword ?? token.mustChangePassword;
-      }
-
-      return token;
-    },
-    async session({ session, token }) {
-      session.user = {
-        id: token.id as string,
-        employeeId: token.employeeId as string,
-        email: token.email as string,
-        firstName: token.firstName as string,
-        lastName: token.lastName as string,
-        role: token.role as RoleName,
-        avatar: token.avatar as string | null | undefined,
-        departmentId: token.departmentId as string | null | undefined,
-        mustChangePassword: token.mustChangePassword as boolean,
-      } as typeof session.user;
-      return session;
-    },
-  },
 });
 
 export function hasRole(userRole: RoleName, allowedRoles: RoleName[]) {
