@@ -1,36 +1,197 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Digitix HRMS - Employee Leave & Attendance Management System
 
-## Getting Started
+A modern, enterprise-grade Employee Leave & Attendance Management web application built for **Digitix Labs**.
 
-First, run the development server:
+![Digitix Labs](public/digitix-logo.png)
+
+## Features
+
+### Core Modules
+- **Dashboard** - Role-based analytics with charts, stats, and activity feeds
+- **Employee Management** - CRUD operations, profile management, org hierarchy
+- **Leave Management** - Apply, approve/reject, balance tracking, workflow notifications
+- **Attendance** - Check-in/out, history, late marks, overtime tracking
+- **Payslips** - Upload, view, preview, and download monthly payslips
+- **Holiday Calendar** - Company and regional holidays
+- **Reports** - Export to Excel, CSV, and PDF
+- **Notifications** - Real-time in-app notifications
+- **Settings** - Company policies, attendance rules, theme settings
+
+### User Roles
+| Role | Capabilities |
+|------|-------------|
+| **Admin** | Full system access, employee management, reports, settings |
+| **Manager** | Team leave approvals, team attendance, reports |
+| **Employee** | Apply leave, view attendance, download payslips, update profile |
+
+### UI/UX
+- Digitix Labs branded design (colors, typography, logo)
+- Glassmorphism effects, gradient cards, soft shadows
+- Dark/Light mode toggle
+- Responsive mobile-friendly layout
+- Framer Motion animations
+- Loading skeletons, toast notifications, empty states
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS 4
+- **UI Components:** ShadCN UI (Radix UI)
+- **Animation:** Framer Motion
+- **Database:** PostgreSQL + Prisma ORM
+- **Auth:** NextAuth.js v5 (JWT)
+- **Forms:** React Hook Form + Zod
+- **Data Fetching:** TanStack React Query
+- **Tables:** TanStack Table
+- **Charts:** Recharts
+- **File Upload:** UploadThing
+- **Export:** xlsx, jsPDF
+
+## Quick Start
+
+### Prerequisites
+- Node.js 20+
+- PostgreSQL 16+ (or Docker)
+- npm
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone <repo-url>
+cd digitix-hrms
+
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env
+
+# Start PostgreSQL (Docker)
+docker compose up postgres -d
+
+# Push database schema
+npm run db:push
+
+# Seed sample data
+npm run db:seed
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Admin Login Credentials
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@digitixlabs.com | Admin@123 |
+| Manager | manager@digitixlabs.com | Welcome@123 |
+| Employee | priya.sharma@digitixlabs.com | Welcome@123 |
 
-## Learn More
+## Docker Deployment
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Build and run all services
+docker compose up --build -d
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Run database migrations
+docker compose exec app npx prisma db push
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Seed database
+docker compose exec app npm run db:seed
+```
 
-## Deploy on Vercel
+## Environment Variables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See [.env.example](.env.example) for all required variables:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `NEXTAUTH_URL` | Application URL |
+| `NEXTAUTH_SECRET` | NextAuth secret key |
+| `JWT_SECRET` | JWT signing secret |
+| `UPLOADTHING_SECRET` | UploadThing API secret (optional) |
+| `UPLOADTHING_APP_ID` | UploadThing app ID (optional) |
+
+## API Documentation
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/[...nextauth]` | Login/Logout |
+| POST | `/api/auth/forgot-password` | Request password reset |
+| POST | `/api/auth/reset-password` | Reset password |
+
+### Dashboard
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/dashboard` | Dashboard stats & charts |
+
+### Employees
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/employees` | List employees |
+| POST | `/api/employees` | Create employee (Admin) |
+| GET | `/api/employees/[id]` | Get employee |
+| PATCH | `/api/employees/[id]` | Update employee |
+| DELETE | `/api/employees/[id]` | Deactivate employee |
+
+### Leave
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/leave` | List leave requests |
+| POST | `/api/leave` | Apply for leave |
+| PATCH | `/api/leave/[id]` | Approve/Reject/Cancel |
+| GET | `/api/leave/balance` | Get leave balances |
+
+### Attendance
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/attendance` | List attendance records |
+| POST | `/api/attendance` | Check-in/Check-out |
+
+### Other Endpoints
+- `/api/departments` - Department CRUD
+- `/api/designations` - Designation CRUD
+- `/api/holidays` - Holiday calendar CRUD
+- `/api/leave-types` - Leave type management
+- `/api/payslips` - Payslip management
+- `/api/notifications` - Notifications
+- `/api/profile` - User profile
+- `/api/reports` - Generate reports
+- `/api/settings` - Company settings
+- `/api/announcements` - Company announcements
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── (auth)/          # Login, forgot/reset password
+│   ├── (dashboard)/     # Protected dashboard pages
+│   └── api/             # API routes
+├── components/
+│   ├── ui/              # ShadCN UI components
+│   ├── layout/          # Sidebar, navbar, layout
+│   └── dashboard/       # Dashboard widgets
+├── lib/
+│   ├── auth.ts          # NextAuth configuration
+│   ├── prisma.ts        # Prisma client
+│   ├── validations/     # Zod schemas
+│   └── utils.ts         # Utility functions
+prisma/
+├── schema.prisma        # Database schema
+└── seed.ts              # Seed data
+```
+
+## Database Schema
+
+Key tables: Users, Departments, Designations, LeaveTypes, LeaveRequests, LeaveBalance, Attendance, Payslips, Notifications, HolidayCalendar, AuditLogs, Announcements, CompanySettings, Permissions
+
+## License
+
+Proprietary - Digitix Labs © 2026
