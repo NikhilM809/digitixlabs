@@ -7,7 +7,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -55,13 +54,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 gradient-bg relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
+          <div>
             <Image
               src="/digitix-logo.png"
               alt="Digitix Labs"
@@ -76,29 +70,19 @@ export default function LoginPage() {
             <p className="text-lg text-white/80 max-w-md">
               Cultivating practices that unlock top-tier performance. Manage your workforce efficiently.
             </p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-            className="mt-12 grid grid-cols-3 gap-4"
-          >
+          </div>
+          <div className="mt-12 grid grid-cols-3 gap-4">
             {["Data Driven", "Innovative", "Growth Focused"].map((item) => (
               <div key={item} className="rounded-xl bg-white/10 backdrop-blur-sm p-4 text-center">
                 <p className="text-sm font-medium text-white">{item}</p>
               </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center p-6 lg:p-12">
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 text-center">
             <Image
               src="/digitix-logo.png"
@@ -106,6 +90,7 @@ export default function LoginPage() {
               width={160}
               height={29}
               className="mx-auto mb-4"
+              priority
             />
           </div>
 
@@ -121,6 +106,7 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="you@digitixlabs.com"
+                autoComplete="email"
                 {...register("email")}
               />
               {errors.email && (
@@ -143,6 +129,7 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                   {...register("password")}
                 />
                 <Button
@@ -191,7 +178,7 @@ export default function LoginPage() {
           <p className="mt-8 text-center text-xs text-muted-foreground">
             &copy; {new Date().getFullYear()} Digitix Labs. All rights reserved.
           </p>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

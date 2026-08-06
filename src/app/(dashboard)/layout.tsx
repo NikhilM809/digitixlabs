@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 
 export default async function DashboardRootLayout({
@@ -8,11 +9,18 @@ export default async function DashboardRootLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user) return null;
+  if (!session?.user) {
+    redirect("/login");
+  }
 
-  const notificationCount = await prisma.notification.count({
-    where: { userId: session.user.id, isRead: false },
-  });
+  let notificationCount = 0;
+  try {
+    notificationCount = await prisma.notification.count({
+      where: { userId: session.user.id, isRead: false },
+    });
+  } catch (error) {
+    console.error("Failed to load notification count:", error);
+  }
 
   return (
     <DashboardLayout

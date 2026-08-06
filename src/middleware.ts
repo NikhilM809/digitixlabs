@@ -8,6 +8,12 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
 
+  if (pathname === "/") {
+    return NextResponse.redirect(
+      new URL(isLoggedIn ? "/dashboard" : "/login", req.url)
+    );
+  }
+
   const isAuthPage =
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
