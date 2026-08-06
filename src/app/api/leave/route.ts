@@ -43,6 +43,10 @@ export async function GET(request: Request) {
     const where: Record<string, unknown> = await getLeaveUserFilter(user.role, user.id);
 
     if (status) {
+      const validStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
+      if (!validStatuses.includes(status)) {
+        return apiError("Invalid status filter", 400);
+      }
       where.status = status;
     }
 

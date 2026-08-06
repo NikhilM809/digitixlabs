@@ -91,6 +91,10 @@ export const leaveApplicationSchema = z
       return from >= today;
     },
     { message: "Cannot apply for past dates", path: ["fromDate"] }
+  )
+  .refine(
+    (data) => !data.isHalfDay || !!data.halfDayPeriod,
+    { message: "Please select half day period", path: ["halfDayPeriod"] }
   );
 
 export const departmentSchema = z.object({

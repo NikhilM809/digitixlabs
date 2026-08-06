@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Building2, Plus, Pencil, Trash2, Loader2, Users } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2, Loader2, Users, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -41,14 +43,35 @@ interface Department {
 }
 
 export default function DepartmentsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const isAdmin = session?.user?.role === "ADMIN";
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
 
-  const { data: departments = [], isLoading } = useQuery({
+  const { data: departments = [], isLoading, isError } = useQuery({
     queryKey: ["departments"],
     queryFn: () => apiFetch<Department[]>("/api/departments"),
+    enabled: isAdmin,
   });
+
+  if (status === "loading") {
+    return <Skeleton className="h-96 w-full rounded-2xl" />;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive/60 mb-4" />
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground mt-2">Department management is for administrators only.</p>
+        <Button className="mt-6" variant="outline" onClick={() => router.push("/dashboard")}>
+          Go to Dashboard
+        </Button>
+      </div>
+    );
+  }
 
   const form = useForm<DepartmentInput>({
     resolver: zodResolver(departmentSchema),

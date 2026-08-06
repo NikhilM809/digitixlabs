@@ -10,44 +10,68 @@ import {
 import { payslipSchema } from "@/lib/validations";
 import type { Prisma } from "@prisma/client";
 
+async function getManagerTeamIds(managerId: string) {
+  const team = await prisma.user.findMany({
+    where: { managerId },
+    select: { id: true },
+  });
+  return [managerId, ...team.map((t) => t.id)];
+}
+
 export async function GET(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN", "MANAGER", "EMPLOYEE"]);
-  if (error) return error;
+  try {
+    const { error, user } = await requireAuth(["ADMIN", "MANAGER", "EMPLOYEE"]);
+    if (error) return error;
 
-  const { searchParams } = req.nextUrl;
-  const month = searchParams.get("month");
-  const year = searchParams.get("year");
-  const userId = searchParams.get("userId");
+    const { searchParams } = req.nextUrl;
+    const month = searchParams.get("month");
+    const year = searchParams.get("year");
+    const userId = searchParams.get("userId");
 
-  const where: Prisma.PayslipWhereInput = {};
+    const where: Prisma.PayslipWhereInput = {};
 
-  if (user!.role === "EMPLOYEE") {
-    where.userId = user!.id;
-  } else if (userId) {
-    where.userId = userId;
-  }
+    if (user!.role === "EMPLOYEE") {
+      where.userId = user!.id;
+    } else if (user!.role === "MANAGER") {
+      const teamIds = await getManagerTeamIds(user!.id);
+      where.userId = userId && teamIds.includes(userId) ? userId : { in: teamIds };
+    } else if (userId) {
+      where.userId = userId;
+    }
 
-  if (month) where.month = parseInt(month, 10);
-  if (year) where.year = parseInt(year, 10);
+    if (month) {
+      const m = parseInt(month, 10);
+      if (isNaN(m) || m < 1 || m > 12) return apiError("Invalid month", 400);
+      where.month = m;
+    }
+    if (year) {
+      const y = parseInt(year, 10);
+      if (isNaN(y)) return apiError("Invalid year", 400);
+      where.year = y;
+    }
 
-  const payslips = await prisma.payslip.findMany({
-    where,
-    include: {
-      user: {
-        select: {
-          id: true,
-          employeeId: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          department: { select: { name: true } },
+    const payslips = await prisma.payslip.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            employeeId: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            department: { select: { name: true } },
+          },
         },
       },
-    },
-    orderBy: [{ year: "desc" }, { month: "desc" }],
-  });
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+    });
 
-  return apiSuccess(payslips);
+    return apiSuccess(payslips);
+  } catch (err) {
+    console.error("Payslips GET error:", err);
+    return apiError("Failed to fetch payslips", 500);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -75,7 +99,7 @@ export async function POST(req: NextRequest) {
         bonus: parsed.bonus,
         deductions: parsed.deductions,
         netSalary,
-        fileUrl: parsed.fileUrl,
+        fileUrl: parsed.fileUrl || null,
         uploadedBy: user!.id,
       },
       update: {
@@ -83,7 +107,7 @@ export async function POST(req: NextRequest) {
         bonus: parsed.bonus,
         deductions: parsed.deductions,
         netSalary,
-        fileUrl: parsed.fileUrl,
+        fileUrl: parsed.fileUrl || null,
         uploadedBy: user!.id,
       },
       include: {

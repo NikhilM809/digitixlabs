@@ -201,7 +201,9 @@ export async function PATCH(
       userId: leave.userId,
       type: notificationType,
       title: notificationTitle,
-      message: `Your ${leave.leaveType.name} request has been ${action === "cancel" ? "cancelled" : action + "d"}`,
+      message: `Your ${leave.leaveType.name} request has been ${
+        action === "approve" ? "approved" : action === "reject" ? "rejected" : "cancelled"
+      }`,
       link: "/leave",
     });
 

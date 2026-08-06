@@ -73,9 +73,15 @@ export async function GET(request: Request) {
     if (fromDate || toDate) {
       where.date = {};
       if (fromDate) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDate)) {
+          return apiError("Invalid fromDate format. Use YYYY-MM-DD", 400);
+        }
         (where.date as Record<string, Date>).gte = startOfDay(new Date(fromDate));
       }
       if (toDate) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(toDate)) {
+          return apiError("Invalid toDate format. Use YYYY-MM-DD", 400);
+        }
         (where.date as Record<string, Date>).lte = startOfDay(new Date(toDate));
       }
     }
@@ -138,6 +144,7 @@ export async function POST(request: Request) {
         status: "APPROVED",
         fromDate: { lte: now },
         toDate: { gte: today },
+        isHalfDay: false,
       },
     });
 

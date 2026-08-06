@@ -42,6 +42,7 @@ interface LeaveType {
   id: string;
   name: string;
   code: string;
+  requiresAttachment?: boolean;
 }
 
 interface LeaveRequest {
@@ -193,8 +194,27 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
                   </Select>
                 )}
               />
+              {errors.halfDayPeriod && (
+                <p className="text-sm text-destructive">{errors.halfDayPeriod.message}</p>
+              )}
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="attachment">Supporting Document (optional)</Label>
+            <Input
+              id="attachment"
+              type="url"
+              placeholder="Paste document URL (required for Sick Leave)"
+              {...register("attachment")}
+            />
+            {errors.attachment && (
+              <p className="text-sm text-destructive">{errors.attachment.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Required for leave types that need medical or supporting documents.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="reason">Reason</Label>
@@ -233,7 +253,7 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
   );
 }
 
-function LeaveRow({ leave }: { leave: LeaveRequest }) {
+function LeaveRow({ leave, onCancel }: { leave: LeaveRequest; onCancel?: (id: string) => void }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/30 p-4">
       <div className="space-y-1">
@@ -253,8 +273,13 @@ function LeaveRow({ leave }: { leave: LeaveRequest }) {
           <p className="text-xs text-muted-foreground italic">Comment: {leave.managerComment}</p>
         )}
       </div>
-      <div className="text-right">
+      <div className="flex flex-col items-end gap-2">
         <p className="text-sm truncate max-w-[200px]">{leave.reason}</p>
+        {leave.status === "PENDING" && onCancel && (
+          <Button size="sm" variant="outline" onClick={() => onCancel(leave.id)}>
+            Cancel Request
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -330,8 +355,23 @@ function PendingApprovalRow({ leave }: { leave: LeaveRequest }) {
 
 export default function LeavePage() {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const isMgr = session?.user?.role ? isManager(session.user.role) : false;
   const userId = session?.user?.id;
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchApi(`/api/leave/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action: "cancel" }),
+      }),
+    onSuccess: () => {
+      toast.success("Leave request cancelled");
+      queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const { data: leaveTypes, isLoading: typesLoading } = useQuery({
     queryKey: ["leave-types"],
@@ -427,7 +467,11 @@ export default function LeavePage() {
               ) : myLeaves.length > 0 ? (
                 <div className="space-y-3">
                   {myLeaves.map((leave) => (
-                    <LeaveRow key={leave.id} leave={leave} />
+                    <LeaveRow
+                      key={leave.id}
+                      leave={leave}
+                      onCancel={(id) => cancelMutation.mutate(id)}
+                    />
                   ))}
                 </div>
               ) : (

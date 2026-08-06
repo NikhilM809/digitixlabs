@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -19,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/dashboard/activity-feed";
 import { fetchApi } from "@/lib/api-client";
-import { formatDate, formatDateTime, cn } from "@/lib/utils";
+import { formatDate, formatDateTime, formatLocalDate, cn } from "@/lib/utils";
 
 interface AttendanceRecord {
   id: string;
@@ -50,8 +51,8 @@ function formatMonthRange(year: number, month: number) {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0);
   return {
-    fromDate: start.toISOString().split("T")[0],
-    toDate: end.toISOString().split("T")[0],
+    fromDate: formatLocalDate(start),
+    toDate: formatLocalDate(end),
   };
 }
 
@@ -63,27 +64,31 @@ function formatTimeFromISO(iso: string) {
 }
 
 export default function AttendancePage() {
+  const { data: session } = useSession();
   const queryClient = useQueryClient();
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = formatLocalDate(now);
+  const userId = session?.user?.id;
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const monthRange = formatMonthRange(selectedYear, selectedMonth);
 
-  const { data: todayData, isLoading: todayLoading } = useQuery({
-    queryKey: ["attendance-today", todayStr],
+  const { data: todayData, isLoading: todayLoading, isError: todayError } = useQuery({
+    queryKey: ["attendance-today", todayStr, userId],
     queryFn: () =>
       fetchApi<AttendanceListResponse>(
-        `/api/attendance?fromDate=${todayStr}&toDate=${todayStr}&limit=1`
+        `/api/attendance?userId=${userId}&fromDate=${todayStr}&toDate=${todayStr}&limit=1`
       ),
+    enabled: !!userId,
   });
 
-  const { data: historyData, isLoading: historyLoading } = useQuery({
-    queryKey: ["attendance-history", selectedMonth, selectedYear],
+  const { data: historyData, isLoading: historyLoading, isError: historyError } = useQuery({
+    queryKey: ["attendance-history", selectedMonth, selectedYear, userId],
     queryFn: () =>
       fetchApi<AttendanceListResponse>(
-        `/api/attendance?fromDate=${monthRange.fromDate}&toDate=${monthRange.toDate}&limit=100`
+        `/api/attendance?userId=${userId}&fromDate=${monthRange.fromDate}&toDate=${monthRange.toDate}&limit=100`
       ),
+    enabled: !!userId,
   });
 
   const checkInMutation = useMutation({
@@ -276,7 +281,9 @@ export default function AttendancePage() {
           </div>
         </CardHeader>
         <CardContent>
-          {historyLoading ? (
+          {historyError ? (
+            <p className="text-sm text-destructive text-center py-8">Failed to load attendance records.</p>
+          ) : historyLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-14 rounded-xl" />

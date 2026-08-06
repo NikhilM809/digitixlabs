@@ -11,7 +11,7 @@ import { employeeSchema } from "@/lib/validations";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, context: RouteContext) {
-  const { error } = await requireAuth(["ADMIN", "MANAGER"]);
+  const { error, user } = await requireAuth(["ADMIN", "MANAGER"]);
   if (error) return error;
 
   const { id } = await context.params;
@@ -41,6 +41,11 @@ export async function GET(_req: NextRequest, context: RouteContext) {
   });
 
   if (!employee) return apiError("Employee not found", 404);
+
+  if (user!.role === "MANAGER" && employee.managerId !== user!.id && employee.id !== user!.id) {
+    return apiError("Forbidden", 403);
+  }
+
   return apiSuccess(employee);
 }
 
@@ -112,6 +117,9 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     if (err instanceof Error && err.name === "ZodError") {
       return apiError("Invalid employee data", 422);
     }
+    if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
+      return apiError("Employee not found", 404);
+    }
     console.error(err);
     return apiError("Failed to update employee", 500);
   }
@@ -139,7 +147,10 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     });
 
     return apiSuccess({ id: employee.id });
-  } catch {
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
+      return apiError("Employee not found", 404);
+    }
     return apiError("Failed to deactivate employee", 500);
   }
 }

@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const isAdmin = session?.user?.role === "ADMIN";
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading, isError } = useQuery({
     queryKey: ["settings"],
     queryFn: () => apiFetch<CompanySettings>("/api/settings"),
     enabled: isAdmin,
@@ -135,6 +135,15 @@ export default function SettingsPage() {
 
       {isLoading ? (
         <Skeleton className="h-[600px] w-full rounded-2xl" />
+      ) : isError ? (
+        <Card glass>
+          <CardContent className="py-12 text-center">
+            <p className="text-destructive font-medium">Failed to load settings</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Please refresh the page or try again later.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <form
           onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))}

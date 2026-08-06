@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -10,6 +12,7 @@ import {
   Download,
   Calendar,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, subDays } from "date-fns";
@@ -173,11 +176,31 @@ function ReportPanel({ type, from, to }: { type: ReportType; from: string; to: s
 }
 
 export default function ReportsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const canAccess = session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
   const [fromDate, setFromDate] = useState(
     format(subDays(new Date(), 30), "yyyy-MM-dd")
   );
   const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [activeTab, setActiveTab] = useState<ReportType>("attendance");
+
+  if (status === "loading") {
+    return <Skeleton className="h-96 w-full rounded-2xl" />;
+  }
+
+  if (!canAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive/60 mb-4" />
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground mt-2">Reports are available to managers and admins only.</p>
+        <Button className="mt-6" variant="outline" onClick={() => router.push("/dashboard")}>
+          Go to Dashboard
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <motion.div

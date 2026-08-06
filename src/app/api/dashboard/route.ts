@@ -35,7 +35,7 @@ function buildEmployeeScope(role: RoleName, userId: string) {
     return { status: "ACTIVE" as const };
   }
   if (role === RoleName.MANAGER) {
-    return { managerId: userId, status: "ACTIVE" as const };
+    return { OR: [{ managerId: userId }, { id: userId }], status: "ACTIVE" as const };
   }
   return { id: userId };
 }
@@ -141,7 +141,7 @@ export async function GET() {
             gte: new Date(today.getFullYear(), today.getMonth() - 5, 1),
           },
         },
-        select: { createdAt: true, status: true, totalDays: true, leaveTypeId: true },
+        select: { createdAt: true, status: true, totalDays: true, leaveTypeId: true, fromDate: true, toDate: true },
       }),
 
       user.role === RoleName.EMPLOYEE
@@ -260,20 +260,33 @@ export async function GET() {
     const departmentWiseEmployees =
       user.role === RoleName.EMPLOYEE
         ? []
-        : departments.map((dept) => ({
-            name: dept.name,
-            count: dept._count.employees,
-          }));
+        : user.role === RoleName.MANAGER
+          ? await Promise.all(
+              departments.map(async (dept) => ({
+                name: dept.name,
+                count: await prisma.user.count({
+                  where: {
+                    departmentId: dept.id,
+                    status: "ACTIVE",
+                    OR: [{ managerId: user.id }, { id: user.id }],
+                  },
+                }),
+              }))
+            )
+          : departments.map((dept) => ({
+              name: dept.name,
+              count: dept._count.employees,
+            }));
 
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const monthlyLeaves = leaveRequests.filter((l) => {
-      const d = new Date(l.createdAt);
-      return (
-        l.status === "APPROVED" &&
-        d.getMonth() === currentMonth &&
-        d.getFullYear() === currentYear
-      );
+      if (l.status !== "APPROVED") return false;
+      const from = new Date(l.fromDate);
+      const to = new Date(l.toDate);
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+      return from <= monthEnd && to >= monthStart;
     });
 
     const monthlyLeaveSummary = leaveTypes.map((type) => ({

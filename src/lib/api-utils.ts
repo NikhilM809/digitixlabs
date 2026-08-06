@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import type { RoleName } from "@prisma/client";
+import type { RoleName, UserStatus, AuditAction } from "@prisma/client";
 import { auth, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { AuditAction } from "@prisma/client";
 
 export async function getSessionUser() {
   const session = await auth();
@@ -15,10 +14,22 @@ export async function requireAuth(allowedRoles?: RoleName[]) {
   if (!user) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), user: null };
   }
-  if (allowedRoles && !hasRole(user.role, allowedRoles)) {
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { status: true, role: true },
+  });
+
+  if (!dbUser || dbUser.status !== ("ACTIVE" as UserStatus)) {
+    return { error: NextResponse.json({ error: "Account is inactive" }, { status: 403 }), user: null };
+  }
+
+  const activeRole = dbUser.role;
+  if (allowedRoles && !hasRole(activeRole, allowedRoles)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }), user: null };
   }
-  return { error: null, user };
+
+  return { error: null, user: { ...user, role: activeRole } };
 }
 
 export async function createAuditLog(params: {

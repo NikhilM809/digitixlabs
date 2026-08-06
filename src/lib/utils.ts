@@ -57,3 +57,22 @@ export function calculateLeaveDays(
 export function generateEmployeeId(count: number): string {
   return `DXL${String(count + 1).padStart(4, "0")}`;
 }
+
+/** Format a Date as YYYY-MM-DD in local timezone (avoids UTC shift bugs) */
+export function formatLocalDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Parse YYYY-MM-DD as local midnight */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export function isValidDateString(dateStr: string): boolean {
+  const d = parseLocalDate(dateStr);
+  return !isNaN(d.getTime());
+}
