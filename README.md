@@ -107,6 +107,56 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
+### Windows Setup
+
+Run these steps in **PowerShell** from the project folder (e.g. `D:\work\Digitixlabs\digitixlabs`):
+
+```powershell
+# 1. Pull the latest code (includes auth fix)
+git fetch origin
+git checkout cursor/employee-leave-attendance-fc8e
+git pull origin cursor/employee-leave-attendance-fc8e
+
+# 2. Run the one-time setup script (creates .env.local, clears cache)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\setup-windows.ps1
+
+# 3. Set up the database (PostgreSQL must be running)
+npm run db:push
+npm run db:seed
+
+# 4. Start the app
+npm run dev
+```
+
+**If you still see "server configuration issue":**
+
+1. Stop the dev server (`Ctrl+C`).
+2. Delete the cache folder: `Remove-Item -Recurse -Force .next`
+3. Confirm `.env.local` exists in the project root (same folder as `package.json`).
+4. Restart: `npm run dev`
+5. Test in browser: [http://localhost:3000/api/auth/session](http://localhost:3000/api/auth/session) — it should return `null` with HTTP 200 (not 500).
+
+**Manual `.env.local` (if the script fails):**
+
+```powershell
+Copy-Item env.example .env.local
+notepad .env.local
+```
+
+Paste this content and save:
+
+```
+DATABASE_URL="postgresql://hrms:hrms_password@localhost:5432/digitix_hrms?schema=public"
+AUTH_SECRET="digitix-hrms-local-dev-secret-2026"
+AUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="digitix-hrms-local-dev-secret-2026"
+NEXTAUTH_URL="http://localhost:3000"
+JWT_SECRET="digitix-jwt-secret-key-change-in-production-2026"
+NEXT_PUBLIC_APP_NAME="Digitix HRMS"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
 ### Admin Login Credentials
 
 | Role | Email | Password |
