@@ -1,8 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
 import type { RoleName } from "@prisma/client";
-import { AUTH_SECRET } from "@/lib/auth-secret";
+import { AUTH_SECRET } from "@/lib/auth-constants";
 
-export const authConfig = {
+export const authConfig: NextAuthConfig = {
   secret: AUTH_SECRET,
   trustHost: true,
   session: {
@@ -52,4 +52,4 @@ export const authConfig = {
       return session;
     },
   },
-} satisfies NextAuthConfig;
+};

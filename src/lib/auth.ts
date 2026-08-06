@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/lib/auth.config";
+import { AUTH_SECRET } from "@/lib/auth-constants";
 import type { RoleName } from "@prisma/client";
 
 declare module "next-auth" {
@@ -48,6 +49,7 @@ declare module "@auth/core/jwt" {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  secret: AUTH_SECRET,
   providers: [
     Credentials({
       name: "credentials",
