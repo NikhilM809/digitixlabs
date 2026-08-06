@@ -52,8 +52,10 @@ A modern, enterprise-grade Employee Leave & Attendance Management web applicatio
 
 ### Prerequisites
 - Node.js 20+
-- PostgreSQL 16+ (or Docker)
+- PostgreSQL 16+
 - npm
+
+> **Note:** Docker is optional. If `docker` is not installed, use the local PostgreSQL setup below.
 
 ### Installation
 
@@ -67,10 +69,32 @@ npm install
 
 # Copy environment variables
 cp .env.example .env
+```
 
-# Start PostgreSQL (Docker)
+### Database Setup
+
+**Option A — Local PostgreSQL (no Docker)**
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y postgresql postgresql-client
+sudo pg_ctlcluster 16 main start
+
+# Create database and user
+sudo -u postgres psql -c "CREATE USER hrms WITH PASSWORD 'hrms_password';"
+sudo -u postgres psql -c "CREATE DATABASE digitix_hrms OWNER hrms;"
+sudo -u postgres psql -d digitix_hrms -c "GRANT ALL ON SCHEMA public TO hrms;"
+```
+
+**Option B — Docker (if available)**
+
+```bash
 docker compose up postgres -d
+```
 
+### Run the App
+
+```bash
 # Push database schema
 npm run db:push
 
