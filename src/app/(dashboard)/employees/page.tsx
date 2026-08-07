@@ -60,7 +60,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/client-api";
+import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { employeeSchema, type EmployeeInput } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 
@@ -121,8 +121,10 @@ function buildEmployeeQuery(params: Record<string, string>) {
 }
 
 export default function EmployeesPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
+  const canManageEmployees =
+    session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -148,17 +150,20 @@ export default function EmployeesPage() {
 
   const { data: employees = EMPTY_EMPLOYEES, isLoading } = useQuery({
     queryKey: ["employees", queryParams],
-    queryFn: () => apiFetch<Employee[]>(buildEmployeeQuery(queryParams)),
+    queryFn: () => apiFetchArray<Employee>(buildEmployeeQuery(queryParams)),
+    enabled: status === "authenticated" && canManageEmployees,
   });
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
-    queryFn: () => apiFetch<Department[]>("/api/departments"),
+    queryFn: () => apiFetchArray<Department>("/api/departments"),
+    enabled: status === "authenticated" && canManageEmployees,
   });
 
   const { data: designations = [] } = useQuery({
     queryKey: ["designations"],
-    queryFn: () => apiFetch<Designation[]>("/api/designations"),
+    queryFn: () => apiFetchArray<Designation>("/api/designations"),
+    enabled: status === "authenticated" && canManageEmployees,
   });
 
   const form = useForm<EmployeeInput>({
@@ -349,6 +354,27 @@ export default function EmployeesPage() {
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
   });
+
+  if (status === "loading") {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-96 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (!canManageEmployees) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Users className="h-16 w-16 text-muted-foreground/60 mb-4" />
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground mt-2">
+          Employee management is available to administrators and managers only.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <motion.div

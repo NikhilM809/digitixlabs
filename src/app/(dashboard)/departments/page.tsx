@@ -30,7 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { apiFetch } from "@/lib/client-api";
+import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { departmentSchema, type DepartmentInput } from "@/lib/validations";
 
 interface Department {
@@ -52,8 +52,8 @@ export default function DepartmentsPage() {
 
   const { data: departments = [], isLoading, isError } = useQuery({
     queryKey: ["departments"],
-    queryFn: () => apiFetch<Department[]>("/api/departments"),
-    enabled: isAdmin,
+    queryFn: () => apiFetchArray<Department>("/api/departments"),
+    enabled: status === "authenticated" && isAdmin,
   });
 
   if (status === "loading") {

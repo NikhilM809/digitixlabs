@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/client-api";
+import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { payslipSchema } from "@/lib/validations";
 
 interface Payslip {
@@ -139,7 +139,7 @@ function downloadPayslipPdf(payslip: Payslip) {
 }
 
 export default function PayslipsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
   const queryClient = useQueryClient();
 
@@ -156,13 +156,14 @@ export default function PayslipsPage() {
   const { data: payslips = [], isLoading } = useQuery({
     queryKey: ["payslips", monthFilter, yearFilter],
     queryFn: () =>
-      apiFetch<Payslip[]>(`/api/payslips${queryString ? `?${queryString}` : ""}`),
+      apiFetchArray<Payslip>(`/api/payslips${queryString ? `?${queryString}` : ""}`),
+    enabled: status === "authenticated",
   });
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-list"],
-    queryFn: () => apiFetch<Employee[]>("/api/employees"),
-    enabled: isAdmin,
+    queryFn: () => apiFetchArray<Employee>("/api/employees"),
+    enabled: status === "authenticated" && isAdmin,
   });
 
   const form = useForm<PayslipFormValues>({
