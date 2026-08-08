@@ -1,0 +1,171 @@
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  LayoutDashboard,
+  Users,
+  CalendarCheck,
+  CalendarDays,
+  FileText,
+  Building2,
+  PartyPopper,
+  BarChart3,
+  Bell,
+  Settings,
+  UserCircle,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import type { RoleName } from "@prisma/client";
+
+interface NavItem {
+  title: string;
+  href: string;
+  icon: React.ElementType;
+  roles: RoleName[];
+}
+
+const navItems: NavItem[] = [
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Employees", href: "/employees", icon: Users, roles: ["ADMIN", "HR", "MANAGER"] },
+  { title: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
+  { title: "Holiday Calendar", href: "/holidays", icon: PartyPopper, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
+  { title: "Notifications", href: "/notifications", icon: Bell, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Settings", href: "/settings", icon: Settings, roles: ["ADMIN"] },
+  { title: "Policies", href: "/policies", icon: FileText, roles: ["ADMIN", "HR"] },
+  { title: "Profile", href: "/profile", icon: UserCircle, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+];
+
+interface SidebarProps {
+  role: RoleName;
+  collapsed: boolean;
+  mobileOpen: boolean;
+  onToggleCollapse: () => void;
+  onCloseMobile: () => void;
+  onLogout: () => void;
+}
+
+export function Sidebar({
+  role,
+  collapsed,
+  mobileOpen,
+  onToggleCollapse,
+  onCloseMobile,
+  onLogout,
+}: SidebarProps) {
+  const pathname = usePathname();
+  const filteredItems = navItems.filter((item) => item.roles.includes(role));
+
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      <div className={cn("flex items-center gap-3 p-4 border-b border-border/50", collapsed && "justify-center")}>
+        <Image
+          src="/digitix-logo.png"
+          alt="Digitix Labs"
+          width={collapsed ? 32 : 140}
+          height={collapsed ? 32 : 25}
+          className={cn("object-contain", collapsed && "w-8 h-8")}
+          priority
+        />
+        {mobileOpen && (
+          <Button variant="ghost" size="icon" className="ml-auto lg:hidden" onClick={onCloseMobile}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+        {filteredItems.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const Icon = item.icon;
+
+          return (
+            <Link key={item.href} href={item.href} onClick={onCloseMobile}>
+              <motion.div
+                whileHover={{ x: 4 }}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-500/25"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  collapsed && "justify-center px-2"
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>{item.title}</span>}
+              </motion.div>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="p-3 border-t border-border/50 space-y-1">
+        <Button
+          variant="ghost"
+          className={cn("w-full justify-start gap-3 text-muted-foreground hover:text-destructive", collapsed && "justify-center px-2")}
+          onClick={onLogout}
+        >
+          <LogOut className="h-5 w-5" />
+          {!collapsed && <span>Logout</span>}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden lg:flex w-full"
+          onClick={onToggleCollapse}
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden lg:flex flex-col fixed left-0 top-0 z-40 h-screen border-r border-border/50 bg-card/80 backdrop-blur-xl transition-all duration-300",
+          collapsed ? "w-[72px]" : "w-64"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile sidebar */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+              onClick={onCloseMobile}
+            />
+            <motion.aside
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed left-0 top-0 z-50 h-screen w-64 border-r border-border/50 bg-card backdrop-blur-xl lg:hidden"
+            >
+              {sidebarContent}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
