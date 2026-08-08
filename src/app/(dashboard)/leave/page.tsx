@@ -34,9 +34,19 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/dashboard/activity-feed";
 import { fetchApi } from "@/lib/api-client";
-import { leaveApplicationSchema, type LeaveApplicationInput } from "@/lib/validations";
+import {
+  leaveApplicationSchema,
+  adminLeaveApplicationSchema,
+  type LeaveApplicationInput,
+  type AdminLeaveApplicationInput,
+} from "@/lib/validations";
 import { formatDate } from "@/lib/utils";
-import { isManager } from "@/lib/roles";
+import {
+  canApplyLeaveOnBehalf,
+  canApproveLeave,
+  canEditLeaveBalance,
+} from "@/lib/permissions";
+import { apiFetchArray } from "@/lib/client-api";
 
 interface LeaveType {
   id: string;
@@ -68,8 +78,16 @@ interface LeaveRequest {
   };
 }
 
+interface EmployeeOption {
+  id: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+}
+
 interface LeaveBalanceItem {
   leaveType: { id: string; name: string; code: string; isPaid: boolean };
+  balanceId?: string | null;
   totalDays: number;
   usedDays: number;
   pendingDays: number;
@@ -253,6 +271,171 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
   );
 }
 
+function AdminApplyLeaveForm({
+  leaveTypes,
+  employees,
+}: {
+  leaveTypes: LeaveType[];
+  employees: EmployeeOption[];
+}) {
+  const queryClient = useQueryClient();
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<AdminLeaveApplicationInput>({
+    resolver: zodResolver(adminLeaveApplicationSchema) as Resolver<AdminLeaveApplicationInput>,
+    defaultValues: { isHalfDay: false, userId: "" },
+  });
+
+  const isHalfDay = watch("isHalfDay");
+
+  const mutation = useMutation({
+    mutationFn: (data: AdminLeaveApplicationInput) =>
+      fetchApi("/api/leave", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast.success("Leave applied on behalf of employee");
+      reset();
+      queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-leaves"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <Card glass>
+      <CardHeader>
+        <CardTitle>Apply Leave on Behalf</CardTitle>
+        <CardDescription>Submit a leave request for an employee (including back dates)</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Employee</Label>
+            <Select onValueChange={(v) => setValue("userId", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select employee" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName} ({emp.employeeId})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.userId && (
+              <p className="text-sm text-destructive">{errors.userId.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Leave Type</Label>
+            <Controller
+              name="leaveTypeId"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select leave type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaveTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} ({t.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.leaveTypeId && (
+              <p className="text-sm text-destructive">{errors.leaveTypeId.message}</p>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="admin-fromDate">From Date</Label>
+              <Input id="admin-fromDate" type="date" {...register("fromDate")} />
+              {errors.fromDate && (
+                <p className="text-sm text-destructive">{errors.fromDate.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-toDate">To Date</Label>
+              <Input id="admin-toDate" type="date" {...register("toDate")} />
+              {errors.toDate && (
+                <p className="text-sm text-destructive">{errors.toDate.message}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="admin-reason">Reason</Label>
+            <Textarea id="admin-reason" {...register("reason")} />
+            {errors.reason && (
+              <p className="text-sm text-destructive">{errors.reason.message}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Controller
+              name="isHalfDay"
+              control={control}
+              render={({ field }) => (
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
+              )}
+            />
+            <Label>Half Day Leave</Label>
+          </div>
+
+          {isHalfDay && (
+            <div className="space-y-2">
+              <Label>Half Day Period</Label>
+              <Controller
+                name="halfDayPeriod"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FIRST_HALF">First Half</SelectItem>
+                      <SelectItem value="SECOND_HALF">Second Half</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          )}
+
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              "Submit on Behalf"
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function LeaveRow({ leave, onCancel }: { leave: LeaveRequest; onCancel?: (id: string) => void }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/30 p-4">
@@ -356,8 +539,17 @@ function PendingApprovalRow({ leave }: { leave: LeaveRequest }) {
 export default function LeavePage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const isMgr = session?.user?.role ? isManager(session.user.role) : false;
+  const role = session?.user?.role;
+  const isMgr = role ? canApproveLeave(role) : false;
+  const canApplyForOthers = role ? canApplyLeaveOnBehalf(role) : false;
+  const canEditBalance = role ? canEditLeaveBalance(role) : false;
   const userId = session?.user?.id;
+
+  const [balanceEmployeeId, setBalanceEmployeeId] = useState("");
+  const [editingBalance, setEditingBalance] = useState<{
+    leaveTypeId: string;
+    totalDays: number;
+  } | null>(null);
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) =>
@@ -378,6 +570,15 @@ export default function LeavePage() {
     queryFn: () => fetchApi<LeaveType[]>("/api/leave-types"),
   });
 
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees-for-leave"],
+    queryFn: () => apiFetchArray<EmployeeOption>("/api/employees"),
+    enabled: canApplyForOthers || canEditBalance,
+  });
+
+  const balanceQueryUserId =
+    canEditBalance && balanceEmployeeId ? balanceEmployeeId : userId;
+
   const { data: leavesData, isLoading: leavesLoading } = useQuery({
     queryKey: ["leaves"],
     queryFn: () =>
@@ -385,9 +586,33 @@ export default function LeavePage() {
   });
 
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
-    queryKey: ["leave-balance"],
+    queryKey: ["leave-balance", balanceQueryUserId],
     queryFn: () =>
-      fetchApi<{ balances: LeaveBalanceItem[]; year: number }>("/api/leave/balance"),
+      fetchApi<{ balances: LeaveBalanceItem[]; year: number }>(
+        balanceQueryUserId && balanceQueryUserId !== userId
+          ? `/api/leave/balance?userId=${balanceQueryUserId}`
+          : "/api/leave/balance"
+      ),
+    enabled: !!balanceQueryUserId,
+  });
+
+  const updateBalanceMutation = useMutation({
+    mutationFn: (payload: {
+      userId: string;
+      leaveTypeId: string;
+      year: number;
+      totalDays: number;
+    }) =>
+      fetchApi("/api/leave/balance", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      toast.success("Leave balance updated");
+      setEditingBalance(null);
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const { data: pendingData, isLoading: pendingLoading } = useQuery({
@@ -424,6 +649,12 @@ export default function LeavePage() {
             <Wallet className="h-4 w-4" />
             Leave Balance
           </TabsTrigger>
+          {canApplyForOthers && (
+            <TabsTrigger value="apply-behalf" className="gap-2">
+              <ClipboardCheck className="h-4 w-4" />
+              Apply on Behalf
+            </TabsTrigger>
+          )}
           {isMgr && (
             <TabsTrigger value="pending" className="gap-2">
               <ClipboardCheck className="h-4 w-4" />
@@ -450,6 +681,22 @@ export default function LeavePage() {
             />
           )}
         </TabsContent>
+
+        {canApplyForOthers && (
+          <TabsContent value="apply-behalf">
+            {typesLoading ? (
+              <Skeleton className="h-96 rounded-2xl" />
+            ) : leaveTypes && leaveTypes.length > 0 ? (
+              <AdminApplyLeaveForm leaveTypes={leaveTypes} employees={employees} />
+            ) : (
+              <EmptyState
+                icon={CalendarDays}
+                title="No leave types available"
+                description="Contact HR to configure leave types."
+              />
+            )}
+          </TabsContent>
+        )}
 
         <TabsContent value="my-leaves">
           <Card glass>
@@ -486,6 +733,29 @@ export default function LeavePage() {
         </TabsContent>
 
         <TabsContent value="balance">
+          {canEditBalance && (
+            <Card glass className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Edit Employee Leave Balance</CardTitle>
+                <CardDescription>Select an employee to view or edit allocated leave</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select value={balanceEmployeeId || "self"} onValueChange={(v) => setBalanceEmployeeId(v === "self" ? "" : v)}>
+                  <SelectTrigger className="max-w-md">
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="self">My balance</SelectItem>
+                    {employees.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeId})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {balanceLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
@@ -534,6 +804,61 @@ export default function LeavePage() {
                         <p className="text-lg font-bold text-brand-600">
                           {b.availableDays} days remaining
                         </p>
+                        {canEditBalance && balanceEmployeeId && (
+                          <div className="pt-2 space-y-2 border-t border-border/50 mt-2">
+                            {editingBalance?.leaveTypeId === b.leaveType.id ? (
+                              <div className="flex gap-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.5}
+                                  value={editingBalance.totalDays}
+                                  onChange={(e) =>
+                                    setEditingBalance({
+                                      leaveTypeId: b.leaveType.id,
+                                      totalDays: Number(e.target.value),
+                                    })
+                                  }
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    updateBalanceMutation.mutate({
+                                      userId: balanceEmployeeId,
+                                      leaveTypeId: b.leaveType.id,
+                                      year: balanceData?.year ?? new Date().getFullYear(),
+                                      totalDays: editingBalance.totalDays,
+                                    })
+                                  }
+                                  disabled={updateBalanceMutation.isPending}
+                                >
+                                  Save
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setEditingBalance(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() =>
+                                  setEditingBalance({
+                                    leaveTypeId: b.leaveType.id,
+                                    totalDays: b.totalDays,
+                                  })
+                                }
+                              >
+                                Edit Total Allocated
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

@@ -66,6 +66,7 @@ export default function NotificationsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notification-count"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -79,12 +80,19 @@ export default function NotificationsPage() {
     onSuccess: () => {
       toast.success("All notifications marked as read");
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notification-count"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const handleMarkRead = (id: string) => {
     markReadMutation.mutate([id]);
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.isRead) {
+      handleMarkRead(notification.id);
+    }
   };
 
   return (
@@ -201,11 +209,21 @@ export default function NotificationsPage() {
                 );
 
                 return notification.link ? (
-                  <Link key={notification.id} href={notification.link}>
+                  <Link
+                    key={notification.id}
+                    href={notification.link}
+                    onClick={() => handleNotificationClick(notification)}
+                  >
                     {content}
                   </Link>
                 ) : (
-                  <div key={notification.id}>{content}</div>
+                  <div
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className="cursor-pointer"
+                  >
+                    {content}
+                  </div>
                 );
               })}
             </div>

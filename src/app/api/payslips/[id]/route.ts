@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiSuccess, apiError } from "@/lib/api-utils";
+import { canViewAllSalaries } from "@/lib/permissions";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -9,20 +10,13 @@ async function canAccessPayslip(
   role: string,
   userId: string
 ): Promise<boolean> {
-  if (role === "ADMIN") return true;
-  if (payslipUserId === userId) return true;
-  if (role === "MANAGER") {
-    const member = await prisma.user.findFirst({
-      where: { id: payslipUserId, managerId: userId },
-    });
-    return !!member;
-  }
-  return false;
+  if (canViewAllSalaries(role as "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE")) return true;
+  return payslipUserId === userId;
 }
 
 export async function GET(_req: NextRequest, context: RouteContext) {
   try {
-    const { error, user } = await requireAuth(["ADMIN", "MANAGER", "EMPLOYEE"]);
+    const { error, user } = await requireAuth(["ADMIN", "HR", "MANAGER", "EMPLOYEE"]);
     if (error) return error;
 
     const { id } = await context.params;

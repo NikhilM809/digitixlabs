@@ -1,9 +1,19 @@
-import type { RoleName } from "@prisma/client";
-
-export function isManager(role: RoleName) {
-  return role === "MANAGER" || role === "ADMIN";
-}
-
-export function isAdmin(role: RoleName) {
-  return role === "ADMIN";
-}
+export {
+  isAdmin,
+  isHr,
+  isAdminOrHr,
+  isManagerRole,
+  canApproveLeave,
+  canManageAllLeaves,
+  canViewAllSalaries,
+  canManageEmployees,
+  canManagePolicies,
+  canManageHolidays,
+  canEditLeaveBalance,
+  canApplyLeaveOnBehalf,
+  canUploadPayslip,
+  canAccessCompanySettings,
+  canAccessDepartments,
+  canAccessReports,
+  isManager,
+} from "@/lib/permissions";

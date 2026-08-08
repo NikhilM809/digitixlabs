@@ -50,13 +50,25 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { error, user } = await requireAuth(["ADMIN"]);
+    const { error, user } = await requireAuth(["ADMIN", "HR"]);
     if (error) return error;
 
     const body = await request.json();
     const parsed = holidaySchema.safeParse(body);
     if (!parsed.success) {
       return apiError(parsed.error.errors[0].message, 400);
+    }
+
+    const holidayDate = new Date(parsed.data.date);
+    const duplicate = await prisma.holidayCalendar.findFirst({
+      where: {
+        name: parsed.data.name,
+        date: holidayDate,
+        isActive: true,
+      },
+    });
+    if (duplicate) {
+      return apiError("A holiday with this name and date already exists", 409);
     }
 
     const holiday = await prisma.holidayCalendar.create({

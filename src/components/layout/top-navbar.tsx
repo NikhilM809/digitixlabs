@@ -2,9 +2,9 @@
 
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
-import { Menu, Moon, Sun, Bell, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Menu, Moon, Sun, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/utils";
+import { fetchApi } from "@/lib/api-client";
 import Link from "next/link";
 
 interface TopNavbarProps {
@@ -30,8 +31,17 @@ interface TopNavbarProps {
   onMenuClick: () => void;
 }
 
-export function TopNavbar({ user, notificationCount = 0, onMenuClick }: TopNavbarProps) {
+export function TopNavbar({ user, notificationCount: initialCount = 0, onMenuClick }: TopNavbarProps) {
   const { theme, setTheme } = useTheme();
+
+  const { data: notificationData } = useQuery({
+    queryKey: ["notification-count"],
+    queryFn: () =>
+      fetchApi<{ notifications: unknown[]; unreadCount: number }>("/api/notifications?limit=1"),
+    refetchInterval: 30000,
+  });
+
+  const notificationCount = notificationData?.unreadCount ?? initialCount;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 lg:px-6">
@@ -39,15 +49,7 @@ export function TopNavbar({ user, notificationCount = 0, onMenuClick }: TopNavba
         <Menu className="h-5 w-5" />
       </Button>
 
-      <div className="hidden md:flex flex-1 max-w-md">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search employees, leaves, attendance..."
-            className="pl-9 bg-muted/50 border-0"
-          />
-        </div>
-      </div>
+      <div className="flex-1" />
 
       <div className="flex items-center gap-2 ml-auto">
         <Button

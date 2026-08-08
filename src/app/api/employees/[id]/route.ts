@@ -11,7 +11,7 @@ import { employeeSchema } from "@/lib/validations";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, context: RouteContext) {
-  const { error, user } = await requireAuth(["ADMIN", "MANAGER"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR", "MANAGER"]);
   if (error) return error;
 
   const { id } = await context.params;
@@ -50,7 +50,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, context: RouteContext) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
 
   const { id } = await context.params;
@@ -126,7 +126,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_req: NextRequest, context: RouteContext) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
 
   const { id } = await context.params;

@@ -33,17 +33,18 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "EMPLOYEE"] },
-  { title: "Employees", href: "/employees", icon: Users, roles: ["ADMIN", "MANAGER"] },
-  { title: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["ADMIN", "MANAGER", "EMPLOYEE"] },
-  { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "MANAGER", "EMPLOYEE"] },
-  { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "MANAGER", "EMPLOYEE"] },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Employees", href: "/employees", icon: Users, roles: ["ADMIN", "HR", "MANAGER"] },
+  { title: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
-  { title: "Holiday Calendar", href: "/holidays", icon: PartyPopper, roles: ["ADMIN", "MANAGER", "EMPLOYEE"] },
+  { title: "Holiday Calendar", href: "/holidays", icon: PartyPopper, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
-  { title: "Notifications", href: "/notifications", icon: Bell, roles: ["ADMIN", "MANAGER", "EMPLOYEE"] },
+  { title: "Notifications", href: "/notifications", icon: Bell, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Settings", href: "/settings", icon: Settings, roles: ["ADMIN"] },
-  { title: "Profile", href: "/profile", icon: UserCircle, roles: ["ADMIN", "MANAGER", "EMPLOYEE"] },
+  { title: "Policies", href: "/policies", icon: FileText, roles: ["ADMIN", "HR"] },
+  { title: "Profile", href: "/profile", icon: UserCircle, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
 ];
 
 interface SidebarProps {

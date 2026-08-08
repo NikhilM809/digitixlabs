@@ -186,6 +186,26 @@ async function main() {
     },
   });
 
+  // HR User
+  const hrUser = await prisma.user.upsert({
+    where: { email: "hr@digitixlabs.com" },
+    update: {},
+    create: {
+      employeeId: "DXL0005",
+      email: "hr@digitixlabs.com",
+      password: employeePassword,
+      firstName: "Anita",
+      lastName: "Verma",
+      phone: "+91-9876543215",
+      role: "HR",
+      employmentType: "FULL_TIME",
+      departmentId: departments[1].id,
+      designationId: designations[6].id,
+      joiningDate: new Date("2021-08-01"),
+      dateOfBirth: new Date("1990-04-18"),
+    },
+  });
+
   // Employees
   const employees = await Promise.all([
     prisma.user.upsert({
@@ -263,7 +283,7 @@ async function main() {
   ]);
 
   // Leave Balances for all users
-  const allUsers = [admin, manager, ...employees];
+  const allUsers = [admin, manager, hrUser, ...employees];
   for (const user of allUsers) {
     for (const leaveType of leaveTypes) {
       if (leaveType.defaultDays > 0) {
@@ -397,17 +417,42 @@ async function main() {
       create: perm,
     });
 
-    await prisma.rolePermission.upsert({
-      where: { role_permissionId: { role: "ADMIN", permissionId: permission.id } },
+    for (const role of ["ADMIN", "HR"] as const) {
+      await prisma.rolePermission.upsert({
+        where: { role_permissionId: { role, permissionId: permission.id } },
+        update: {},
+        create: { role, permissionId: permission.id },
+      }).catch(() => {});
+    }
+  }
+
+  // Seed company policies from default settings text
+  const settings = await prisma.companySettings.findFirst({ where: { id: "default" } });
+  if (settings?.leavePolicy) {
+    await prisma.companyPolicy.upsert({
+      where: { id: "policy-leave" },
       update: {},
-      create: { role: "ADMIN", permissionId: permission.id },
-    }).catch(() => {});
+      create: {
+        id: "policy-leave",
+        title: "Leave Policy",
+        content: settings.leavePolicy,
+        sortOrder: 0,
+      },
+    }).catch(async () => {
+      const existing = await prisma.companyPolicy.findFirst({ where: { title: "Leave Policy" } });
+      if (!existing) {
+        await prisma.companyPolicy.create({
+          data: { title: "Leave Policy", content: settings.leavePolicy!, sortOrder: 0 },
+        });
+      }
+    });
   }
 
   console.log("✅ Database seeded successfully!");
   console.log("\n📋 Login Credentials:");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("Admin:    admin@digitixlabs.com / Admin@123");
+  console.log("HR:       hr@digitixlabs.com / Welcome@123");
   console.log("Manager:  manager@digitixlabs.com / Welcome@123");
   console.log("Employee: priya.sharma@digitixlabs.com / Welcome@123");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

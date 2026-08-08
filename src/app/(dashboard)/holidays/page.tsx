@@ -1,16 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { PartyPopper, MapPin, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { PartyPopper, MapPin, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/dashboard/activity-feed";
 import { fetchApi } from "@/lib/api-client";
+import { holidaySchema, type HolidayInput } from "@/lib/validations";
 import { formatDate, cn } from "@/lib/utils";
+import { canManageHolidays } from "@/lib/permissions";
+import type { RoleName } from "@prisma/client";
 
 interface Holiday {
   id: string;
@@ -27,12 +44,48 @@ const monthNames = [
 ];
 
 export default function HolidaysPage() {
+  const { data: session } = useSession();
+  const role = session?.user?.role as RoleName | undefined;
+  const canManage = role ? canManageHolidays(role) : false;
+  const queryClient = useQueryClient();
+
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const form = useForm<HolidayInput>({
+    resolver: zodResolver(holidaySchema) as Resolver<HolidayInput>,
+    defaultValues: { isRegional: false },
+  });
 
   const { data: holidays, isLoading } = useQuery({
     queryKey: ["holidays", year],
     queryFn: () => fetchApi<Holiday[]>(`/api/holidays?year=${year}`),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: HolidayInput) =>
+      fetchApi("/api/holidays", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      toast.success("Holiday added");
+      setDialogOpen(false);
+      form.reset({ isRegional: false });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchApi(`/api/holidays/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      toast.success("Holiday removed");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const today = new Date();
@@ -62,6 +115,12 @@ export default function HolidaysPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {canManage && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add Holiday
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"
@@ -83,41 +142,24 @@ export default function HolidaysPage() {
       </motion.div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Card glass>
-            <CardContent className="p-6 text-center">
-              <p className="text-3xl font-bold text-brand-600">{holidays?.length ?? 0}</p>
-              <p className="text-sm text-muted-foreground mt-1">Total Holidays</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-        >
-          <Card glass>
-            <CardContent className="p-6 text-center">
-              <p className="text-3xl font-bold text-emerald-600">{upcoming.length}</p>
-              <p className="text-sm text-muted-foreground mt-1">Upcoming</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card glass>
-            <CardContent className="p-6 text-center">
-              <p className="text-3xl font-bold text-muted-foreground">{past.length}</p>
-              <p className="text-sm text-muted-foreground mt-1">Past</p>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <Card glass>
+          <CardContent className="p-6 text-center">
+            <p className="text-3xl font-bold text-brand-600">{holidays?.length ?? 0}</p>
+            <p className="text-sm text-muted-foreground mt-1">Total Holidays</p>
+          </CardContent>
+        </Card>
+        <Card glass>
+          <CardContent className="p-6 text-center">
+            <p className="text-3xl font-bold text-emerald-600">{upcoming.length}</p>
+            <p className="text-sm text-muted-foreground mt-1">Upcoming</p>
+          </CardContent>
+        </Card>
+        <Card glass>
+          <CardContent className="p-6 text-center">
+            <p className="text-3xl font-bold text-muted-foreground">{past.length}</p>
+            <p className="text-sm text-muted-foreground mt-1">Past</p>
+          </CardContent>
+        </Card>
       </div>
 
       {isLoading ? (
@@ -133,11 +175,7 @@ export default function HolidaysPage() {
             if (!monthHolidays?.length) return null;
 
             return (
-              <motion.div
-                key={monthName}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
+              <div key={monthName}>
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-brand-600" />
                   {monthName} {year}
@@ -164,10 +202,24 @@ export default function HolidaysPage() {
                             <div className="rounded-xl bg-brand-500/10 p-2">
                               <PartyPopper className="h-5 w-5 text-brand-600" />
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 items-start">
                               {isToday && <Badge variant="success">Today</Badge>}
                               {holiday.isRegional && (
                                 <Badge variant="info">Regional</Badge>
+                              )}
+                              {canManage && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    if (confirm(`Remove holiday "${holiday.name}"?`)) {
+                                      deleteMutation.mutate(holiday.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -191,7 +243,7 @@ export default function HolidaysPage() {
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>
@@ -206,6 +258,41 @@ export default function HolidaysPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Holiday</DialogTitle>
+            <DialogDescription>Add a new company holiday</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="name">Holiday Name</Label>
+              <Input id="name" {...form.register("name")} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date">Date</Label>
+              <Input id="date" type="date" {...form.register("date")} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Textarea id="description" {...form.register("description")} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Add Holiday
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

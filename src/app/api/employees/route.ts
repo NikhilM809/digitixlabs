@@ -15,7 +15,7 @@ function generateEmployeeId() {
 }
 
 export async function GET(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN", "MANAGER"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR", "MANAGER"]);
   if (error) return error;
 
   const { searchParams } = req.nextUrl;
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
 
   try {

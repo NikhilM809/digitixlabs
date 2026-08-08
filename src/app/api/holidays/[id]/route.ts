@@ -7,7 +7,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
 
   try {
@@ -44,7 +44,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
 
   try {

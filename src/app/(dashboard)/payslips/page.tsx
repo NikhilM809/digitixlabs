@@ -44,6 +44,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  canUploadPayslip,
+  canViewAllSalaries,
+} from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { payslipSchema } from "@/lib/validations";
 
@@ -140,7 +144,9 @@ function downloadPayslipPdf(payslip: Payslip) {
 
 export default function PayslipsPage() {
   const { data: session, status } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
+  const role = session?.user?.role;
+  const canUpload = role ? canUploadPayslip(role) : false;
+  const showSearch = role ? canViewAllSalaries(role) : false;
   const queryClient = useQueryClient();
 
   const [monthFilter, setMonthFilter] = useState("all");
@@ -163,7 +169,7 @@ export default function PayslipsPage() {
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-list"],
     queryFn: () => apiFetchArray<Employee>("/api/employees"),
-    enabled: status === "authenticated" && isAdmin,
+    enabled: status === "authenticated" && canUpload,
   });
 
   const form = useForm<PayslipFormValues>({
@@ -227,12 +233,12 @@ export default function PayslipsPage() {
             Payslips
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isAdmin
+            {canUpload
               ? "Upload and manage employee payslips"
               : "View and download your payslips"}
           </p>
         </div>
-        {isAdmin && (
+        {canUpload && (
           <Button onClick={() => setUploadOpen(true)}>
             <Upload className="h-4 w-4" />
             Upload Payslip
@@ -246,16 +252,18 @@ export default function PayslipsPage() {
           <CardDescription>Filter payslips by month and year</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="relative sm:col-span-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search employee..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+          <div className={`grid gap-3 ${showSearch ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            {showSearch && (
+              <div className="relative sm:col-span-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search employee..."
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            )}
             <Select value={monthFilter} onValueChange={setMonthFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="Month" />

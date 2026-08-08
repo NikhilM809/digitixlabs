@@ -54,7 +54,7 @@ export const employeeSchema = z.object({
   lastName: z.string().min(2, "Last name is required"),
   email: z.string().email("Invalid email"),
   phone: z.string().optional(),
-  role: z.enum(["ADMIN", "MANAGER", "EMPLOYEE"]),
+  role: z.enum(["ADMIN", "HR", "MANAGER", "EMPLOYEE"]),
   employmentType: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT", "INTERN"]),
   departmentId: z.string().optional(),
   designationId: z.string().optional(),
@@ -96,6 +96,44 @@ export const leaveApplicationSchema = z
     (data) => !data.isHalfDay || !!data.halfDayPeriod,
     { message: "Please select half day period", path: ["halfDayPeriod"] }
   );
+
+export const adminLeaveApplicationSchema = z
+  .object({
+    userId: z.string().min(1, "Employee is required"),
+    leaveTypeId: z.string().min(1, "Leave type is required"),
+    fromDate: z.string().min(1, "From date is required"),
+    toDate: z.string().min(1, "To date is required"),
+    isHalfDay: z.boolean().default(false),
+    halfDayPeriod: z.enum(["FIRST_HALF", "SECOND_HALF"]).optional(),
+    reason: z.string().min(10, "Reason must be at least 10 characters"),
+    attachment: z.string().optional(),
+    emergencyContact: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      const from = new Date(data.fromDate);
+      const to = new Date(data.toDate);
+      return to >= from;
+    },
+    { message: "To date must be after from date", path: ["toDate"] }
+  )
+  .refine(
+    (data) => !data.isHalfDay || !!data.halfDayPeriod,
+    { message: "Please select half day period", path: ["halfDayPeriod"] }
+  );
+
+export const leaveBalanceUpdateSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  leaveTypeId: z.string().min(1, "Leave type is required"),
+  year: z.number().int().min(2020).max(2100),
+  totalDays: z.number().min(0, "Total days cannot be negative"),
+});
+
+export const companyPolicySchema = z.object({
+  title: z.string().min(2, "Policy title is required"),
+  content: z.string().min(10, "Policy content must be at least 10 characters"),
+  sortOrder: z.number().int().min(0).optional(),
+});
 
 export const departmentSchema = z.object({
   name: z.string().min(2, "Department name is required"),
@@ -156,6 +194,9 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type EmployeeInput = z.infer<typeof employeeSchema>;
 export type LeaveApplicationInput = z.infer<typeof leaveApplicationSchema>;
+export type AdminLeaveApplicationInput = z.infer<typeof adminLeaveApplicationSchema>;
+export type LeaveBalanceUpdateInput = z.infer<typeof leaveBalanceUpdateSchema>;
+export type CompanyPolicyInput = z.infer<typeof companyPolicySchema>;
 export type DepartmentInput = z.infer<typeof departmentSchema>;
 export type DesignationInput = z.infer<typeof designationSchema>;
 export type HolidayInput = z.infer<typeof holidaySchema>;

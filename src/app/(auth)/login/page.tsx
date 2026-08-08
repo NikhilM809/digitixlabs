@@ -59,16 +59,18 @@ export default function LoginPage() {
             <Image
               src="/digitix-logo.png"
               alt="Digitix Labs"
-              width={200}
-              height={36}
+              width={260}
+              height={47}
               className="mb-8 brightness-0 invert"
               priority
             />
             <h1 className="text-4xl xl:text-5xl font-bold text-white mb-4">
-              Employee Leave &<br />Attendance Management
+              DigitixPeople
             </h1>
             <p className="text-lg text-white/80 max-w-md">
-              Cultivating practices that unlock top-tier performance. Manage your workforce efficiently.
+              People. Work. Simplified.
+              <br />
+              Your all-in-one employee experience platform.
             </p>
           </div>
           <div className="mt-12 grid grid-cols-3 gap-4">

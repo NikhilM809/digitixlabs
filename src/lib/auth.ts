@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/lib/auth.config";
 import { AUTH_SECRET } from "@/lib/auth-constants";
 import type { RoleName } from "@prisma/client";
+import {
+  canApproveLeave,
+  isAdmin as checkIsAdmin,
+} from "@/lib/permissions";
 
 declare module "next-auth" {
   interface Session {
@@ -105,9 +109,9 @@ export function hasRole(userRole: RoleName, allowedRoles: RoleName[]) {
 }
 
 export function isAdmin(role: RoleName) {
-  return role === "ADMIN";
+  return checkIsAdmin(role);
 }
 
 export function isManager(role: RoleName) {
-  return role === "MANAGER" || role === "ADMIN";
+  return canApproveLeave(role);
 }

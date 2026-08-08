@@ -1,7 +1,6 @@
 import { RoleName } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { isManager } from "@/lib/auth";
 import {
   requireAuth,
   apiSuccess,
@@ -9,6 +8,7 @@ import {
   createAuditLog,
   createNotification,
 } from "@/lib/api-utils";
+import { canApproveLeave, canManageAllLeaves } from "@/lib/permissions";
 
 const leaveActionSchema = z.object({
   action: z.enum(["approve", "reject", "cancel"]),
@@ -20,7 +20,7 @@ async function canAccessLeave(
   role: RoleName,
   userId: string
 ): Promise<boolean> {
-  if (role === RoleName.ADMIN) return true;
+  if (role === RoleName.ADMIN || role === RoleName.HR) return true;
   if (leaveUserId === userId) return true;
   if (role === RoleName.MANAGER) {
     const teamMember = await prisma.user.findFirst({
@@ -62,19 +62,19 @@ export async function PATCH(
     }
 
     if (action === "cancel") {
-      if (leave.userId !== user.id && user.role !== RoleName.ADMIN) {
+      if (leave.userId !== user.id && !canManageAllLeaves(user.role)) {
         return apiError("Forbidden", 403);
       }
       if (!["PENDING", "APPROVED"].includes(leave.status)) {
         return apiError("Cannot cancel this leave request", 400);
       }
     } else {
-      if (!isManager(user.role)) {
+      if (!canApproveLeave(user.role)) {
         return apiError("Forbidden", 403);
       }
       const canManage = await canAccessLeave(leave.userId, user.role, user.id);
       if (!canManage || leave.userId === user.id) {
-        if (user.role !== RoleName.ADMIN) {
+        if (!canManageAllLeaves(user.role)) {
           return apiError("Forbidden", 403);
         }
       }

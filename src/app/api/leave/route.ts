@@ -1,6 +1,5 @@
 import { RoleName } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isManager } from "@/lib/auth";
 import {
   requireAuth,
   apiSuccess,
@@ -8,8 +7,15 @@ import {
   createAuditLog,
   createNotification,
 } from "@/lib/api-utils";
-import { leaveApplicationSchema } from "@/lib/validations";
+import {
+  leaveApplicationSchema,
+  adminLeaveApplicationSchema,
+} from "@/lib/validations";
 import { calculateLeaveDays } from "@/lib/utils";
+import {
+  canApplyLeaveOnBehalf,
+  canManageAllLeaves,
+} from "@/lib/permissions";
 
 function startOfDay(date: Date) {
   const d = new Date(date);
@@ -18,7 +24,7 @@ function startOfDay(date: Date) {
 }
 
 async function getLeaveUserFilter(role: RoleName, userId: string) {
-  if (role === RoleName.ADMIN) return {};
+  if (role === RoleName.ADMIN || role === RoleName.HR) return {};
   if (role === RoleName.MANAGER) {
     const teamIds = await prisma.user.findMany({
       where: { managerId: userId },
@@ -50,7 +56,7 @@ export async function GET(request: Request) {
       where.status = status;
     }
 
-    if (user.role === RoleName.ADMIN && searchParams.get("userId")) {
+    if (canManageAllLeaves(user.role) && searchParams.get("userId")) {
       where.userId = searchParams.get("userId");
     }
 
@@ -101,13 +107,32 @@ export async function POST(request: Request) {
     if (error || !user) return error;
 
     const body = await request.json();
-    const parsed = leaveApplicationSchema.safeParse(body);
+    const onBehalf = canApplyLeaveOnBehalf(user.role) && body.userId;
+
+    const parsed = onBehalf
+      ? adminLeaveApplicationSchema.safeParse(body)
+      : leaveApplicationSchema.safeParse(body);
 
     if (!parsed.success) {
       return apiError(parsed.error.errors[0].message, 400);
     }
 
     const data = parsed.data;
+    const targetUserId: string =
+      onBehalf && "userId" in data && typeof data.userId === "string"
+        ? data.userId
+        : user.id;
+
+    if (onBehalf) {
+      const employee = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { id: true, status: true },
+      });
+      if (!employee || employee.status !== "ACTIVE") {
+        return apiError("Invalid employee", 400);
+      }
+    }
+
     const fromDate = startOfDay(new Date(data.fromDate));
     const toDate = startOfDay(new Date(data.toDate));
 
@@ -154,7 +179,7 @@ export async function POST(request: Request) {
     const balance = await prisma.leaveBalance.findUnique({
       where: {
         userId_leaveTypeId_year: {
-          userId: user.id,
+          userId: targetUserId,
           leaveTypeId: data.leaveTypeId,
           year,
         },
@@ -174,7 +199,7 @@ export async function POST(request: Request) {
 
     const overlapping = await prisma.leaveRequest.findFirst({
       where: {
-        userId: user.id,
+        userId: targetUserId,
         status: { in: ["PENDING", "APPROVED"] },
         fromDate: { lte: toDate },
         toDate: { gte: fromDate },
@@ -188,7 +213,7 @@ export async function POST(request: Request) {
     const leaveRequest = await prisma.$transaction(async (tx) => {
       const created = await tx.leaveRequest.create({
         data: {
-          userId: user.id,
+          userId: targetUserId,
           leaveTypeId: data.leaveTypeId,
           fromDate,
           toDate,
@@ -219,7 +244,7 @@ export async function POST(request: Request) {
       } else {
         await tx.leaveBalance.create({
           data: {
-            userId: user.id,
+            userId: targetUserId,
             leaveTypeId: data.leaveTypeId,
             year,
             totalDays: leaveType.defaultDays,
@@ -232,8 +257,8 @@ export async function POST(request: Request) {
     });
 
     const employee = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { managerId: true },
+      where: { id: targetUserId },
+      select: { managerId: true, firstName: true, lastName: true },
     });
 
     if (employee?.managerId) {
@@ -241,14 +266,16 @@ export async function POST(request: Request) {
         userId: employee.managerId,
         type: "LEAVE_PENDING",
         title: "New Leave Request",
-        message: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName} applied for ${leaveRequest.leaveType.name}`,
+        message: onBehalf
+          ? `Leave applied on behalf of ${employee.firstName} ${employee.lastName} for ${leaveRequest.leaveType.name}`
+          : `${leaveRequest.user.firstName} ${leaveRequest.user.lastName} applied for ${leaveRequest.leaveType.name}`,
         link: "/leave",
       });
     }
 
-    if (!isManager(user.role)) {
+    if (!onBehalf && !canManageAllLeaves(user.role)) {
       const admins = await prisma.user.findMany({
-        where: { role: RoleName.ADMIN, status: "ACTIVE" },
+        where: { role: { in: [RoleName.ADMIN, RoleName.HR] }, status: "ACTIVE" },
         select: { id: true },
       });
 
@@ -270,7 +297,9 @@ export async function POST(request: Request) {
       action: "CREATE",
       entity: "LeaveRequest",
       entityId: leaveRequest.id,
-      details: `Applied for ${totalDays} day(s) of ${leaveRequest.leaveType.name}`,
+      details: onBehalf
+        ? `Applied on behalf of employee for ${totalDays} day(s) of ${leaveRequest.leaveType.name}`
+        : `Applied for ${totalDays} day(s) of ${leaveRequest.leaveType.name}`,
     });
 
     return apiSuccess(leaveRequest, 201);

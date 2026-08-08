@@ -60,6 +60,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { canManageEmployees, isAdminOrHr } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { employeeSchema, type EmployeeInput } from "@/lib/validations";
 import { cn } from "@/lib/utils";
@@ -122,9 +123,12 @@ function buildEmployeeQuery(params: Record<string, string>) {
 
 export default function EmployeesPage() {
   const { data: session, status } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
-  const canManageEmployees =
-    session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
+  const canCreateEmployee = session?.user?.role
+    ? isAdminOrHr(session.user.role)
+    : false;
+  const canManage = session?.user?.role
+    ? canManageEmployees(session.user.role)
+    : false;
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -151,19 +155,19 @@ export default function EmployeesPage() {
   const { data: employees = EMPTY_EMPLOYEES, isLoading } = useQuery({
     queryKey: ["employees", queryParams],
     queryFn: () => apiFetchArray<Employee>(buildEmployeeQuery(queryParams)),
-    enabled: status === "authenticated" && canManageEmployees,
+    enabled: status === "authenticated" && canManage,
   });
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
     queryFn: () => apiFetchArray<Department>("/api/departments"),
-    enabled: status === "authenticated" && canManageEmployees,
+    enabled: status === "authenticated" && canManage,
   });
 
   const { data: designations = [] } = useQuery({
     queryKey: ["designations"],
     queryFn: () => apiFetchArray<Designation>("/api/designations"),
-    enabled: status === "authenticated" && canManageEmployees,
+    enabled: status === "authenticated" && canManage,
   });
 
   const form = useForm<EmployeeInput>({
@@ -305,7 +309,7 @@ export default function EmployeesPage() {
           header: "Joined",
           cell: (info) => format(new Date(info.getValue()), "MMM d, yyyy"),
         }),
-        ...(isAdmin
+        ...(canCreateEmployee
           ? [
               columnHelper.display({
                 id: "actions",
@@ -343,7 +347,7 @@ export default function EmployeesPage() {
             ]
           : []),
       ]),
-    [columnHelper, isAdmin, deactivateMutation]
+    [columnHelper, canCreateEmployee, deactivateMutation]
   );
 
   const table = useTable({
@@ -364,7 +368,7 @@ export default function EmployeesPage() {
     );
   }
 
-  if (!canManageEmployees) {
+  if (!canManage) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
         <Users className="h-16 w-16 text-muted-foreground/60 mb-4" />
@@ -392,7 +396,7 @@ export default function EmployeesPage() {
             Manage your workforce directory
           </p>
         </div>
-        {isAdmin && (
+        {canCreateEmployee && (
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Add Employee
@@ -684,6 +688,7 @@ export default function EmployeesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="HR">HR</SelectItem>
                     <SelectItem value="EMPLOYEE">Employee</SelectItem>
                     <SelectItem value="MANAGER">Manager</SelectItem>
                     <SelectItem value="ADMIN">Admin</SelectItem>

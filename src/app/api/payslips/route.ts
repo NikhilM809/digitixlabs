@@ -9,18 +9,11 @@ import {
 } from "@/lib/api-utils";
 import { payslipSchema } from "@/lib/validations";
 import type { Prisma } from "@prisma/client";
-
-async function getManagerTeamIds(managerId: string) {
-  const team = await prisma.user.findMany({
-    where: { managerId },
-    select: { id: true },
-  });
-  return [managerId, ...team.map((t) => t.id)];
-}
+import { canUploadPayslip, canViewAllSalaries } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
-    const { error, user } = await requireAuth(["ADMIN", "MANAGER", "EMPLOYEE"]);
+    const { error, user } = await requireAuth(["ADMIN", "HR", "MANAGER", "EMPLOYEE"]);
     if (error) return error;
 
     const { searchParams } = req.nextUrl;
@@ -30,13 +23,10 @@ export async function GET(req: NextRequest) {
 
     const where: Prisma.PayslipWhereInput = {};
 
-    if (user!.role === "EMPLOYEE") {
+    if (canViewAllSalaries(user!.role)) {
+      if (userId) where.userId = userId;
+    } else {
       where.userId = user!.id;
-    } else if (user!.role === "MANAGER") {
-      const teamIds = await getManagerTeamIds(user!.id);
-      where.userId = userId && teamIds.includes(userId) ? userId : { in: teamIds };
-    } else if (userId) {
-      where.userId = userId;
     }
 
     if (month) {
@@ -75,8 +65,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
+
+  if (!canUploadPayslip(user!.role)) {
+    return apiError("Forbidden", 403);
+  }
 
   try {
     const body = await req.json();
