@@ -48,6 +48,7 @@ export default function SettingsPage() {
     defaultValues: {
       companyName: "Digitix Labs",
       companyEmail: "",
+      companyTan: "",
       companyLogo: "",
       leavePolicy: "",
       attendanceRules: "",
@@ -64,6 +65,7 @@ export default function SettingsPage() {
       form.reset({
         companyName: settings.companyName,
         companyEmail: settings.companyEmail ?? "",
+        companyTan: settings.companyTan ?? "",
         companyLogo: settings.companyLogo ?? "",
         leavePolicy: settings.leavePolicy ?? "",
         attendanceRules: settings.attendanceRules ?? "",
@@ -174,6 +176,14 @@ export default function SettingsPage() {
                     id="companyEmail"
                     type="email"
                     {...form.register("companyEmail")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyTan">Company TAN</Label>
+                  <Input
+                    id="companyTan"
+                    placeholder="e.g. DELD12345A"
+                    {...form.register("companyTan")}
                   />
                 </div>
                 <div className="space-y-2">

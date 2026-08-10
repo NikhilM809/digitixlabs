@@ -7,6 +7,7 @@ import {
   apiError,
   createAuditLog,
 } from "@/lib/api-utils";
+import { getWorkScheduleForUserOnDate } from "@/lib/work-schedule";
 
 const attendanceActionSchema = z.object({
   action: z.enum(["check-in", "check-out"]),
@@ -152,13 +153,9 @@ export async function POST(request: Request) {
       return apiError("You are on approved leave today", 400);
     }
 
-    const settings = await prisma.companySettings.findFirst();
-    const employeeSchedule = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { workStartTime: true, workEndTime: true, lateThreshold: true },
-    });
-    const workStartTime = employeeSchedule?.workStartTime ?? settings?.workStartTime ?? "09:00";
-    const lateThreshold = employeeSchedule?.lateThreshold ?? settings?.lateThreshold ?? 15;
+    const schedule = await getWorkScheduleForUserOnDate(user.id, today);
+    const workStartTime = schedule.workStartTime;
+    const lateThreshold = schedule.lateThreshold;
 
     const existing = await prisma.attendance.findUnique({
       where: {
@@ -222,7 +219,8 @@ export async function POST(request: Request) {
     const workingHours =
       (now.getTime() - new Date(existing.checkIn).getTime()) / (1000 * 60 * 60);
 
-    const workEndTime = settings?.workEndTime ?? "18:00";
+    const checkoutSchedule = await getWorkScheduleForUserOnDate(user.id, today);
+    const workEndTime = checkoutSchedule.workEndTime;
     const workEnd = parseTimeToDate(workEndTime, today);
     const overtimeHours = Math.max(
       0,

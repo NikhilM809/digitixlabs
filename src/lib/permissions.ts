@@ -77,6 +77,18 @@ export function canBulkImportLeave(role: RoleName) {
   return role === "ADMIN";
 }
 
+export function canAccessKra(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER" || role === "EMPLOYEE";
+}
+
+export function canReviewKra(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER";
+}
+
+export function canReopenKra(role: RoleName) {
+  return role === "ADMIN" || role === "HR";
+}
+
 /** @deprecated Use canApproveLeave — kept for minimal diff in existing imports */
 export function isManager(role: RoleName) {
   return canApproveLeave(role);

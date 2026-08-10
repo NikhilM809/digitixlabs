@@ -20,6 +20,38 @@ function createPrismaClient() {
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+/** Detect whether the generated client includes KRA models (once per process). */
+let generatedHasKraReview: boolean | undefined;
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+function clientHasKraReview(client: PrismaClient) {
+  return typeof (client as { kraReview?: unknown }).kraReview !== "undefined";
+}
+
+function latestClientHasKraReview() {
+  if (generatedHasKraReview !== undefined) return generatedHasKraReview;
+  const probe = createPrismaClient();
+  generatedHasKraReview = clientHasKraReview(probe);
+  void probe.$disconnect();
+  return generatedHasKraReview;
+}
+
+function resolvePrismaClient() {
+  const cached = globalForPrisma.prisma;
+  if (
+    process.env.NODE_ENV !== "production" &&
+    cached &&
+    latestClientHasKraReview() &&
+    !clientHasKraReview(cached)
+  ) {
+    void cached.$disconnect();
+    globalForPrisma.prisma = createPrismaClient();
+  }
+
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+
+  return globalForPrisma.prisma;
+}
+
+export const prisma = resolvePrismaClient();

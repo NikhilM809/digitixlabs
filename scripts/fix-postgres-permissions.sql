@@ -2,6 +2,8 @@
 -- Run as postgres superuser in pgAdmin Query Tool or SQL Shell
 
 ALTER USER hrms WITH PASSWORD 'hrms_password' LOGIN;
+-- Required for `npm run db:migrate` (prisma migrate dev shadow database)
+ALTER USER hrms CREATEDB;
 
 ALTER DATABASE digitix_hrms OWNER TO hrms;
 GRANT ALL PRIVILEGES ON DATABASE digitix_hrms TO hrms;

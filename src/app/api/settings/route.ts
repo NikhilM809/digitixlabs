@@ -37,12 +37,14 @@ export async function PUT(req: NextRequest) {
           data: {
             ...parsed,
             companyEmail: parsed.companyEmail || null,
+            companyTan: parsed.companyTan || null,
           },
         })
       : await prisma.companySettings.create({
           data: {
             ...parsed,
             companyEmail: parsed.companyEmail || null,
+            companyTan: parsed.companyTan || null,
           },
         });
 

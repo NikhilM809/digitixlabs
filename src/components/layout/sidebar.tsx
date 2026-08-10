@@ -21,6 +21,7 @@ import {
   ChevronRight,
   X,
   Clock,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { title: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["HR", "MANAGER", "EMPLOYEE"] },
   { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "KRA", href: "/kra", icon: Target, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Work Schedules", href: "/work-schedules", icon: Clock, roles: ["ADMIN"] },
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
   { title: "Holiday Calendar", href: "/holidays", icon: PartyPopper, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
