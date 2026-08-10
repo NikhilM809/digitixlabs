@@ -15,6 +15,8 @@ import {
   Loader2,
   Check,
   X,
+  Download,
+  Upload,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -45,8 +47,10 @@ import {
   canApplyLeaveOnBehalf,
   canApproveLeave,
   canEditLeaveBalance,
+  canBulkImportLeave,
 } from "@/lib/permissions";
 import { apiFetchArray } from "@/lib/client-api";
+import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
 
 interface LeaveType {
   id: string;
@@ -543,12 +547,16 @@ export default function LeavePage() {
   const isMgr = role ? canApproveLeave(role) : false;
   const canApplyForOthers = role ? canApplyLeaveOnBehalf(role) : false;
   const canEditBalance = role ? canEditLeaveBalance(role) : false;
+  const canBulkImport = role ? canBulkImportLeave(role) : false;
   const userId = session?.user?.id;
 
   const [balanceEmployeeId, setBalanceEmployeeId] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const [editingBalance, setEditingBalance] = useState<{
     leaveTypeId: string;
     totalDays: number;
+    usedDays: number;
+    field: "total" | "used" | "both";
   } | null>(null);
 
   const cancelMutation = useMutation({
@@ -601,7 +609,8 @@ export default function LeavePage() {
       userId: string;
       leaveTypeId: string;
       year: number;
-      totalDays: number;
+      totalDays?: number;
+      usedDays?: number;
     }) =>
       fetchApi("/api/leave/balance", {
         method: "PATCH",
@@ -737,9 +746,11 @@ export default function LeavePage() {
             <Card glass className="mb-4">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Edit Employee Leave Balance</CardTitle>
-                <CardDescription>Select an employee to view or edit allocated leave</CardDescription>
+                <CardDescription>
+                  Select an employee to view or edit allocated and used leave
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <Select value={balanceEmployeeId || "self"} onValueChange={(v) => setBalanceEmployeeId(v === "self" ? "" : v)}>
                   <SelectTrigger className="max-w-md">
                     <SelectValue placeholder="Select employee" />
@@ -753,6 +764,40 @@ export default function LeavePage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {canBulkImport && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        window.open(
+                          `/api/leave/balance/bulk?template=true&year=${balanceData?.year ?? new Date().getFullYear()}`,
+                          "_blank"
+                        )
+                      }
+                    >
+                      <Download className="h-4 w-4" />
+                      Download Template
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        window.open(
+                          `/api/leave/balance/bulk?year=${balanceData?.year ?? new Date().getFullYear()}`,
+                          "_blank"
+                        )
+                      }
+                    >
+                      <Download className="h-4 w-4" />
+                      Export Balances
+                    </Button>
+                    <Button size="sm" onClick={() => setImportOpen(true)}>
+                      <Upload className="h-4 w-4" />
+                      Import Excel
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -782,16 +827,20 @@ export default function LeavePage() {
                     <CardContent>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Total</span>
+                          <span className="text-muted-foreground">Total Allocated</span>
                           <span className="font-medium">{b.totalDays}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Used</span>
+                          <span className="text-muted-foreground">Used (Approved)</span>
                           <span className="font-medium text-orange-600">{b.usedDays}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Pending</span>
                           <span className="font-medium text-amber-600">{b.pendingDays}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Remaining</span>
+                          <span className="font-medium text-brand-600">{b.availableDays}</span>
                         </div>
                         <div className="h-2 rounded-full bg-muted overflow-hidden">
                           <div
@@ -807,55 +856,105 @@ export default function LeavePage() {
                         {canEditBalance && balanceEmployeeId && (
                           <div className="pt-2 space-y-2 border-t border-border/50 mt-2">
                             {editingBalance?.leaveTypeId === b.leaveType.id ? (
-                              <div className="flex gap-2">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={0.5}
-                                  value={editingBalance.totalDays}
-                                  onChange={(e) =>
-                                    setEditingBalance({
-                                      leaveTypeId: b.leaveType.id,
-                                      totalDays: Number(e.target.value),
-                                    })
-                                  }
-                                />
+                              <div className="space-y-2">
+                                {(editingBalance.field === "total" ||
+                                  editingBalance.field === "both") && (
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Total Allocated</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step={0.5}
+                                      value={editingBalance.totalDays}
+                                      onChange={(e) =>
+                                        setEditingBalance({
+                                          ...editingBalance,
+                                          totalDays: Number(e.target.value),
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                )}
+                                {(editingBalance.field === "used" ||
+                                  editingBalance.field === "both") && (
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Used Leave</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step={0.5}
+                                      value={editingBalance.usedDays}
+                                      onChange={(e) =>
+                                        setEditingBalance({
+                                          ...editingBalance,
+                                          usedDays: Number(e.target.value),
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                )}
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      updateBalanceMutation.mutate({
+                                        userId: balanceEmployeeId,
+                                        leaveTypeId: b.leaveType.id,
+                                        year: balanceData?.year ?? new Date().getFullYear(),
+                                        ...(editingBalance.field === "total" ||
+                                        editingBalance.field === "both"
+                                          ? { totalDays: editingBalance.totalDays }
+                                          : {}),
+                                        ...(editingBalance.field === "used" ||
+                                        editingBalance.field === "both"
+                                          ? { usedDays: editingBalance.usedDays }
+                                          : {}),
+                                      })
+                                    }
+                                    disabled={updateBalanceMutation.isPending}
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setEditingBalance(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-2">
                                 <Button
                                   size="sm"
+                                  variant="outline"
                                   onClick={() =>
-                                    updateBalanceMutation.mutate({
-                                      userId: balanceEmployeeId,
+                                    setEditingBalance({
                                       leaveTypeId: b.leaveType.id,
-                                      year: balanceData?.year ?? new Date().getFullYear(),
-                                      totalDays: editingBalance.totalDays,
+                                      totalDays: b.totalDays,
+                                      usedDays: b.usedDays,
+                                      field: "total",
                                     })
                                   }
-                                  disabled={updateBalanceMutation.isPending}
                                 >
-                                  Save
+                                  Edit Total
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => setEditingBalance(null)}
+                                  onClick={() =>
+                                    setEditingBalance({
+                                      leaveTypeId: b.leaveType.id,
+                                      totalDays: b.totalDays,
+                                      usedDays: b.usedDays,
+                                      field: "used",
+                                    })
+                                  }
                                 >
-                                  Cancel
+                                  Edit Used
                                 </Button>
                               </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full"
-                                onClick={() =>
-                                  setEditingBalance({
-                                    leaveTypeId: b.leaveType.id,
-                                    totalDays: b.totalDays,
-                                  })
-                                }
-                              >
-                                Edit Total Allocated
-                              </Button>
                             )}
                           </div>
                         )}
@@ -908,6 +1007,19 @@ export default function LeavePage() {
           </TabsContent>
         )}
       </Tabs>
+
+      {canBulkImport && (
+        <ExcelImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          title="Import Leave Balances"
+          description="Upload Excel with Employee ID, Leave Type Code, Year, Total Days, and optional Used Days."
+          uploadUrl="/api/leave/balance/bulk"
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+          }}
+        />
+      )}
     </div>
   );
 }

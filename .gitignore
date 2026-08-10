@@ -41,7 +41,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+/public/generated-payslips
+
 /src/generated/prisma
+
 skills/
 skills-lock.json
 .agents/

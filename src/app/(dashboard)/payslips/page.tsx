@@ -13,6 +13,7 @@ import {
   Search,
   Loader2,
   DollarSign,
+  FilePlus2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -47,6 +48,7 @@ import {
 import {
   canUploadPayslip,
   canViewAllSalaries,
+  canGeneratePayslip,
 } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { payslipSchema } from "@/lib/validations";
@@ -146,6 +148,7 @@ export default function PayslipsPage() {
   const { data: session, status } = useSession();
   const role = session?.user?.role;
   const canUpload = role ? canUploadPayslip(role) : false;
+  const canGenerate = role ? canGeneratePayslip(role) : false;
   const showSearch = role ? canViewAllSalaries(role) : false;
   const queryClient = useQueryClient();
 
@@ -153,6 +156,7 @@ export default function PayslipsPage() {
   const [yearFilter, setYearFilter] = useState(String(currentYear));
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
 
   const queryParams = new URLSearchParams();
   if (monthFilter !== "all") queryParams.set("month", monthFilter);
@@ -169,7 +173,7 @@ export default function PayslipsPage() {
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-list"],
     queryFn: () => apiFetchArray<Employee>("/api/employees"),
-    enabled: status === "authenticated" && canUpload,
+    enabled: status === "authenticated" && (canUpload || canGenerate),
   });
 
   const form = useForm<PayslipFormValues>({
@@ -196,6 +200,33 @@ export default function PayslipsPage() {
       toast.success("Payslip uploaded successfully");
       setUploadOpen(false);
       form.reset();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const generateForm = useForm<PayslipFormValues>({
+    resolver: zodResolver(payslipSchema) as Resolver<PayslipFormValues>,
+    defaultValues: {
+      userId: "",
+      month: new Date().getMonth() + 1,
+      year: currentYear,
+      salary: 0,
+      bonus: 0,
+      deductions: 0,
+    },
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: (data: PayslipFormValues) =>
+      apiFetch<Payslip>("/api/payslips/generate", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payslips"] });
+      toast.success("Payslip PDF generated and saved");
+      setGenerateOpen(false);
+      generateForm.reset();
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -234,16 +265,24 @@ export default function PayslipsPage() {
           </h1>
           <p className="text-muted-foreground mt-1">
             {canUpload
-              ? "Upload and manage employee payslips"
+              ? "Upload, generate, and manage employee payslips"
               : "View and download your payslips"}
           </p>
         </div>
-        {canUpload && (
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4" />
-            Upload Payslip
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canGenerate && (
+            <Button variant="outline" onClick={() => setGenerateOpen(true)}>
+              <FilePlus2 className="h-4 w-4" />
+              Generate PDF
+            </Button>
+          )}
+          {canUpload && (
+            <Button onClick={() => setUploadOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Upload Payslip
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card glass>
@@ -532,6 +571,136 @@ export default function PayslipsPage() {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
                 Upload
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FilePlus2 className="h-5 w-5 text-brand-600" />
+              Generate Payslip PDF
+            </DialogTitle>
+            <DialogDescription>
+              Create a professional PDF payslip and save it to the employee record
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={generateForm.handleSubmit((data) => generateMutation.mutate(data))}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label>Employee</Label>
+              <Select
+                value={generateForm.watch("userId")}
+                onValueChange={(v) => generateForm.setValue("userId", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} ({emp.employeeId})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-4 grid-cols-2">
+              <div className="space-y-2">
+                <Label>Month</Label>
+                <Select
+                  value={String(generateForm.watch("month"))}
+                  onValueChange={(v) => generateForm.setValue("month", Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m) => (
+                      <SelectItem key={m.value} value={String(m.value)}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Year</Label>
+                <Select
+                  value={String(generateForm.watch("year"))}
+                  onValueChange={(v) => generateForm.setValue("year", Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {YEARS.map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="gen-salary">Salary</Label>
+                <Input
+                  id="gen-salary"
+                  type="number"
+                  min={0}
+                  {...generateForm.register("salary", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gen-bonus">Bonus</Label>
+                <Input
+                  id="gen-bonus"
+                  type="number"
+                  min={0}
+                  {...generateForm.register("bonus", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gen-deductions">Deductions</Label>
+                <Input
+                  id="gen-deductions"
+                  type="number"
+                  min={0}
+                  {...generateForm.register("deductions", { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-muted/50 p-3 text-sm">
+              <span className="text-muted-foreground">Net Salary: </span>
+              <span className="font-semibold">
+                {formatCurrency(
+                  (generateForm.watch("salary") || 0) +
+                    (generateForm.watch("bonus") || 0) -
+                    (generateForm.watch("deductions") || 0)
+                )}
+              </span>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setGenerateOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={generateMutation.isPending}>
+                {generateMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                Generate & Save PDF
               </Button>
             </div>
           </form>

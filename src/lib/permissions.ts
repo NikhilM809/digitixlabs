@@ -65,6 +65,18 @@ export function canAccessReports(role: RoleName) {
   return role === "ADMIN" || role === "MANAGER";
 }
 
+export function canGeneratePayslip(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canManageWorkSchedules(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canBulkImportLeave(role: RoleName) {
+  return role === "ADMIN";
+}
+
 /** @deprecated Use canApproveLeave — kept for minimal diff in existing imports */
 export function isManager(role: RoleName) {
   return canApproveLeave(role);

@@ -9,6 +9,7 @@ import {
   createNotification,
 } from "@/lib/api-utils";
 import { canApproveLeave, canManageAllLeaves } from "@/lib/permissions";
+import { syncLeaveBalanceFromRequests } from "@/lib/leave-balance";
 
 const leaveActionSchema = z.object({
   action: z.enum(["approve", "reject", "cancel"]),
@@ -101,18 +102,6 @@ export async function PATCH(
           },
         });
 
-        await tx.leaveBalance.updateMany({
-          where: {
-            userId: leave.userId,
-            leaveTypeId: leave.leaveTypeId,
-            year,
-          },
-          data: {
-            pendingDays: { decrement: leave.totalDays },
-            usedDays: { increment: leave.totalDays },
-          },
-        });
-
         return approved;
       }
 
@@ -131,21 +120,8 @@ export async function PATCH(
           },
         });
 
-        await tx.leaveBalance.updateMany({
-          where: {
-            userId: leave.userId,
-            leaveTypeId: leave.leaveTypeId,
-            year,
-          },
-          data: {
-            pendingDays: { decrement: leave.totalDays },
-          },
-        });
-
         return rejected;
       }
-
-      const wasApproved = leave.status === "APPROVED";
 
       const cancelled = await tx.leaveRequest.update({
         where: { id },
@@ -156,32 +132,10 @@ export async function PATCH(
         },
       });
 
-      if (leave.status === "PENDING") {
-        await tx.leaveBalance.updateMany({
-          where: {
-            userId: leave.userId,
-            leaveTypeId: leave.leaveTypeId,
-            year,
-          },
-          data: {
-            pendingDays: { decrement: leave.totalDays },
-          },
-        });
-      } else if (wasApproved) {
-        await tx.leaveBalance.updateMany({
-          where: {
-            userId: leave.userId,
-            leaveTypeId: leave.leaveTypeId,
-            year,
-          },
-          data: {
-            usedDays: { decrement: leave.totalDays },
-          },
-        });
-      }
-
       return cancelled;
     });
+
+    await syncLeaveBalanceFromRequests(leave.userId, leave.leaveTypeId, year);
 
     const notificationType =
       action === "approve"

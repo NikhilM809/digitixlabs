@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -42,7 +42,9 @@ export default function LoginPage() {
       }
 
       toast.success("Welcome back!");
-      router.push("/dashboard");
+      const session = await getSession();
+      const role = session?.user?.role;
+      router.push(role === "EMPLOYEE" ? "/leave" : "/dashboard");
       router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
