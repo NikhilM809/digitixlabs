@@ -126,7 +126,26 @@ export const leaveBalanceUpdateSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   leaveTypeId: z.string().min(1, "Leave type is required"),
   year: z.number().int().min(2020).max(2100),
-  totalDays: z.number().min(0, "Total days cannot be negative"),
+  totalDays: z.number().min(0, "Total days cannot be negative").optional(),
+  usedDays: z.number().min(0, "Used days cannot be negative").optional(),
+}).refine((data) => data.totalDays !== undefined || data.usedDays !== undefined, {
+  message: "Provide totalDays and/or usedDays to update",
+});
+
+export const workScheduleUpdateSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  workStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time (HH:MM)"),
+  workEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time (HH:MM)"),
+  lateThreshold: z.number().int().min(0).max(120).optional(),
+});
+
+export const payslipGenerateSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2020),
+  salary: z.number().min(0),
+  bonus: z.number().min(0).default(0),
+  deductions: z.number().min(0).default(0),
 });
 
 export const companyPolicySchema = z.object({
@@ -196,6 +215,8 @@ export type EmployeeInput = z.infer<typeof employeeSchema>;
 export type LeaveApplicationInput = z.infer<typeof leaveApplicationSchema>;
 export type AdminLeaveApplicationInput = z.infer<typeof adminLeaveApplicationSchema>;
 export type LeaveBalanceUpdateInput = z.infer<typeof leaveBalanceUpdateSchema>;
+export type WorkScheduleUpdateInput = z.infer<typeof workScheduleUpdateSchema>;
+export type PayslipGenerateInput = z.infer<typeof payslipGenerateSchema>;
 export type CompanyPolicyInput = z.infer<typeof companyPolicySchema>;
 export type DepartmentInput = z.infer<typeof departmentSchema>;
 export type DesignationInput = z.infer<typeof designationSchema>;

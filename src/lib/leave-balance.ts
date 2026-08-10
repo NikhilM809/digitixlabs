@@ -59,7 +59,8 @@ export async function computeLeaveBalancesForUser(userId: string, year: number) 
   return leaveTypes.map((type) => {
     const balance = balanceMap.get(type.id);
     const totalDays = balance?.totalDays ?? type.defaultDays;
-    const usedDays = usedByType.get(type.id) ?? 0;
+    const computedUsed = usedByType.get(type.id) ?? 0;
+    const usedDays = balance?.usedDaysManual ? balance.usedDays : computedUsed;
     const pendingDays = pendingByType.get(type.id) ?? 0;
     const availableDays = totalDays - usedDays - pendingDays;
 
@@ -69,8 +70,41 @@ export async function computeLeaveBalancesForUser(userId: string, year: number) 
       year,
       totalDays,
       usedDays,
+      computedUsed,
       pendingDays,
       availableDays,
+      usedDaysManual: balance?.usedDaysManual ?? false,
     };
+  });
+}
+
+/** Sync DB leave balance from approved/pending requests after approval workflow */
+export async function syncLeaveBalanceFromRequests(
+  userId: string,
+  leaveTypeId: string,
+  year: number
+) {
+  const computed = await computeLeaveBalancesForUser(userId, year);
+  const item = computed.find((b) => b.leaveType.id === leaveTypeId);
+  if (!item) return;
+
+  await prisma.leaveBalance.upsert({
+    where: {
+      userId_leaveTypeId_year: { userId, leaveTypeId, year },
+    },
+    create: {
+      userId,
+      leaveTypeId,
+      year,
+      totalDays: item.totalDays,
+      usedDays: item.computedUsed,
+      pendingDays: item.pendingDays,
+      usedDaysManual: false,
+    },
+    update: {
+      usedDays: item.computedUsed,
+      pendingDays: item.pendingDays,
+      usedDaysManual: false,
+    },
   });
 }

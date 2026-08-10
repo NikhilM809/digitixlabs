@@ -153,8 +153,12 @@ export async function POST(request: Request) {
     }
 
     const settings = await prisma.companySettings.findFirst();
-    const workStartTime = settings?.workStartTime ?? "09:00";
-    const lateThreshold = settings?.lateThreshold ?? 15;
+    const employeeSchedule = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { workStartTime: true, workEndTime: true, lateThreshold: true },
+    });
+    const workStartTime = employeeSchedule?.workStartTime ?? settings?.workStartTime ?? "09:00";
+    const lateThreshold = employeeSchedule?.lateThreshold ?? settings?.lateThreshold ?? 15;
 
     const existing = await prisma.attendance.findUnique({
       where: {

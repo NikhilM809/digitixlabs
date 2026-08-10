@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest) {
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    const { userId, leaveTypeId, year, totalDays } = parsed.data;
+    const { userId, leaveTypeId, year, totalDays, usedDays } = parsed.data;
 
     const leaveType = await prisma.leaveType.findUnique({
       where: { id: leaveTypeId },
@@ -60,12 +60,14 @@ export async function PATCH(request: NextRequest) {
 
     const computed = await computeLeaveBalancesForUser(userId, year);
     const current = computed.find((b) => b.leaveType.id === leaveTypeId);
-    const usedDays = current?.usedDays ?? 0;
+
+    const nextTotal = totalDays ?? current?.totalDays ?? leaveType.defaultDays;
+    const nextUsed = usedDays ?? current?.usedDays ?? 0;
     const pendingDays = current?.pendingDays ?? 0;
 
-    if (totalDays < usedDays + pendingDays) {
+    if (nextTotal < nextUsed + pendingDays) {
       return apiError(
-        `Total days cannot be less than used (${usedDays}) + pending (${pendingDays})`,
+        `Total days (${nextTotal}) cannot be less than used (${nextUsed}) + pending (${pendingDays})`,
         400
       );
     }
@@ -78,12 +80,16 @@ export async function PATCH(request: NextRequest) {
         userId,
         leaveTypeId,
         year,
-        totalDays,
-        usedDays,
+        totalDays: nextTotal,
+        usedDays: nextUsed,
         pendingDays,
+        usedDaysManual: usedDays !== undefined,
       },
       update: {
-        totalDays,
+        ...(totalDays !== undefined ? { totalDays: nextTotal } : {}),
+        ...(usedDays !== undefined
+          ? { usedDays: nextUsed, usedDaysManual: true }
+          : {}),
       },
     });
 
@@ -92,7 +98,7 @@ export async function PATCH(request: NextRequest) {
       action: "UPDATE",
       entity: "LeaveBalance",
       entityId: balance.id,
-      details: `Updated ${leaveType.name} total to ${totalDays} days for employee ${userId}`,
+      details: `Updated ${leaveType.name} balance for employee ${userId}: total=${nextTotal}, used=${nextUsed}`,
     });
 
     const updatedBalances = await computeLeaveBalancesForUser(userId, year);

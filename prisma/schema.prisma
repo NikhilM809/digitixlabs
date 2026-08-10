@@ -89,6 +89,9 @@ model User {
   departmentId       String?
   designationId      String?
   managerId          String?
+  workStartTime      String?
+  workEndTime        String?
+  lateThreshold      Int?
   mustChangePassword Boolean        @default(false)
   lastLoginAt        DateTime?
   createdAt          DateTime       @default(now())
@@ -198,10 +201,11 @@ model LeaveBalance {
   userId      String
   leaveTypeId String
   year        Int
-  totalDays   Float    @default(0)
-  usedDays    Float    @default(0)
-  pendingDays Float    @default(0)
-  createdAt   DateTime @default(now())
+  totalDays      Float    @default(0)
+  usedDays       Float    @default(0)
+  pendingDays    Float    @default(0)
+  usedDaysManual Boolean  @default(false)
+  createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
