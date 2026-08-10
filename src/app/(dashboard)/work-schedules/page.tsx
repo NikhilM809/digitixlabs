@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Clock, Download, Loader2, Pencil, Upload } from "lucide-react";
+import { Clock, Download, History, Loader2, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -27,6 +29,7 @@ import {
 import { canManageWorkSchedules } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
+import { formatScheduleRange, formatScheduleTime12h } from "@/lib/work-schedule-client";
 
 interface EmployeeSchedule {
   id: string;
@@ -37,6 +40,16 @@ interface EmployeeSchedule {
   workEndTime: string | null;
   lateThreshold: number | null;
   department?: { name: string } | null;
+}
+
+interface ScheduleHistoryEntry {
+  id: string;
+  userId: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  workStartTime: string;
+  workEndTime: string;
+  lateThreshold: number | null;
 }
 
 interface CompanySettings {
@@ -53,8 +66,10 @@ export default function WorkSchedulesPage() {
 
   const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [editEmployee, setEditEmployee] = useState<EmployeeSchedule | null>(null);
-  const [editForm, setEditForm] = useState({
+  const [historyEmployee, setHistoryEmployee] = useState<EmployeeSchedule | null>(null);
+  const [addScheduleOpen, setAddScheduleOpen] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({
+    effectiveFrom: new Date().toISOString().slice(0, 10),
     workStartTime: "09:00",
     workEndTime: "18:00",
     lateThreshold: 15,
@@ -73,21 +88,34 @@ export default function WorkSchedulesPage() {
     enabled: canManage,
   });
 
-  const updateMutation = useMutation({
+  const { data: history = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["work-schedule-history", historyEmployee?.id],
+    queryFn: () =>
+      apiFetchArray<ScheduleHistoryEntry>(
+        `/api/work-schedules/history?userId=${historyEmployee!.id}`
+      ),
+    enabled: !!historyEmployee?.id,
+  });
+
+  const addScheduleMutation = useMutation({
     mutationFn: (payload: {
       userId: string;
+      effectiveFrom: string;
       workStartTime: string;
       workEndTime: string;
-      lateThreshold?: number;
+      lateThreshold: number;
     }) =>
-      apiFetch("/api/work-schedules", {
-        method: "PATCH",
+      apiFetch("/api/work-schedules/history", {
+        method: "POST",
         body: JSON.stringify(payload),
       }),
     onSuccess: () => {
-      toast.success("Work schedule updated");
-      setEditEmployee(null);
+      toast.success("Work schedule saved");
+      setAddScheduleOpen(false);
       queryClient.invalidateQueries({ queryKey: ["employees-schedules"] });
+      queryClient.invalidateQueries({
+        queryKey: ["work-schedule-history", historyEmployee?.id],
+      });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -99,9 +127,10 @@ export default function WorkSchedulesPage() {
     window.open(url, "_blank");
   };
 
-  const openEdit = (emp: EmployeeSchedule) => {
-    setEditEmployee(emp);
-    setEditForm({
+  const openHistory = (emp: EmployeeSchedule) => {
+    setHistoryEmployee(emp);
+    setScheduleForm({
+      effectiveFrom: new Date().toISOString().slice(0, 10),
       workStartTime: emp.workStartTime ?? settings?.workStartTime ?? "09:00",
       workEndTime: emp.workEndTime ?? settings?.workEndTime ?? "18:00",
       lateThreshold: emp.lateThreshold ?? settings?.lateThreshold ?? 15,
@@ -138,7 +167,7 @@ export default function WorkSchedulesPage() {
             Work Schedules
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage employee working hours and late thresholds
+            Manage employee schedules with effective dates and history
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -162,17 +191,17 @@ export default function WorkSchedulesPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Company Default Schedule</CardTitle>
             <CardDescription>
-              Used when an employee has no individual schedule set
+              Applied when no dated schedule entry exists for an employee
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm flex flex-wrap gap-6">
             <span>
               <span className="text-muted-foreground">Start: </span>
-              {settings.workStartTime}
+              {formatScheduleTime12h(settings.workStartTime)}
             </span>
             <span>
               <span className="text-muted-foreground">End: </span>
-              {settings.workEndTime}
+              {formatScheduleTime12h(settings.workEndTime)}
             </span>
             <span>
               <span className="text-muted-foreground">Late threshold: </span>
@@ -197,21 +226,11 @@ export default function WorkSchedulesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/50">
-                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">
-                    Employee
-                  </th>
-                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">
-                    Start
-                  </th>
-                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">
-                    End
-                  </th>
-                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">
-                    Late (min)
-                  </th>
-                  <th className="h-12 px-4 text-right font-medium text-muted-foreground">
-                    Actions
-                  </th>
+                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">Employee</th>
+                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">Current Start</th>
+                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">Current End</th>
+                  <th className="h-12 px-4 text-left font-medium text-muted-foreground">Late (min)</th>
+                  <th className="h-12 px-4 text-right font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,32 +252,24 @@ export default function WorkSchedulesPage() {
                   </tr>
                 ) : (
                   filtered.map((emp) => (
-                    <tr
-                      key={emp.id}
-                      className="border-b border-border/50 hover:bg-muted/30"
-                    >
+                    <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/30">
                       <td className="px-4 py-3">
-                        <p className="font-medium">
-                          {emp.firstName} {emp.lastName}
-                        </p>
+                        <p className="font-medium">{emp.firstName} {emp.lastName}</p>
                         <p className="text-xs text-muted-foreground">{emp.employeeId}</p>
                       </td>
                       <td className="px-4 py-3">
-                        {emp.workStartTime ?? settings?.workStartTime ?? "09:00"}
-                        {!emp.workStartTime && (
-                          <span className="text-xs text-muted-foreground ml-1">(default)</span>
-                        )}
+                        {formatScheduleTime12h(emp.workStartTime ?? settings?.workStartTime ?? "09:00")}
                       </td>
                       <td className="px-4 py-3">
-                        {emp.workEndTime ?? settings?.workEndTime ?? "18:00"}
+                        {formatScheduleTime12h(emp.workEndTime ?? settings?.workEndTime ?? "18:00")}
                       </td>
                       <td className="px-4 py-3">
                         {emp.lateThreshold ?? settings?.lateThreshold ?? 15}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(emp)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
+                        <Button variant="outline" size="sm" onClick={() => openHistory(emp)}>
+                          <History className="h-3.5 w-3.5" />
+                          Manage
                         </Button>
                       </td>
                     </tr>
@@ -270,34 +281,108 @@ export default function WorkSchedulesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editEmployee} onOpenChange={(o) => !o && setEditEmployee(null)}>
+      <Dialog
+        open={!!historyEmployee}
+        onOpenChange={(o) => !o && setHistoryEmployee(null)}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {historyEmployee?.firstName} {historyEmployee?.lastName}
+            </DialogTitle>
+            <DialogDescription>
+              Schedule history and effective-dated updates ({historyEmployee?.employeeId})
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setAddScheduleOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add Schedule
+            </Button>
+          </div>
+
+          {historyLoading ? (
+            <Skeleton className="h-32 rounded-xl" />
+          ) : history.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No schedule history yet. Add a schedule with an effective date.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {history.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="rounded-xl border border-border/50 bg-muted/20 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Badge variant="outline">
+                      {formatScheduleRange(
+                        new Date(entry.effectiveFrom),
+                        entry.effectiveTo ? new Date(entry.effectiveTo) : null
+                      )}
+                    </Badge>
+                    {!entry.effectiveTo && (
+                      <Badge variant="success">Current</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm mt-2">
+                    {formatScheduleTime12h(entry.workStartTime)} –{" "}
+                    {formatScheduleTime12h(entry.workEndTime)}
+                    {entry.lateThreshold != null && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · Late threshold: {entry.lateThreshold} min
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Effective from {format(new Date(entry.effectiveFrom), "dd MMM yyyy")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addScheduleOpen} onOpenChange={setAddScheduleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Work Schedule</DialogTitle>
+            <DialogTitle>Add Work Schedule</DialogTitle>
             <DialogDescription>
-              {editEmployee?.firstName} {editEmployee?.lastName} ({editEmployee?.employeeId})
+              Schedule changes apply from the selected effective date. Previous open schedules
+              will be closed automatically.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Effective From</Label>
+              <Input
+                type="date"
+                value={scheduleForm.effectiveFrom}
+                onChange={(e) =>
+                  setScheduleForm((f) => ({ ...f, effectiveFrom: e.target.value }))
+                }
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Work Start (HH:MM)</Label>
                 <Input
-                  value={editForm.workStartTime}
+                  value={scheduleForm.workStartTime}
                   onChange={(e) =>
-                    setEditForm((f) => ({ ...f, workStartTime: e.target.value }))
+                    setScheduleForm((f) => ({ ...f, workStartTime: e.target.value }))
                   }
-                  placeholder="09:00"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Work End (HH:MM)</Label>
                 <Input
-                  value={editForm.workEndTime}
+                  value={scheduleForm.workEndTime}
                   onChange={(e) =>
-                    setEditForm((f) => ({ ...f, workEndTime: e.target.value }))
+                    setScheduleForm((f) => ({ ...f, workEndTime: e.target.value }))
                   }
-                  placeholder="18:00"
                 />
               </div>
             </div>
@@ -307,9 +392,9 @@ export default function WorkSchedulesPage() {
                 type="number"
                 min={0}
                 max={120}
-                value={editForm.lateThreshold}
+                value={scheduleForm.lateThreshold}
                 onChange={(e) =>
-                  setEditForm((f) => ({
+                  setScheduleForm((f) => ({
                     ...f,
                     lateThreshold: Number(e.target.value),
                   }))
@@ -317,23 +402,23 @@ export default function WorkSchedulesPage() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditEmployee(null)}>
+              <Button variant="outline" onClick={() => setAddScheduleOpen(false)}>
                 Cancel
               </Button>
               <Button
-                disabled={updateMutation.isPending}
+                disabled={addScheduleMutation.isPending || !historyEmployee}
                 onClick={() =>
-                  editEmployee &&
-                  updateMutation.mutate({
-                    userId: editEmployee.id,
-                    ...editForm,
+                  historyEmployee &&
+                  addScheduleMutation.mutate({
+                    userId: historyEmployee.id,
+                    ...scheduleForm,
                   })
                 }
               >
-                {updateMutation.isPending && (
+                {addScheduleMutation.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                Save
+                Save Schedule
               </Button>
             </div>
           </div>

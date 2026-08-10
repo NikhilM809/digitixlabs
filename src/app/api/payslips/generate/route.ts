@@ -13,6 +13,10 @@ import { payslipGenerateSchema } from "@/lib/validations";
 import { canGeneratePayslip } from "@/lib/permissions";
 import { generatePayslipPdfBuffer } from "@/lib/payslip-pdf";
 
+function daysInMonth(month: number, year: number) {
+  return new Date(year, month, 0).getDate();
+}
+
 export async function POST(req: NextRequest) {
   const { error, user } = await requireAuth(["ADMIN"]);
   if (error) return error;
@@ -39,6 +43,7 @@ export async function POST(req: NextRequest) {
         firstName: true,
         lastName: true,
         department: { select: { name: true } },
+        designation: { select: { name: true } },
       },
     });
 
@@ -49,10 +54,23 @@ export async function POST(req: NextRequest) {
     const settings = await prisma.companySettings.findFirst();
     const companyName = settings?.companyName ?? "Digitix Labs";
 
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    const payableDays = await prisma.attendance.count({
+      where: {
+        userId,
+        date: { gte: monthStart, lte: monthEnd },
+        status: { in: ["PRESENT", "LATE", "HALF_DAY", "WORK_FROM_HOME"] },
+      },
+    });
+
     const pdfBuffer = generatePayslipPdfBuffer({
       companyName,
+      companyEmail: settings?.companyEmail,
       employeeId: employee.employeeId,
       employeeName: `${employee.firstName} ${employee.lastName}`,
+      designation: employee.designation?.name ?? "-",
       department: employee.department?.name ?? "-",
       month,
       year,
@@ -60,6 +78,8 @@ export async function POST(req: NextRequest) {
       bonus,
       deductions,
       netSalary,
+      payableDays,
+      totalDaysInMonth: daysInMonth(month, year),
       generatedAt: new Date(),
     });
 

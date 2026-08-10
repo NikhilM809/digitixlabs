@@ -17,8 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { downloadPayslipPdfClient } from "@/lib/payslip-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +70,7 @@ interface Payslip {
     lastName: string;
     email: string;
     department: { name: string } | null;
+    designation?: { name: string } | null;
   };
 }
 
@@ -118,30 +118,23 @@ function formatCurrency(amount: number) {
 }
 
 function downloadPayslipPdf(payslip: Payslip) {
-  const doc = new jsPDF();
-  const monthName = MONTHS.find((m) => m.value === payslip.month)?.label ?? "";
-
-  doc.setFontSize(18);
-  doc.text("Digitix HRMS - Payslip", 14, 20);
-  doc.setFontSize(11);
-  doc.text(`${monthName} ${payslip.year}`, 14, 30);
-
-  autoTable(doc, {
-    startY: 38,
-    head: [["Field", "Value"]],
-    body: [
-      ["Employee ID", payslip.user.employeeId],
-      ["Name", `${payslip.user.firstName} ${payslip.user.lastName}`],
-      ["Department", payslip.user.department?.name ?? "-"],
-      ["Basic Salary", formatCurrency(payslip.salary)],
-      ["Bonus", formatCurrency(payslip.bonus)],
-      ["Deductions", formatCurrency(payslip.deductions)],
-      ["Net Salary", formatCurrency(payslip.netSalary)],
-    ],
-    headStyles: { fillColor: [6, 147, 227] },
-  });
-
-  doc.save(`payslip-${payslip.user.employeeId}-${payslip.month}-${payslip.year}.pdf`);
+  downloadPayslipPdfClient(
+    {
+      companyName: "Digitix Labs",
+      employeeId: payslip.user.employeeId,
+      employeeName: `${payslip.user.firstName} ${payslip.user.lastName}`,
+      designation: payslip.user.designation?.name ?? "-",
+      department: payslip.user.department?.name ?? "-",
+      month: payslip.month,
+      year: payslip.year,
+      salary: payslip.salary,
+      bonus: payslip.bonus,
+      deductions: payslip.deductions,
+      netSalary: payslip.netSalary,
+      generatedAt: new Date(payslip.createdAt),
+    },
+    `payslip-${payslip.user.employeeId}-${payslip.month}-${payslip.year}.pdf`
+  );
 }
 
 export default function PayslipsPage() {

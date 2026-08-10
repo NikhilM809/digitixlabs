@@ -139,6 +139,52 @@ export const workScheduleUpdateSchema = z.object({
   lateThreshold: z.number().int().min(0).max(120).optional(),
 });
 
+export const workScheduleEntrySchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+  workStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid start time (HH:MM)"),
+  workEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid end time (HH:MM)"),
+  lateThreshold: z.number().int().min(0).max(120).optional(),
+});
+
+export const kraRatingSchema = z
+  .number()
+  .min(1, "Rating must be at least 1")
+  .max(5, "Rating must be at most 5");
+
+export const kraItemSchema = z.object({
+  id: z.string().optional(),
+  goal: z.string().min(2, "KRA / Goal is required"),
+  description: z.string().optional(),
+  target: z.string().optional(),
+  achievement: z.string().optional(),
+  employeeComments: z.string().optional(),
+  employeeRating: kraRatingSchema.optional().nullable(),
+  managerRating: kraRatingSchema.optional().nullable(),
+  managerComments: z.string().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const kraCreateSchema = z.object({
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2020).max(2100),
+  userId: z.string().optional(),
+});
+
+export const kraUpdateSchema = z.object({
+  items: z.array(kraItemSchema).min(1, "At least one KRA item is required"),
+});
+
+export const kraReviewSubmitSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      managerRating: kraRatingSchema,
+      managerComments: z.string().optional(),
+    })
+  ).min(1),
+});
+
 export const payslipGenerateSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   month: z.number().int().min(1).max(12),
@@ -216,6 +262,10 @@ export type LeaveApplicationInput = z.infer<typeof leaveApplicationSchema>;
 export type AdminLeaveApplicationInput = z.infer<typeof adminLeaveApplicationSchema>;
 export type LeaveBalanceUpdateInput = z.infer<typeof leaveBalanceUpdateSchema>;
 export type WorkScheduleUpdateInput = z.infer<typeof workScheduleUpdateSchema>;
+export type WorkScheduleEntryInput = z.infer<typeof workScheduleEntrySchema>;
+export type KraItemInput = z.infer<typeof kraItemSchema>;
+export type KraCreateInput = z.infer<typeof kraCreateSchema>;
+export type KraUpdateInput = z.infer<typeof kraUpdateSchema>;
 export type PayslipGenerateInput = z.infer<typeof payslipGenerateSchema>;
 export type CompanyPolicyInput = z.infer<typeof companyPolicySchema>;
 export type DepartmentInput = z.infer<typeof departmentSchema>;
