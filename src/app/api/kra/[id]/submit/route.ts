@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { RoleName } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   requireAuth,
@@ -9,7 +8,14 @@ import {
   createNotification,
 } from "@/lib/api-utils";
 import { kraUpdateSchema } from "@/lib/validations";
+import { canAccessKra } from "@/lib/permissions";
 import { averageRating } from "@/lib/kra";
+import {
+  getKraItemDelegate,
+  getKraReviewDelegate,
+  isKraSetupFailure,
+  kraDbSetupError,
+} from "@/lib/kra-db";
 
 const reviewInclude = {
   user: {
@@ -33,8 +39,15 @@ export async function POST(
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
+  if (!canAccessKra(user.role)) {
+    return apiError("Forbidden", 403);
+  }
+
+  const setupError = kraDbSetupError();
+  if (setupError) return setupError;
+
   const { id } = await params;
-  const review = await prisma.kraReview.findUnique({
+  const review = await getKraReviewDelegate().findUnique({
     where: { id },
     include: { items: true, user: { select: { managerId: true, firstName: true, lastName: true } } },
   });
@@ -64,8 +77,8 @@ export async function POST(
       }
     }
 
-    await prisma.kraItem.deleteMany({ where: { kraReviewId: id } });
-    await prisma.kraItem.createMany({
+    await getKraItemDelegate().deleteMany({ where: { kraReviewId: id } });
+    await getKraItemDelegate().createMany({
       data: parsed.data.items.map((item, index) => ({
         kraReviewId: id,
         goal: item.goal,
@@ -78,7 +91,7 @@ export async function POST(
       })),
     });
 
-    const updated = await prisma.kraReview.update({
+    const updated = await getKraReviewDelegate().update({
       where: { id },
       data: {
         status: "UNDER_MANAGER_REVIEW",
@@ -112,6 +125,9 @@ export async function POST(
     });
   } catch (err) {
     console.error("KRA submit error:", err);
+    if (isKraSetupFailure(err)) {
+      return kraDbSetupError() ?? apiError("Failed to submit KRA", 503);
+    }
     return apiError("Failed to submit KRA", 500);
   }
 }

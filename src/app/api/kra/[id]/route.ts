@@ -13,6 +13,7 @@ import {
   averageRating,
 } from "@/lib/kra";
 import { isAdminOrHr } from "@/lib/permissions";
+import { getKraItemDelegate, getKraReviewDelegate, kraDbSetupError } from "@/lib/kra-db";
 
 const reviewInclude = {
   user: {
@@ -56,8 +57,11 @@ export async function GET(
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
+  const setupError = kraDbSetupError();
+  if (setupError) return setupError;
+
   const { id } = await params;
-  const review = await prisma.kraReview.findUnique({
+  const review = await getKraReviewDelegate().findUnique({
     where: { id },
     include: reviewInclude,
   });
@@ -90,8 +94,11 @@ export async function PATCH(
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
+  const setupError = kraDbSetupError();
+  if (setupError) return setupError;
+
   const { id } = await params;
-  const review = await prisma.kraReview.findUnique({
+  const review = await getKraReviewDelegate().findUnique({
     where: { id },
     include: { items: true },
   });
@@ -115,9 +122,9 @@ export async function PATCH(
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    await prisma.kraItem.deleteMany({ where: { kraReviewId: id } });
+    await getKraItemDelegate().deleteMany({ where: { kraReviewId: id } });
 
-    await prisma.kraItem.createMany({
+    await getKraItemDelegate().createMany({
       data: parsed.data.items.map((item, index) => ({
         kraReviewId: id,
         goal: item.goal,
@@ -130,7 +137,7 @@ export async function PATCH(
       })),
     });
 
-    const updated = await prisma.kraReview.findUnique({
+    const updated = await getKraReviewDelegate().findUnique({
       where: { id },
       include: reviewInclude,
     });

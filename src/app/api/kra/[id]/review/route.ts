@@ -11,6 +11,12 @@ import {
 import { kraReviewSubmitSchema } from "@/lib/validations";
 import { canReviewKra, isAdminOrHr } from "@/lib/permissions";
 import { averageRating, isKraLockedForManager } from "@/lib/kra";
+import {
+  getKraItemDelegate,
+  getKraReviewDelegate,
+  isKraSetupFailure,
+  kraDbSetupError,
+} from "@/lib/kra-db";
 
 const reviewInclude = {
   user: {
@@ -52,8 +58,11 @@ export async function POST(
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
+  const setupError = kraDbSetupError();
+  if (setupError) return setupError;
+
   const { id } = await params;
-  const review = await prisma.kraReview.findUnique({
+  const review = await getKraReviewDelegate().findUnique({
     where: { id },
     include: { items: true, user: { select: { managerId: true, firstName: true, lastName: true } } },
   });
@@ -92,7 +101,7 @@ export async function POST(
       if (!existing) {
         return apiError(`KRA item not found`, 400);
       }
-      await prisma.kraItem.update({
+      await getKraItemDelegate().update({
         where: { id: existing.id },
         data: {
           managerRating: item.managerRating,
@@ -101,7 +110,7 @@ export async function POST(
       });
     }
 
-    const updated = await prisma.kraReview.update({
+    const updated = await getKraReviewDelegate().update({
       where: { id },
       data: {
         status: "COMPLETED",
@@ -133,6 +142,9 @@ export async function POST(
     });
   } catch (err) {
     console.error("KRA review error:", err);
+    if (isKraSetupFailure(err)) {
+      return kraDbSetupError() ?? apiError("Failed to complete KRA review", 503);
+    }
     return apiError("Failed to complete KRA review", 500);
   }
 }

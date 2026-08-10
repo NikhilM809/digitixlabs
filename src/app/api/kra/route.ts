@@ -10,6 +10,11 @@ import {
 import { kraCreateSchema } from "@/lib/validations";
 import { canAccessKra, isAdminOrHr } from "@/lib/permissions";
 import { averageRating } from "@/lib/kra";
+import {
+  getKraReviewDelegate,
+  isKraSetupFailure,
+  kraDbSetupError,
+} from "@/lib/kra-db";
 
 const reviewInclude = {
   user: {
@@ -56,7 +61,7 @@ function serializeReview(review: Awaited<ReturnType<typeof fetchReview>>) {
 }
 
 async function fetchReview(id: string) {
-  return prisma.kraReview.findUnique({
+  return getKraReviewDelegate().findUnique({
     where: { id },
     include: reviewInclude,
   });
@@ -69,6 +74,9 @@ export async function GET(request: NextRequest) {
   if (!canAccessKra(user.role)) {
     return apiError("Forbidden", 403);
   }
+
+  const setupError = kraDbSetupError();
+  if (setupError) return setupError;
 
   const { searchParams } = request.nextUrl;
   const month = searchParams.get("month");
@@ -99,7 +107,7 @@ export async function GET(request: NextRequest) {
   if (year) where.year = parseInt(year, 10);
 
   try {
-    const reviews = await prisma.kraReview.findMany({
+    const reviews = await getKraReviewDelegate().findMany({
       where,
       include: reviewInclude,
       orderBy: [{ year: "desc" }, { month: "desc" }],
@@ -114,9 +122,8 @@ export async function GET(request: NextRequest) {
     );
   } catch (err) {
     console.error("KRA list error:", err);
-    const message = err instanceof Error ? err.message : "";
-    if (message.includes("KraReview") || message.includes("does not exist")) {
-      return apiSuccess([]);
+    if (isKraSetupFailure(err)) {
+      return kraDbSetupError() ?? apiSuccess([]);
     }
     return apiError("Failed to load KRA records", 500);
   }
@@ -129,6 +136,9 @@ export async function POST(request: NextRequest) {
   if (!canAccessKra(user.role)) {
     return apiError("Forbidden", 403);
   }
+
+  const setupError = kraDbSetupError();
+  if (setupError) return setupError;
 
   try {
     const body = await request.json();
@@ -152,7 +162,7 @@ export async function POST(request: NextRequest) {
       return apiError("Employee not found", 404);
     }
 
-    const existing = await prisma.kraReview.findUnique({
+    const existing = await getKraReviewDelegate().findUnique({
       where: {
         userId_month_year: { userId: targetUserId, month, year },
       },
@@ -165,7 +175,7 @@ export async function POST(request: NextRequest) {
       return apiSuccess(serializeReview(review));
     }
 
-    const review = await prisma.kraReview.create({
+    const review = await getKraReviewDelegate().create({
       data: {
         userId: targetUserId,
         managerId: employee.managerId,
@@ -195,15 +205,8 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("KRA create error:", err);
     const message = err instanceof Error ? err.message : "Failed to create KRA";
-    if (
-      message.includes("KraReview") ||
-      message.includes("does not exist") ||
-      message.includes("P2021")
-    ) {
-      return apiError(
-        "KRA is not set up yet. Run database migration: npm run db:migrate",
-        503
-      );
+    if (isKraSetupFailure(err)) {
+      return kraDbSetupError() ?? apiError(message, 503);
     }
     return apiError(message, 500);
   }
