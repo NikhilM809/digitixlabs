@@ -16,5 +16,11 @@ npx prisma generate
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host ""
-Write-Host "Schema synced. Restart the app:  npm run dev" -ForegroundColor Green
+Write-Host "Expected new tables after sync:" -ForegroundColor Yellow
+Write-Host "  - WorkScheduleEntry"
+Write-Host "  - KraReview"
+Write-Host "  - KraItem"
+Write-Host ""
+Write-Host "If db push fails, run SQL manually:" -ForegroundColor Yellow
+Write-Host "  psql -U hrms -d digitix_hrms -f scripts/add-kra-tables.sql"
 Write-Host ""
