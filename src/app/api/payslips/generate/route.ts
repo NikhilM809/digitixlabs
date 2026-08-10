@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
         employeeId: true,
         firstName: true,
         lastName: true,
+        pan: true,
         department: { select: { name: true } },
         designation: { select: { name: true } },
       },
@@ -68,8 +69,10 @@ export async function POST(req: NextRequest) {
     const pdfBuffer = generatePayslipPdfBuffer({
       companyName,
       companyEmail: settings?.companyEmail,
+      companyTan: settings?.companyTan,
       employeeId: employee.employeeId,
       employeeName: `${employee.firstName} ${employee.lastName}`,
+      employeePan: employee.pan,
       designation: employee.designation?.name ?? "-",
       department: employee.department?.name ?? "-",
       month,

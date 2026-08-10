@@ -90,7 +90,7 @@ export async function POST(
     if (updated.managerId) {
       await createNotification({
         userId: updated.managerId,
-        type: "KRA_SUBMITTED",
+        type: "GENERAL",
         title: "KRA Submitted for Review",
         message: `${review.user.firstName} ${review.user.lastName} submitted KRA for ${updated.month}/${updated.year}`,
         link: `/kra?id=${id}`,

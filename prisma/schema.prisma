@@ -57,8 +57,6 @@ enum NotificationType {
   BIRTHDAY
   WORK_ANNIVERSARY
   COMPANY_ANNOUNCEMENT
-  KRA_SUBMITTED
-  KRA_REVIEWED
   GENERAL
 }
 
@@ -96,6 +94,7 @@ model User {
   joiningDate        DateTime       @default(now())
   dateOfBirth        DateTime?
   emergencyContact   String?
+  pan                String?
   departmentId       String?
   designationId      String?
   managerId          String?
@@ -355,6 +354,7 @@ model CompanySettings {
   companyName     String   @default("Digitix Labs")
   companyLogo     String?
   companyEmail    String?
+  companyTan      String?
   leavePolicy     String?  @db.Text
   attendanceRules String?  @db.Text
   passwordPolicy  String?  @db.Text

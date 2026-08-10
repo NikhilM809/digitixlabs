@@ -112,7 +112,7 @@ export async function POST(
 
     await createNotification({
       userId: review.userId,
-      type: "KRA_REVIEWED",
+      type: "GENERAL",
       title: "KRA Review Completed",
       message: `Your manager completed the KRA review for ${updated.month}/${updated.year}`,
       link: `/kra?id=${id}`,

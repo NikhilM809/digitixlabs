@@ -2,10 +2,7 @@
 
 CREATE TYPE "KraStatus" AS ENUM ('DRAFT', 'EMPLOYEE_SUBMITTED', 'UNDER_MANAGER_REVIEW', 'MANAGER_REVIEWED', 'COMPLETED');
 
-ALTER TYPE "NotificationType" ADD VALUE IF NOT EXISTS 'KRA_SUBMITTED';
-ALTER TYPE "NotificationType" ADD VALUE IF NOT EXISTS 'KRA_REVIEWED';
-
-CREATE TABLE "WorkScheduleEntry" (
+CREATE TABLE IF NOT EXISTS "WorkScheduleEntry" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "effectiveFrom" DATE NOT NULL,
@@ -20,7 +17,7 @@ CREATE TABLE "WorkScheduleEntry" (
     CONSTRAINT "WorkScheduleEntry_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "KraReview" (
+CREATE TABLE IF NOT EXISTS "KraReview" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "managerId" TEXT,
@@ -35,7 +32,7 @@ CREATE TABLE "KraReview" (
     CONSTRAINT "KraReview_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "KraItem" (
+CREATE TABLE IF NOT EXISTS "KraItem" (
     "id" TEXT NOT NULL,
     "kraReviewId" TEXT NOT NULL,
     "goal" TEXT NOT NULL,

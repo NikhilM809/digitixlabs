@@ -62,6 +62,11 @@ export const employeeSchema = z.object({
   joiningDate: z.string(),
   dateOfBirth: z.string().optional(),
   emergencyContact: z.string().optional(),
+  pan: z
+    .string()
+    .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format (e.g. ABCDE1234F)")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const leaveApplicationSchema = z
@@ -245,6 +250,7 @@ export const announcementSchema = z.object({
 export const companySettingsSchema = z.object({
   companyName: z.string().min(2, "Company name is required"),
   companyEmail: z.string().email("Invalid email").optional().or(z.literal("")),
+  companyTan: z.string().optional().or(z.literal("")),
   companyLogo: z.string().optional(),
   leavePolicy: z.string().optional(),
   attendanceRules: z.string().optional(),

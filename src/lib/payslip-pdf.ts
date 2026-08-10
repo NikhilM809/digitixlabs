@@ -10,8 +10,10 @@ export interface PayslipLineItem {
 export interface PayslipPdfData {
   companyName: string;
   companyEmail?: string | null;
+  companyTan?: string | null;
   employeeId: string;
   employeeName: string;
+  employeePan?: string | null;
   designation: string;
   department: string;
   month: number;
@@ -42,7 +44,8 @@ function formatCurrency(amount: number) {
 }
 
 function formatCurrencyDisplay(amount: number) {
-  return `₹ ${formatCurrency(amount)}`;
+  // Use "Rs." — Helvetica in jsPDF cannot render ₹ (shows as superscript "1")
+  return `Rs. ${formatCurrency(amount)}`;
 }
 
 /** Build earnings/deduction rows using explicit string keys — avoids autoTable numeric-key "1" bug */
@@ -76,8 +79,13 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
     earnings.push({ label: "Bonus", amount: data.bonus });
   }
 
-  const deductionItems: PayslipLineItem[] =
-    data.deductions > 0 ? [{ label: "Deductions", amount: data.deductions }] : [];
+  const deductionItems: PayslipLineItem[] = [
+    { label: "Tax", amount: 0 },
+    { label: "PF", amount: 0 },
+  ];
+  if (data.deductions > 0) {
+    deductionItems.push({ label: "Other Deductions", amount: data.deductions });
+  }
 
   // Header band
   doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
@@ -104,7 +112,7 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
   doc.setTextColor(0, 0, 0);
   doc.setDrawColor(BORDER.r, BORDER.g, BORDER.b);
   doc.setLineWidth(0.3);
-  doc.roundedRect(margin, y, pageWidth - margin * 2, 34, 2, 2);
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 40, 2, 2);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -114,12 +122,14 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
 
   const leftCol = margin + 4;
   const rightCol = pageWidth / 2 + 4;
-  const rowH = 6;
+  const rowH = 5.5;
   const details: [string, string][] = [
     ["Employee Name", data.employeeName],
     ["Employee ID", data.employeeId],
     ["Designation", data.designation],
     ["Department", data.department],
+    ["PAN", data.employeePan?.trim() || "-"],
+    ["Company TAN", data.companyTan?.trim() || "-"],
   ];
   if (data.payableDays !== undefined && data.totalDaysInMonth !== undefined) {
     details.push(["Payable Days", `${data.payableDays} / ${data.totalDaysInMonth}`]);
@@ -144,7 +154,7 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
     doc.text(value, col + 28, y + 14 + row * rowH);
   });
 
-  y += 42;
+  y += 48;
 
   const tableColumns = [
     { header: "Particulars", dataKey: "particulars" },
@@ -189,7 +199,10 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
     body:
       deductionItems.length > 0
         ? toTableRows(deductionItems)
-        : [{ particulars: "No Deductions", amount: formatCurrencyDisplay(0) }],
+        : toTableRows([
+            { label: "Tax", amount: 0 },
+            { label: "PF", amount: 0 },
+          ]),
     headStyles: {
       fillColor: [BRAND.r, BRAND.g, BRAND.b],
       textColor: 255,

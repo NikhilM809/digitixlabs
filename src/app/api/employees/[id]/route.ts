@@ -81,6 +81,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         joiningDate: new Date(parsed.joiningDate),
         dateOfBirth: parsed.dateOfBirth ? new Date(parsed.dateOfBirth) : null,
         emergencyContact: parsed.emergencyContact,
+        pan: parsed.pan || null,
       },
       select: {
         id: true,
@@ -95,6 +96,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         joiningDate: true,
         dateOfBirth: true,
         emergencyContact: true,
+        pan: true,
         departmentId: true,
         designationId: true,
         managerId: true,

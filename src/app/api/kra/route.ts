@@ -98,19 +98,28 @@ export async function GET(request: NextRequest) {
   if (month) where.month = parseInt(month, 10);
   if (year) where.year = parseInt(year, 10);
 
-  const reviews = await prisma.kraReview.findMany({
-    where,
-    include: reviewInclude,
-    orderBy: [{ year: "desc" }, { month: "desc" }],
-  });
+  try {
+    const reviews = await prisma.kraReview.findMany({
+      where,
+      include: reviewInclude,
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+    });
 
-  return apiSuccess(
-    reviews.map((r) => ({
-      ...r,
-      avgEmployeeRating: averageRating(r.items, "employeeRating"),
-      avgManagerRating: averageRating(r.items, "managerRating"),
-    }))
-  );
+    return apiSuccess(
+      reviews.map((r) => ({
+        ...r,
+        avgEmployeeRating: averageRating(r.items, "employeeRating"),
+        avgManagerRating: averageRating(r.items, "managerRating"),
+      }))
+    );
+  } catch (err) {
+    console.error("KRA list error:", err);
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("KraReview") || message.includes("does not exist")) {
+      return apiSuccess([]);
+    }
+    return apiError("Failed to load KRA records", 500);
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -149,7 +158,11 @@ export async function POST(request: NextRequest) {
       },
     });
     if (existing) {
-      return apiSuccess(await fetchReview(existing.id));
+      const review = await fetchReview(existing.id);
+      if (!review) {
+        return apiError("KRA not found", 404);
+      }
+      return apiSuccess(serializeReview(review));
     }
 
     const review = await prisma.kraReview.create({
@@ -181,6 +194,17 @@ export async function POST(request: NextRequest) {
     return apiSuccess(serializeReview(review), 201);
   } catch (err) {
     console.error("KRA create error:", err);
-    return apiError("Failed to create KRA", 500);
+    const message = err instanceof Error ? err.message : "Failed to create KRA";
+    if (
+      message.includes("KraReview") ||
+      message.includes("does not exist") ||
+      message.includes("P2021")
+    ) {
+      return apiError(
+        "KRA is not set up yet. Run database migration: npm run db:migrate",
+        503
+      );
+    }
+    return apiError(message, 500);
   }
 }

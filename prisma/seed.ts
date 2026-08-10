@@ -20,6 +20,7 @@ async function main() {
       companyName: "Digitix Labs",
       companyLogo: "/digitix-logo.png",
       companyEmail: "info@digitixlabs.com",
+      companyTan: "DELD12345A",
       leavePolicy: "Employees are entitled to annual, casual, and sick leave as per company policy. Leave requests must be submitted at least 2 days in advance except for emergencies.",
       attendanceRules: "Standard work hours: 9:00 AM - 6:00 PM. Late arrival beyond 15 minutes is marked as late. Minimum 8 hours required for full day attendance.",
       passwordPolicy: "Passwords must be at least 8 characters with uppercase, lowercase, and numbers. Change every 90 days.",
