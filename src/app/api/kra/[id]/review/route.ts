@@ -10,7 +10,7 @@ import {
 } from "@/lib/api-utils";
 import { kraReviewSubmitSchema } from "@/lib/validations";
 import { canReviewKra, isAdminOrHr } from "@/lib/permissions";
-import { averageRating, isKraLockedForManager } from "@/lib/kra";
+import { weightedAverageRating, isKraLockedForManager } from "@/lib/kra";
 import {
   getKraItemDelegate,
   getKraReviewDelegate,
@@ -137,8 +137,8 @@ export async function POST(
 
     return apiSuccess({
       ...updated,
-      avgEmployeeRating: averageRating(updated.items, "employeeRating"),
-      avgManagerRating: averageRating(updated.items, "managerRating"),
+      avgEmployeeRating: weightedAverageRating(updated.items, "employeeRating"),
+      avgManagerRating: weightedAverageRating(updated.items, "managerRating"),
     });
   } catch (err) {
     console.error("KRA review error:", err);

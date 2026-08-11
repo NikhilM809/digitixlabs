@@ -95,6 +95,9 @@ model User {
   dateOfBirth        DateTime?
   emergencyContact   String?
   pan                String?
+  baseSalary         Float          @default(0)
+  incentive          Float          @default(0)
+  reimbursement      Float          @default(0)
   departmentId       String?
   designationId      String?
   managerId          String?
@@ -121,8 +124,13 @@ model User {
   accounts       Account[]
   sessions       Session[]
   workSchedules  WorkScheduleEntry[]
-  kraReviews     KraReview[]        @relation("EmployeeKra")
-  managedKras    KraReview[]        @relation("ManagerKra")
+  kraReviews       KraReview[]        @relation("EmployeeKra")
+  managedKras      KraReview[]        @relation("ManagerKra")
+  employeeKras     EmployeeKra[]      @relation("EmployeeKraAssignments")
+  kraConfigsCreated EmployeeKra[]     @relation("KraCreatedBy")
+  kraConfigsUpdated EmployeeKra[]     @relation("KraUpdatedBy")
+  kraConfig        EmployeeKraConfig?
+  kraConfigsFinalized EmployeeKraConfig[] @relation("KraFinalizedBy")
 
   @@index([departmentId])
   @@index([managerId])
@@ -273,9 +281,11 @@ model Payslip {
   userId     String
   month      Int
   year       Int
-  salary     Float
-  bonus      Float    @default(0)
-  deductions Float    @default(0)
+  salary         Float
+  bonus          Float    @default(0)
+  incentive      Float    @default(0)
+  reimbursement  Float    @default(0)
+  deductions     Float    @default(0)
   netSalary  Float
   fileUrl    String?
   uploadedBy String?
@@ -392,6 +402,34 @@ model WorkScheduleEntry {
   @@index([userId, effectiveFrom])
 }
 
+model EmployeeKra {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  measure     String
+  weight      Float
+  sortOrder   Int      @default(0)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation("EmployeeKraAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy   User?    @relation("KraCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?    @relation("KraUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model EmployeeKraConfig {
+  userId        String    @id
+  isFinalized   Boolean   @default(false)
+  finalizedAt   DateTime?
+  finalizedById String?
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finalizedBy   User?     @relation("KraFinalizedBy", fields: [finalizedById], references: [id], onDelete: SetNull)
+}
+
 model KraReview {
   id                  String    @id @default(cuid())
   userId              String
@@ -415,9 +453,10 @@ model KraReview {
 model KraItem {
   id               String    @id @default(cuid())
   kraReviewId      String
-  goal             String
+  name             String
+  measure          String?
+  weight           Float     @default(0)
   description      String?
-  target           String?
   achievement      String?
   employeeComments String?
   employeeRating   Float?

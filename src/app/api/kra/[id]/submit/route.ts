@@ -9,7 +9,7 @@ import {
 } from "@/lib/api-utils";
 import { kraUpdateSchema } from "@/lib/validations";
 import { canAccessKra } from "@/lib/permissions";
-import { averageRating } from "@/lib/kra";
+import { weightedAverageRating } from "@/lib/kra";
 import {
   getKraItemDelegate,
   getKraReviewDelegate,
@@ -72,24 +72,29 @@ export async function POST(
     }
 
     for (const item of parsed.data.items) {
+      const existing = review.items.find((i) => i.id === item.id);
+      if (!existing) {
+        return apiError("KRA item not found", 400);
+      }
       if (item.employeeRating === undefined || item.employeeRating === null) {
-        return apiError(`Self rating is required for "${item.goal}"`, 400);
+        return apiError(`Self rating is required for "${existing.name}"`, 400);
       }
     }
 
-    await getKraItemDelegate().deleteMany({ where: { kraReviewId: id } });
-    await getKraItemDelegate().createMany({
-      data: parsed.data.items.map((item, index) => ({
-        kraReviewId: id,
-        goal: item.goal,
-        description: item.description,
-        target: item.target,
-        achievement: item.achievement,
-        employeeComments: item.employeeComments,
-        employeeRating: item.employeeRating ?? null,
-        sortOrder: item.sortOrder ?? index,
-      })),
-    });
+    for (const item of parsed.data.items) {
+      const existing = review.items.find((i) => i.id === item.id);
+      if (!existing) {
+        return apiError("KRA item not found", 400);
+      }
+      await getKraItemDelegate().update({
+        where: { id: existing.id },
+        data: {
+          achievement: item.achievement,
+          employeeComments: item.employeeComments,
+          employeeRating: item.employeeRating ?? null,
+        },
+      });
+    }
 
     const updated = await getKraReviewDelegate().update({
       where: { id },
@@ -120,8 +125,8 @@ export async function POST(
 
     return apiSuccess({
       ...updated,
-      avgEmployeeRating: averageRating(updated.items, "employeeRating"),
-      avgManagerRating: averageRating(updated.items, "managerRating"),
+      avgEmployeeRating: weightedAverageRating(updated.items, "employeeRating"),
+      avgManagerRating: weightedAverageRating(updated.items, "managerRating"),
     });
   } catch (err) {
     console.error("KRA submit error:", err);

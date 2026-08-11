@@ -20,6 +20,8 @@ export interface PayslipPdfData {
   year: number;
   salary: number;
   bonus: number;
+  incentive: number;
+  reimbursement: number;
   deductions: number;
   netSalary: number;
   payableDays?: number;
@@ -70,7 +72,7 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
   const monthName = MONTHS[data.month - 1] ?? String(data.month);
-  const gross = data.salary + data.bonus;
+  const gross = data.salary + data.bonus + data.incentive + data.reimbursement;
 
   const earnings: PayslipLineItem[] = [
     { label: "Basic Salary", amount: data.salary },
@@ -78,6 +80,10 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
   if (data.bonus > 0) {
     earnings.push({ label: "Bonus", amount: data.bonus });
   }
+  earnings.push(
+    { label: "Incentive", amount: data.incentive },
+    { label: "Reimbursement", amount: data.reimbursement }
+  );
 
   const deductionItems: PayslipLineItem[] = [
     { label: "Tax", amount: 0 },

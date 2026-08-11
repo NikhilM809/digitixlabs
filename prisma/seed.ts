@@ -381,6 +381,11 @@ async function main() {
   // Sample Payslips
   for (const user of allUsers) {
     const salary = user.role === "ADMIN" ? 150000 : user.role === "MANAGER" ? 120000 : 80000;
+    const bonus = user.role === "EMPLOYEE" ? 5000 : 10000;
+    const incentive = user.role === "EMPLOYEE" ? 3000 : 5000;
+    const reimbursement = user.role === "EMPLOYEE" ? 2000 : 3000;
+    const deductions = salary * 0.1;
+    const netSalary = salary + bonus + incentive + reimbursement - deductions;
     await prisma.payslip.upsert({
       where: { userId_month_year: { userId: user.id, month: 7, year: 2026 } },
       update: {},
@@ -389,10 +394,45 @@ async function main() {
         month: 7,
         year: 2026,
         salary,
-        bonus: user.role === "EMPLOYEE" ? 5000 : 10000,
-        deductions: salary * 0.1,
-        netSalary: salary * 0.9 + (user.role === "EMPLOYEE" ? 5000 : 10000),
+        bonus,
+        incentive,
+        reimbursement,
+        deductions,
+        netSalary,
         uploadedBy: admin.id,
+      },
+    });
+  }
+
+  const priya = allUsers.find((u) => u.email === "priya.sharma@digitixlabs.com");
+  if (priya) {
+    const kraItems = [
+      { name: "Sales Target Achievement", measure: "Achieve 100% of assigned monthly sales quota", weight: 40 },
+      { name: "Customer Satisfaction", measure: "Maintain CSAT score of 4.5 or above", weight: 30 },
+      { name: "Process Compliance", measure: "Zero critical audit findings in assigned processes", weight: 30 },
+    ];
+    for (const [index, item] of kraItems.entries()) {
+      await prisma.employeeKra.upsert({
+        where: { id: `${priya.id}-kra-${index}` },
+        update: item,
+        create: {
+          id: `${priya.id}-kra-${index}`,
+          userId: priya.id,
+          ...item,
+          sortOrder: index,
+          createdById: admin.id,
+          updatedById: admin.id,
+        },
+      });
+    }
+    await prisma.employeeKraConfig.upsert({
+      where: { userId: priya.id },
+      update: { isFinalized: true, finalizedAt: new Date(), finalizedById: admin.id },
+      create: {
+        userId: priya.id,
+        isFinalized: true,
+        finalizedAt: new Date(),
+        finalizedById: admin.id,
       },
     });
   }

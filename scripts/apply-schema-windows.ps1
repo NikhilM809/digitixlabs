@@ -24,3 +24,5 @@ Write-Host ""
 Write-Host "If db push fails, run SQL manually:" -ForegroundColor Yellow
 Write-Host "  psql -U hrms -d digitix_hrms -f scripts/add-kra-tables.sql"
 Write-Host ""
+Write-Host "Schema synced. Restart the app:  npm run dev" -ForegroundColor Green
+Write-Host ""

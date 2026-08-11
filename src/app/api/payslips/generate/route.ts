@@ -11,6 +11,7 @@ import {
 } from "@/lib/api-utils";
 import { payslipGenerateSchema } from "@/lib/validations";
 import { canGeneratePayslip } from "@/lib/permissions";
+import { calculateNetSalary } from "@/lib/payslip-calc";
 import { generatePayslipPdfBuffer } from "@/lib/payslip-pdf";
 
 function daysInMonth(month: number, year: number) {
@@ -32,8 +33,15 @@ export async function POST(req: NextRequest) {
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    const { userId, month, year, salary, bonus, deductions } = parsed.data;
-    const netSalary = salary + bonus - deductions;
+    const { userId, month, year, salary, bonus, incentive, reimbursement, deductions } =
+      parsed.data;
+    const netSalary = calculateNetSalary({
+      salary,
+      bonus,
+      incentive,
+      reimbursement,
+      deductions,
+    });
 
     const employee = await prisma.user.findUnique({
       where: { id: userId },
@@ -79,6 +87,8 @@ export async function POST(req: NextRequest) {
       year,
       salary,
       bonus,
+      incentive,
+      reimbursement,
       deductions,
       netSalary,
       payableDays,
@@ -105,6 +115,8 @@ export async function POST(req: NextRequest) {
         year,
         salary,
         bonus,
+        incentive,
+        reimbursement,
         deductions,
         netSalary,
         fileUrl,
@@ -113,6 +125,8 @@ export async function POST(req: NextRequest) {
       update: {
         salary,
         bonus,
+        incentive,
+        reimbursement,
         deductions,
         netSalary,
         fileUrl,

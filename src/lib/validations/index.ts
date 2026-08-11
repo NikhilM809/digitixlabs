@@ -67,6 +67,9 @@ export const employeeSchema = z.object({
     .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format (e.g. ABCDE1234F)")
     .optional()
     .or(z.literal("")),
+  baseSalary: z.coerce.number().min(0).optional(),
+  incentive: z.coerce.number().min(0).optional(),
+  reimbursement: z.coerce.number().min(0).optional(),
 });
 
 export const leaveApplicationSchema = z
@@ -159,15 +162,35 @@ export const kraRatingSchema = z
 
 export const kraItemSchema = z.object({
   id: z.string().optional(),
-  goal: z.string().min(2, "KRA / Goal is required"),
+  name: z.string().min(2, "KRA Name is required"),
+  measure: z.string().min(1, "Measure is required"),
+  weight: z.number().positive("Weight must be greater than 0").max(100),
   description: z.string().optional(),
-  target: z.string().optional(),
   achievement: z.string().optional(),
   employeeComments: z.string().optional(),
   employeeRating: kraRatingSchema.optional().nullable(),
   managerRating: kraRatingSchema.optional().nullable(),
   managerComments: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
+});
+
+export const employeeKraSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  name: z.string().min(2, "KRA Name is required"),
+  measure: z.string().min(1, "Measure is required"),
+  weight: z.number().positive("Weight must be greater than 0").max(100),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const employeeKraUpdateSchema = z.object({
+  name: z.string().min(2, "KRA Name is required").optional(),
+  measure: z.string().min(1, "Measure is required").optional(),
+  weight: z.number().positive("Weight must be greater than 0").max(100).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const employeeKraFinalizeSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
 });
 
 export const kraCreateSchema = z.object({
@@ -177,7 +200,14 @@ export const kraCreateSchema = z.object({
 });
 
 export const kraUpdateSchema = z.object({
-  items: z.array(kraItemSchema).min(1, "At least one KRA item is required"),
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      achievement: z.string().optional(),
+      employeeComments: z.string().optional(),
+      employeeRating: kraRatingSchema.optional().nullable(),
+    })
+  ).min(1, "At least one KRA item is required"),
 });
 
 export const kraReviewSubmitSchema = z.object({
@@ -196,6 +226,8 @@ export const payslipGenerateSchema = z.object({
   year: z.number().int().min(2020),
   salary: z.number().min(0),
   bonus: z.number().min(0).default(0),
+  incentive: z.number().min(0).default(0),
+  reimbursement: z.number().min(0).default(0),
   deductions: z.number().min(0).default(0),
 });
 
@@ -238,6 +270,8 @@ export const payslipSchema = z.object({
   year: z.number().min(2020),
   salary: z.number().min(0),
   bonus: z.number().min(0).default(0),
+  incentive: z.number().min(0).default(0),
+  reimbursement: z.number().min(0).default(0),
   deductions: z.number().min(0).default(0),
   fileUrl: z.string().optional(),
 });
@@ -269,7 +303,8 @@ export type AdminLeaveApplicationInput = z.infer<typeof adminLeaveApplicationSch
 export type LeaveBalanceUpdateInput = z.infer<typeof leaveBalanceUpdateSchema>;
 export type WorkScheduleUpdateInput = z.infer<typeof workScheduleUpdateSchema>;
 export type WorkScheduleEntryInput = z.infer<typeof workScheduleEntrySchema>;
-export type KraItemInput = z.infer<typeof kraItemSchema>;
+export type EmployeeKraInput = z.infer<typeof employeeKraSchema>;
+export type EmployeeKraUpdateInput = z.infer<typeof employeeKraUpdateSchema>;
 export type KraCreateInput = z.infer<typeof kraCreateSchema>;
 export type KraUpdateInput = z.infer<typeof kraUpdateSchema>;
 export type PayslipGenerateInput = z.infer<typeof payslipGenerateSchema>;

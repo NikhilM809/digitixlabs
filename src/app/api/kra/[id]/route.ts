@@ -10,7 +10,7 @@ import {
 import { kraUpdateSchema } from "@/lib/validations";
 import {
   canEmployeeEditKra,
-  averageRating,
+  weightedAverageRating,
 } from "@/lib/kra";
 import { isAdminOrHr } from "@/lib/permissions";
 import { getKraItemDelegate, getKraReviewDelegate, kraDbSetupError } from "@/lib/kra-db";
@@ -82,8 +82,8 @@ export async function GET(
 
   return apiSuccess({
     ...review,
-    avgEmployeeRating: averageRating(review.items, "employeeRating"),
-    avgManagerRating: averageRating(review.items, "managerRating"),
+    avgEmployeeRating: weightedAverageRating(review.items, "employeeRating"),
+    avgManagerRating: weightedAverageRating(review.items, "managerRating"),
   });
 }
 
@@ -122,20 +122,23 @@ export async function PATCH(
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    await getKraItemDelegate().deleteMany({ where: { kraReviewId: id } });
-
-    await getKraItemDelegate().createMany({
-      data: parsed.data.items.map((item, index) => ({
-        kraReviewId: id,
-        goal: item.goal,
-        description: item.description,
-        target: item.target,
-        achievement: item.achievement,
-        employeeComments: item.employeeComments,
-        employeeRating: item.employeeRating ?? null,
-        sortOrder: item.sortOrder ?? index,
-      })),
-    });
+    for (const item of parsed.data.items) {
+      if (!item.id) {
+        return apiError("KRA item id is required", 400);
+      }
+      const existingItem = review.items.find((i) => i.id === item.id);
+      if (!existingItem) {
+        return apiError("KRA item not found", 400);
+      }
+      await getKraItemDelegate().update({
+        where: { id: existingItem.id },
+        data: {
+          achievement: item.achievement,
+          employeeComments: item.employeeComments,
+          employeeRating: item.employeeRating ?? null,
+        },
+      });
+    }
 
     const updated = await getKraReviewDelegate().findUnique({
       where: { id },
@@ -152,8 +155,8 @@ export async function PATCH(
 
     return apiSuccess({
       ...updated,
-      avgEmployeeRating: averageRating(updated!.items, "employeeRating"),
-      avgManagerRating: averageRating(updated!.items, "managerRating"),
+      avgEmployeeRating: weightedAverageRating(updated!.items, "employeeRating"),
+      avgManagerRating: weightedAverageRating(updated!.items, "managerRating"),
     });
   } catch (err) {
     console.error("KRA update error:", err);

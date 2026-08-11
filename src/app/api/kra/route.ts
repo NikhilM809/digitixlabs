@@ -9,7 +9,7 @@ import {
 } from "@/lib/api-utils";
 import { kraCreateSchema } from "@/lib/validations";
 import { canAccessKra, isAdminOrHr } from "@/lib/permissions";
-import { averageRating } from "@/lib/kra";
+import { weightedAverageRating } from "@/lib/kra";
 import {
   getKraReviewDelegate,
   isKraSetupFailure,
@@ -55,8 +55,8 @@ function serializeReview(review: Awaited<ReturnType<typeof fetchReview>>) {
   if (!review) return null;
   return {
     ...review,
-    avgEmployeeRating: averageRating(review.items, "employeeRating"),
-    avgManagerRating: averageRating(review.items, "managerRating"),
+    avgEmployeeRating: weightedAverageRating(review.items, "employeeRating"),
+    avgManagerRating: weightedAverageRating(review.items, "managerRating"),
   };
 }
 
@@ -116,8 +116,8 @@ export async function GET(request: NextRequest) {
     return apiSuccess(
       reviews.map((r) => ({
         ...r,
-        avgEmployeeRating: averageRating(r.items, "employeeRating"),
-        avgManagerRating: averageRating(r.items, "managerRating"),
+        avgEmployeeRating: weightedAverageRating(r.items, "employeeRating"),
+        avgManagerRating: weightedAverageRating(r.items, "managerRating"),
       }))
     );
   } catch (err) {
@@ -175,6 +175,18 @@ export async function POST(request: NextRequest) {
       return apiSuccess(serializeReview(review));
     }
 
+    const assignedKras = await prisma.employeeKra.findMany({
+      where: { userId: targetUserId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+
+    if (assignedKras.length === 0) {
+      return apiError(
+        "No KRAs assigned to this employee. Admin or Manager must configure KRAs first.",
+        400
+      );
+    }
+
     const review = await getKraReviewDelegate().create({
       data: {
         userId: targetUserId,
@@ -182,12 +194,12 @@ export async function POST(request: NextRequest) {
         month,
         year,
         items: {
-          create: [
-            {
-              goal: "Key Result Area 1",
-              sortOrder: 0,
-            },
-          ],
+          create: assignedKras.map((kra, index) => ({
+            name: kra.name,
+            measure: kra.measure,
+            weight: kra.weight,
+            sortOrder: index,
+          })),
         },
       },
       include: reviewInclude,

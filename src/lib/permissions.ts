@@ -89,6 +89,10 @@ export function canReopenKra(role: RoleName) {
   return role === "ADMIN" || role === "HR";
 }
 
+export function canConfigureKra(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER";
+}
+
 /** @deprecated Use canApproveLeave — kept for minimal diff in existing imports */
 export function isManager(role: RoleName) {
   return canApproveLeave(role);

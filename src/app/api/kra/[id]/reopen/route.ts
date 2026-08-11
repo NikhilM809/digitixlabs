@@ -6,7 +6,7 @@ import {
   createAuditLog,
 } from "@/lib/api-utils";
 import { canReopenKra } from "@/lib/permissions";
-import { averageRating } from "@/lib/kra";
+import { weightedAverageRating } from "@/lib/kra";
 import {
   getKraItemDelegate,
   getKraReviewDelegate,
@@ -82,8 +82,8 @@ export async function POST(
 
     return apiSuccess({
       ...refreshed,
-      avgEmployeeRating: averageRating(refreshed!.items, "employeeRating"),
-      avgManagerRating: averageRating(refreshed!.items, "managerRating"),
+      avgEmployeeRating: weightedAverageRating(refreshed!.items, "employeeRating"),
+      avgManagerRating: weightedAverageRating(refreshed!.items, "managerRating"),
     });
   } catch (err) {
     console.error("KRA reopen error:", err);
