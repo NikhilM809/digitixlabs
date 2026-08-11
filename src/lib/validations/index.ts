@@ -206,12 +206,14 @@ export const employeeKraUpdateSchema = z.object({
 
 export const employeeKraConfigSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
+  reviewCycle: z.enum(["MONTHLY", "QUARTERLY"]).optional(),
   periodLabel: z.string().optional().nullable(),
   remarks: z.string().optional().nullable(),
 });
 
 export const employeeKraFinalizeSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
+  reviewCycle: z.enum(["MONTHLY", "QUARTERLY"]).optional(),
   periodLabel: z.string().optional().nullable(),
   remarks: z.string().optional().nullable(),
 });

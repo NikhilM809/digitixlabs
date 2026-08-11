@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { canAccessKra, canConfigureKra, isAdminOrHr } from "@/lib/permissions";
 import { formatKraWeight } from "@/lib/employee-kra";
+import type { KraReviewCycle } from "@prisma/client";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KraEvaluationPanel } from "@/components/kra/kra-evaluation-panel";
@@ -73,6 +74,7 @@ interface KraConfigResponse {
     userId: string;
     isFinalized: boolean;
     finalizedAt?: string | null;
+    reviewCycle?: KraReviewCycle;
     periodLabel?: string | null;
     remarks?: string | null;
   };
@@ -106,6 +108,7 @@ export default function KraPage() {
   const [formQualitative, setFormQualitative] = useState(false);
   const [periodLabel, setPeriodLabel] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [reviewCycle, setReviewCycle] = useState<KraReviewCycle>("MONTHLY");
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-kra"],
@@ -145,6 +148,7 @@ export default function KraPage() {
     if (kraData?.config) {
       setPeriodLabel(kraData.config.periodLabel ?? "");
       setRemarks(kraData.config.remarks ?? "");
+      setReviewCycle(kraData.config.reviewCycle ?? "MONTHLY");
     }
   }, [kraData?.config]);
 
@@ -204,12 +208,27 @@ export default function KraPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const configMutation = useMutation({
+    mutationFn: (payload: {
+      reviewCycle?: KraReviewCycle;
+      periodLabel?: string | null;
+      remarks?: string | null;
+    }) =>
+      apiFetch("/api/employee-kra/config", {
+        method: "PATCH",
+        body: JSON.stringify({ userId: targetUserId, ...payload }),
+      }),
+    onSuccess: () => invalidate(),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const finalizeMutation = useMutation({
     mutationFn: () =>
       apiFetch("/api/employee-kra/finalize", {
         method: "POST",
         body: JSON.stringify({
           userId: targetUserId,
+          reviewCycle,
           periodLabel: periodLabel || null,
           remarks: remarks || null,
         }),
@@ -384,6 +403,13 @@ export default function KraPage() {
             ) : (
               <Badge variant="secondary">Draft</Badge>
             )}
+            {(kraData?.config.reviewCycle || reviewCycle) && (
+              <Badge variant="outline">
+                {(kraData?.config.reviewCycle ?? reviewCycle) === "QUARTERLY"
+                  ? "Quarterly"
+                  : "Monthly"}
+              </Badge>
+            )}
             {canEdit && (
               <Button size="sm" onClick={openAdd}>
                 <Plus className="h-4 w-4" />
@@ -394,13 +420,41 @@ export default function KraPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {canEdit && (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Review Cycle</Label>
+                <Select
+                  value={reviewCycle}
+                  onValueChange={(v) => {
+                    const cycle = v as KraReviewCycle;
+                    setReviewCycle(cycle);
+                    configMutation.mutate({ reviewCycle: cycle });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Due date is the last day of the review month
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="period-label">Review Period (optional)</Label>
                 <Input
                   id="period-label"
                   value={periodLabel}
                   onChange={(e) => setPeriodLabel(e.target.value)}
+                  onBlur={() =>
+                    configMutation.mutate({
+                      periodLabel: periodLabel || null,
+                      reviewCycle,
+                    })
+                  }
                   placeholder="e.g. Survey Programming and Operations (Quarterly - APR 2026)"
                 />
               </div>
@@ -410,6 +464,12 @@ export default function KraPage() {
                   id="kra-remarks"
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
+                  onBlur={() =>
+                    configMutation.mutate({
+                      remarks: remarks || null,
+                      reviewCycle,
+                    })
+                  }
                   placeholder="e.g. Overall 50% performance"
                 />
               </div>
@@ -654,6 +714,7 @@ export default function KraPage() {
         <TabsContent value="evaluation">
           <KraEvaluationPanel
             configFinalized={kraData?.config.isFinalized ?? false}
+            reviewCycle={kraData?.config.reviewCycle ?? reviewCycle}
             selectedEmployeeId={targetUserId}
             isConfigurator={isConfigurator && !isEmployeeOnly}
           />

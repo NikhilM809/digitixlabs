@@ -10,6 +10,7 @@ import {
 import { kraCreateSchema } from "@/lib/validations";
 import { canAccessKra, isAdminOrHr } from "@/lib/permissions";
 import { weightedAverageRating, serializeKraReviewScores } from "@/lib/kra";
+import { isValidKraPeriodMonth } from "@/lib/kra-period";
 import {
   getKraReviewDelegate,
   isKraSetupFailure,
@@ -179,6 +180,16 @@ export async function POST(request: NextRequest) {
     if (!kraConfig?.isFinalized) {
       return apiError(
         "KRA setup must be finalized by Admin/Manager before employee evaluation",
+        400
+      );
+    }
+
+    const reviewCycle = kraConfig.reviewCycle ?? "MONTHLY";
+    if (!isValidKraPeriodMonth(reviewCycle, month)) {
+      return apiError(
+        reviewCycle === "QUARTERLY"
+          ? "Quarterly reviews must use Q1 (Mar), Q2 (Jun), Q3 (Sep), or Q4 (Dec)"
+          : "Invalid review month",
         400
       );
     }

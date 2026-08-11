@@ -79,6 +79,11 @@ enum KraStatus {
   COMPLETED
 }
 
+enum KraReviewCycle {
+  MONTHLY
+  QUARTERLY
+}
+
 model User {
   id                 String         @id @default(cuid())
   employeeId         String         @unique
@@ -421,13 +426,14 @@ model EmployeeKra {
 }
 
 model EmployeeKraConfig {
-  userId        String    @id
-  isFinalized   Boolean   @default(false)
+  userId        String         @id
+  isFinalized   Boolean        @default(false)
   finalizedAt   DateTime?
   finalizedById String?
+  reviewCycle   KraReviewCycle @default(MONTHLY)
   periodLabel   String?
   remarks       String?
-  updatedAt     DateTime  @updatedAt
+  updatedAt     DateTime       @updatedAt
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   finalizedBy   User?     @relation("KraFinalizedBy", fields: [finalizedById], references: [id], onDelete: SetNull)
 }

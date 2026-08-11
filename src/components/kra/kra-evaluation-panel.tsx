@@ -44,8 +44,16 @@ import {
   isKraLockedForEmployee,
   isKraLockedForManager,
 } from "@/lib/kra";
+import {
+  formatKraDueDate,
+  formatKraReviewPeriod,
+  getDefaultEvaluationMonth,
+  getQuarterEndMonth,
+  getQuarterFromEndMonth,
+  QUARTER_LABELS,
+} from "@/lib/kra-period";
 import { formatKraWeight } from "@/lib/employee-kra";
-import type { KraStatus } from "@prisma/client";
+import type { KraReviewCycle, KraStatus } from "@prisma/client";
 
 interface KraReviewItem {
   id: string;
@@ -88,6 +96,11 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => ({
   label: formatKraPeriod(i + 1, new Date().getFullYear()).split(" ")[0],
 }));
 
+const QUARTERS = [1, 2, 3, 4].map((q) => ({
+  value: q,
+  label: QUARTER_LABELS[q],
+}));
+
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 3 }, (_, i) => currentYear - i);
 
@@ -95,12 +108,14 @@ type DraftPct = Record<string, string>;
 
 interface KraEvaluationPanelProps {
   configFinalized: boolean;
+  reviewCycle: KraReviewCycle;
   selectedEmployeeId?: string;
   isConfigurator: boolean;
 }
 
 export function KraEvaluationPanel({
   configFinalized,
+  reviewCycle,
   selectedEmployeeId,
   isConfigurator,
 }: KraEvaluationPanelProps) {
@@ -113,8 +128,22 @@ export function KraEvaluationPanel({
   const isEmployee = role === "EMPLOYEE";
   const targetUserId = isEmployee ? userId! : selectedEmployeeId;
 
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [month, setMonth] = useState(() => getDefaultEvaluationMonth(reviewCycle));
   const [year, setYear] = useState(currentYear);
+  const [quarter, setQuarter] = useState(() =>
+    getQuarterFromEndMonth(getDefaultEvaluationMonth(reviewCycle))
+  );
+  useEffect(() => {
+    const defaultMonth = getDefaultEvaluationMonth(reviewCycle);
+    setMonth(defaultMonth);
+    setQuarter(getQuarterFromEndMonth(defaultMonth));
+  }, [reviewCycle, targetUserId]);
+
+  const effectiveMonth =
+    reviewCycle === "QUARTERLY" ? getQuarterEndMonth(quarter) : month;
+
+  const dueDateLabel = formatKraDueDate(effectiveMonth, year);
+  const periodLabel = formatKraReviewPeriod(reviewCycle, effectiveMonth, year);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(
     searchParams.get("id")
   );
@@ -163,15 +192,17 @@ export function KraEvaluationPanel({
   }, [activeReview]);
 
   const periodReview = useMemo(
-    () => history.find((r) => r.month === month && r.year === year),
-    [history, month, year]
+    () => history.find((r) => r.month === effectiveMonth && r.year === year),
+    [history, effectiveMonth, year]
   );
 
   useEffect(() => {
     if (periodReview) {
       setActiveReviewId(periodReview.id);
+    } else {
+      setActiveReviewId(null);
     }
-  }, [periodReview?.id]);
+  }, [periodReview?.id, effectiveMonth, year]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["kra-reviews"] });
@@ -184,7 +215,7 @@ export function KraEvaluationPanel({
       apiFetch<KraReview>("/api/kra", {
         method: "POST",
         body: JSON.stringify({
-          month,
+          month: effectiveMonth,
           year,
           userId: isEmployee ? undefined : targetUserId,
         }),
@@ -339,21 +370,42 @@ export function KraEvaluationPanel({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3 items-end">
-            <div className="space-y-1">
-              <Label>Month</Label>
-              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m) => (
-                    <SelectItem key={m.value} value={String(m.value)}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {reviewCycle === "QUARTERLY" ? (
+              <div className="space-y-1">
+                <Label>Quarter</Label>
+                <Select
+                  value={String(quarter)}
+                  onValueChange={(v) => setQuarter(Number(v))}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {QUARTERS.map((q) => (
+                      <SelectItem key={q.value} value={String(q.value)}>
+                        {q.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Label>Month</Label>
+                <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m) => (
+                      <SelectItem key={m.value} value={String(m.value)}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
               <Label>Year</Label>
               <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
@@ -368,6 +420,11 @@ export function KraEvaluationPanel({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1 pb-0.5">
+              <Label className="text-muted-foreground">Due date</Label>
+              <p className="text-sm font-medium">{dueDateLabel}</p>
+              <p className="text-xs text-muted-foreground">{periodLabel}</p>
             </div>
             {!periodReview && configFinalized && (isEmployee || isConfigurator) && (
               <Button

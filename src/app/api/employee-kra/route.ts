@@ -40,6 +40,7 @@ async function buildKraResponse(userId: string) {
       isFinalized: false,
       finalizedAt: null,
       finalizedById: null,
+      reviewCycle: "MONTHLY" as const,
       periodLabel: null,
       remarks: null,
     },
