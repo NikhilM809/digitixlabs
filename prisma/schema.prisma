@@ -380,6 +380,8 @@ model CompanySettings {
   workStartTime   String   @default("09:00")
   workEndTime     String   @default("18:00")
   lateThreshold   Int      @default(15)
+  orgHierarchyVisibleToEmployees Boolean @default(true)
+  orgHierarchyVisibleToManagers  Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

@@ -317,6 +317,8 @@ export const companySettingsSchema = z.object({
   workStartTime: z.string().min(1),
   workEndTime: z.string().min(1),
   lateThreshold: z.number().min(0).max(120),
+  orgHierarchyVisibleToEmployees: z.boolean().optional(),
+  orgHierarchyVisibleToManagers: z.boolean().optional(),
 });
 
 export const assignManagerSchema = z.object({

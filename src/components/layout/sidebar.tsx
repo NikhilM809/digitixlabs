@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -24,9 +25,11 @@ import {
   Target,
   Network,
   UsersRound,
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/client-api";
 import type { RoleName } from "@prisma/client";
 
 interface NavItem {
@@ -34,6 +37,7 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   roles: RoleName[];
+  requiresOrgVisibility?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -43,9 +47,16 @@ const navItems: NavItem[] = [
   { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "KRA", href: "/kra", icon: Target, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  {
+    title: "Organization Structure",
+    href: "/organization",
+    icon: Network,
+    roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+    requiresOrgVisibility: true,
+  },
   { title: "Work Schedules", href: "/work-schedules", icon: Clock, roles: ["ADMIN"] },
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
-  { title: "Org Hierarchy", href: "/org-hierarchy", icon: Network, roles: ["ADMIN"] },
+  { title: "Manage Hierarchy", href: "/org-hierarchy", icon: Network, roles: ["ADMIN"] },
   { title: "My Team", href: "/my-team", icon: UsersRound, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Holiday Calendar", href: "/holidays", icon: PartyPopper, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
@@ -73,7 +84,17 @@ export function Sidebar({
   onLogout,
 }: SidebarProps) {
   const pathname = usePathname();
-  const filteredItems = navItems.filter((item) => item.roles.includes(role));
+
+  const { data: orgAccess } = useQuery({
+    queryKey: ["org-hierarchy-visibility"],
+    queryFn: () => apiFetch<{ canView: boolean }>("/api/org-hierarchy/visibility"),
+  });
+
+  const filteredItems = navItems.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    if (item.requiresOrgVisibility && orgAccess && !orgAccess.canView) return false;
+    return true;
+  });
 
   const sidebarContent = (
     <div className="flex h-full flex-col">

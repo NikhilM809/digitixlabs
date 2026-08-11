@@ -9,8 +9,14 @@ export interface OrgEmployee {
   role: string;
   status: UserStatus;
   managerId: string | null;
+  avatar: string | null;
   department: { name: string } | null;
   designation: { name: string } | null;
+}
+
+export interface OrgChartNode extends OrgTreeNode {
+  avatar: string | null;
+  managerName: string | null;
 }
 
 export interface OrgTreeNode extends OrgEmployee {
@@ -26,6 +32,7 @@ const employeeSelect = {
   role: true,
   status: true,
   managerId: true,
+  avatar: true,
   department: { select: { name: true } },
   designation: { select: { name: true } },
 } as const;
@@ -36,6 +43,42 @@ export async function fetchOrgEmployees(includeInactive = true) {
     select: employeeSelect,
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
+}
+
+export function enrichOrgChartTree(
+  nodes: OrgTreeNode[],
+  employees: OrgEmployee[]
+): OrgChartNode[] {
+  const byId = new Map(employees.map((e) => [e.id, e]));
+
+  function enrich(node: OrgTreeNode): OrgChartNode {
+    const manager = node.managerId ? byId.get(node.managerId) : null;
+    return {
+      ...node,
+      avatar: node.avatar ?? null,
+      managerName: manager
+        ? `${manager.firstName} ${manager.lastName}`
+        : null,
+      children: node.children.map(enrich),
+    };
+  }
+
+  return nodes.map(enrich);
+}
+
+/** Collect ancestor IDs from roots down to target user (for auto-expand). */
+export function findAncestorIds(
+  nodes: OrgTreeNode[],
+  targetUserId: string,
+  path: string[] = []
+): string[] | null {
+  for (const node of nodes) {
+    const nextPath = [...path, node.id];
+    if (node.id === targetUserId) return path;
+    const found = findAncestorIds(node.children, targetUserId, nextPath);
+    if (found) return found;
+  }
+  return null;
 }
 
 export function buildOrgTree(

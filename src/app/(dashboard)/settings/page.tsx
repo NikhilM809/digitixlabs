@@ -7,12 +7,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Settings, Loader2, ShieldAlert, Clock, Building } from "lucide-react";
+import { Settings, Loader2, ShieldAlert, Clock, Building, Network } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
@@ -57,6 +58,8 @@ export default function SettingsPage() {
       workStartTime: "09:00",
       workEndTime: "18:00",
       lateThreshold: 15,
+      orgHierarchyVisibleToEmployees: true,
+      orgHierarchyVisibleToManagers: true,
     },
   });
 
@@ -74,6 +77,10 @@ export default function SettingsPage() {
         workStartTime: settings.workStartTime,
         workEndTime: settings.workEndTime,
         lateThreshold: settings.lateThreshold,
+        orgHierarchyVisibleToEmployees:
+          settings.orgHierarchyVisibleToEmployees ?? true,
+        orgHierarchyVisibleToManagers:
+          settings.orgHierarchyVisibleToManagers ?? true,
       });
     }
   }, [settings, form]);
@@ -86,6 +93,7 @@ export default function SettingsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["org-hierarchy-visibility"] });
       toast.success("Settings saved successfully");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -284,6 +292,58 @@ export default function SettingsPage() {
                   rows={3}
                   placeholder="Password requirements for employees..."
                   {...form.register("passwordPolicy")}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card glass>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                Organization Hierarchy Visibility
+              </CardTitle>
+              <CardDescription>
+                Control who can view the organization structure chart
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="org-visible-employees" className="font-medium">
+                    Show to Employees
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Employees can access Organization Structure from the menu
+                  </p>
+                </div>
+                <Switch
+                  id="org-visible-employees"
+                  checked={form.watch("orgHierarchyVisibleToEmployees") ?? true}
+                  onCheckedChange={(checked) =>
+                    form.setValue("orgHierarchyVisibleToEmployees", checked, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="org-visible-managers" className="font-medium">
+                    Show to Managers
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Managers can access Organization Structure from the menu
+                  </p>
+                </div>
+                <Switch
+                  id="org-visible-managers"
+                  checked={form.watch("orgHierarchyVisibleToManagers") ?? true}
+                  onCheckedChange={(checked) =>
+                    form.setValue("orgHierarchyVisibleToManagers", checked, {
+                      shouldDirty: true,
+                    })
+                  }
                 />
               </div>
             </CardContent>
