@@ -381,6 +381,11 @@ async function main() {
   // Sample Payslips
   for (const user of allUsers) {
     const salary = user.role === "ADMIN" ? 150000 : user.role === "MANAGER" ? 120000 : 80000;
+    const bonus = user.role === "EMPLOYEE" ? 5000 : 10000;
+    const incentive = user.role === "EMPLOYEE" ? 3000 : 5000;
+    const reimbursement = user.role === "EMPLOYEE" ? 2000 : 3000;
+    const deductions = salary * 0.1;
+    const netSalary = salary + bonus + incentive + reimbursement - deductions;
     await prisma.payslip.upsert({
       where: { userId_month_year: { userId: user.id, month: 7, year: 2026 } },
       update: {},
@@ -389,10 +394,95 @@ async function main() {
         month: 7,
         year: 2026,
         salary,
-        bonus: user.role === "EMPLOYEE" ? 5000 : 10000,
-        deductions: salary * 0.1,
-        netSalary: salary * 0.9 + (user.role === "EMPLOYEE" ? 5000 : 10000),
+        bonus,
+        incentive,
+        reimbursement,
+        deductions,
+        netSalary,
         uploadedBy: admin.id,
+      },
+    });
+  }
+
+  const priya = allUsers.find((u) => u.email === "priya.sharma@digitixlabs.com");
+  if (priya) {
+    const kraItems = [
+      {
+        name: "Email confirmation",
+        measure:
+          "Emails confirmed on time (Max 10-15 minutes delay can be acceptable on non-urgent request)",
+        weight: 10,
+        sortOrder: 1,
+      },
+      {
+        name: "Delivery timeline meeting",
+        measure: "Meeting the timeline committed",
+        weight: 15,
+        sortOrder: 2,
+      },
+      {
+        name: "Internal Quality standards",
+        measure: "Meeting minimum 98% quality criteria for each project undertaken",
+        weight: 45,
+        sortOrder: 3,
+      },
+      {
+        name: "Live Issue / Escalation",
+        measure: "No live issue reported by client DP/PM",
+        weight: 20,
+        sortOrder: 4,
+      },
+      {
+        name: "Live Projects",
+        measure: "Minimum 25 projects per quarter",
+        weight: 10,
+        sortOrder: 5,
+      },
+      {
+        name: "Guiding Juniors and Problem solving internally",
+        measure:
+          "Guiding junior to meet client standard and internal Quality standards and Participate in internal problem solving",
+        weight: null,
+        sortOrder: 6,
+      },
+      {
+        name: "Problem solving",
+        measure: "Providing suggestions to client and resolve possible roadblocks if any.",
+        weight: null,
+        sortOrder: 7,
+      },
+    ];
+    for (const item of kraItems) {
+      await prisma.employeeKra.create({
+        data: {
+          userId: priya.id,
+          name: item.name,
+          measure: item.measure,
+          weight: item.weight,
+          sortOrder: item.sortOrder,
+          createdById: admin.id,
+          updatedById: admin.id,
+        },
+      });
+    }
+    await prisma.employeeKraConfig.upsert({
+      where: { userId: priya.id },
+      update: {
+        isFinalized: true,
+        finalizedAt: new Date(),
+        finalizedById: admin.id,
+        reviewCycle: "QUARTERLY",
+        periodLabel: "Survey Programming and Operations (Quarterly - APR 2026)",
+        remarks: "Overall 50% performance",
+      },
+      create: {
+        userId: priya.id,
+        isFinalized: true,
+        finalizedAt: new Date(),
+        finalizedById: admin.id,
+        reviewCycle: "QUARTERLY",
+        periodLabel: "Survey Programming and Operations (Quarterly - APR 2026)",
+        remarks: "Overall 50% performance",
       },
     });
   }

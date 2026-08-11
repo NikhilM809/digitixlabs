@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-utils";
 import { payslipSchema } from "@/lib/validations";
 import type { Prisma } from "@prisma/client";
+import { calculateNetSalary } from "@/lib/payslip-calc";
 import { canUploadPayslip, canViewAllSalaries } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = payslipSchema.parse(body);
-    const netSalary = parsed.salary + parsed.bonus - parsed.deductions;
+    const netSalary = calculateNetSalary(parsed);
 
     const payslip = await prisma.payslip.upsert({
       where: {
@@ -91,6 +92,8 @@ export async function POST(req: NextRequest) {
         year: parsed.year,
         salary: parsed.salary,
         bonus: parsed.bonus,
+        incentive: parsed.incentive,
+        reimbursement: parsed.reimbursement,
         deductions: parsed.deductions,
         netSalary,
         fileUrl: parsed.fileUrl || null,
@@ -99,6 +102,8 @@ export async function POST(req: NextRequest) {
       update: {
         salary: parsed.salary,
         bonus: parsed.bonus,
+        incentive: parsed.incentive,
+        reimbursement: parsed.reimbursement,
         deductions: parsed.deductions,
         netSalary,
         fileUrl: parsed.fileUrl || null,

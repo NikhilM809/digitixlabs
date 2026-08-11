@@ -10,7 +10,7 @@ import {
 } from "@/lib/api-utils";
 import { kraReviewSubmitSchema } from "@/lib/validations";
 import { canReviewKra, isAdminOrHr } from "@/lib/permissions";
-import { averageRating, isKraLockedForManager } from "@/lib/kra";
+import { serializeKraReviewScores, isKraLockedForManager } from "@/lib/kra";
 import {
   getKraItemDelegate,
   getKraReviewDelegate,
@@ -86,7 +86,7 @@ export async function POST(
   }
 
   if (!["EMPLOYEE_SUBMITTED", "UNDER_MANAGER_REVIEW", "MANAGER_REVIEWED"].includes(review.status)) {
-    return apiError("Employee must submit KRA before manager review", 400);
+    return apiError("Employee must submit evaluation before manager review", 400);
   }
 
   try {
@@ -99,12 +99,18 @@ export async function POST(
     for (const item of parsed.data.items) {
       const existing = review.items.find((i) => i.id === item.id);
       if (!existing) {
-        return apiError(`KRA item not found`, 400);
+        return apiError("KRA item not found", 400);
+      }
+      if (
+        existing.weight > 0 &&
+        (item.managerPercentage === undefined || item.managerPercentage === null)
+      ) {
+        return apiError(`Manager rating is required for "${existing.name}"`, 400);
       }
       await getKraItemDelegate().update({
         where: { id: existing.id },
         data: {
-          managerRating: item.managerRating,
+          managerPercentage: item.managerPercentage ?? null,
           managerComments: item.managerComments,
         },
       });
@@ -124,7 +130,7 @@ export async function POST(
       type: "GENERAL",
       title: "KRA Review Completed",
       message: `Your manager completed the KRA review for ${updated.month}/${updated.year}`,
-      link: `/kra?id=${id}`,
+      link: `/kra?tab=evaluation&id=${id}`,
     });
 
     await createAuditLog({
@@ -137,8 +143,7 @@ export async function POST(
 
     return apiSuccess({
       ...updated,
-      avgEmployeeRating: averageRating(updated.items, "employeeRating"),
-      avgManagerRating: averageRating(updated.items, "managerRating"),
+      ...serializeKraReviewScores(updated.items),
     });
   } catch (err) {
     console.error("KRA review error:", err);

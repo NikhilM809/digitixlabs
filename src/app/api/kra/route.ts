@@ -9,7 +9,8 @@ import {
 } from "@/lib/api-utils";
 import { kraCreateSchema } from "@/lib/validations";
 import { canAccessKra, isAdminOrHr } from "@/lib/permissions";
-import { averageRating } from "@/lib/kra";
+import { weightedAverageRating, serializeKraReviewScores } from "@/lib/kra";
+import { isValidKraPeriodMonth } from "@/lib/kra-period";
 import {
   getKraReviewDelegate,
   isKraSetupFailure,
@@ -55,8 +56,7 @@ function serializeReview(review: Awaited<ReturnType<typeof fetchReview>>) {
   if (!review) return null;
   return {
     ...review,
-    avgEmployeeRating: averageRating(review.items, "employeeRating"),
-    avgManagerRating: averageRating(review.items, "managerRating"),
+    ...serializeKraReviewScores(review.items),
   };
 }
 
@@ -116,8 +116,7 @@ export async function GET(request: NextRequest) {
     return apiSuccess(
       reviews.map((r) => ({
         ...r,
-        avgEmployeeRating: averageRating(r.items, "employeeRating"),
-        avgManagerRating: averageRating(r.items, "managerRating"),
+        ...serializeKraReviewScores(r.items),
       }))
     );
   } catch (err) {
@@ -175,6 +174,38 @@ export async function POST(request: NextRequest) {
       return apiSuccess(serializeReview(review));
     }
 
+    const kraConfig = await prisma.employeeKraConfig.findUnique({
+      where: { userId: targetUserId },
+    });
+    if (!kraConfig?.isFinalized) {
+      return apiError(
+        "KRA setup must be finalized by Admin/Manager before employee evaluation",
+        400
+      );
+    }
+
+    const reviewCycle = kraConfig.reviewCycle ?? "MONTHLY";
+    if (!isValidKraPeriodMonth(reviewCycle, month)) {
+      return apiError(
+        reviewCycle === "QUARTERLY"
+          ? "Quarterly reviews must use Q1 (Mar), Q2 (Jun), Q3 (Sep), or Q4 (Dec)"
+          : "Invalid review month",
+        400
+      );
+    }
+
+    const assignedKras = await prisma.employeeKra.findMany({
+      where: { userId: targetUserId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+
+    if (assignedKras.length === 0) {
+      return apiError(
+        "No KRAs assigned to this employee. Admin or Manager must configure KRAs first.",
+        400
+      );
+    }
+
     const review = await getKraReviewDelegate().create({
       data: {
         userId: targetUserId,
@@ -182,12 +213,12 @@ export async function POST(request: NextRequest) {
         month,
         year,
         items: {
-          create: [
-            {
-              goal: "Key Result Area 1",
-              sortOrder: 0,
-            },
-          ],
+          create: assignedKras.map((kra, index) => ({
+            name: kra.name,
+            measure: kra.measure,
+            weight: kra.weight ?? 0,
+            sortOrder: index,
+          })),
         },
       },
       include: reviewInclude,

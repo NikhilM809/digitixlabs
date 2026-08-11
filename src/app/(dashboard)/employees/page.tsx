@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import {
@@ -94,6 +94,9 @@ interface Employee {
   department: { id: string; name: string } | null;
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
+  baseSalary?: number;
+  incentive?: number;
+  reimbursement?: number;
 }
 
 interface Department {
@@ -126,6 +129,7 @@ export default function EmployeesPage() {
   const canCreateEmployee = session?.user?.role
     ? isAdminOrHr(session.user.role)
     : false;
+  const canEditSalary = canCreateEmployee;
   const canManage = session?.user?.role
     ? canManageEmployees(session.user.role)
     : false;
@@ -171,7 +175,7 @@ export default function EmployeesPage() {
   });
 
   const form = useForm<EmployeeInput>({
-    resolver: zodResolver(employeeSchema),
+    resolver: zodResolver(employeeSchema) as Resolver<EmployeeInput>,
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -180,6 +184,9 @@ export default function EmployeesPage() {
       role: "EMPLOYEE",
       employmentType: "FULL_TIME",
       joiningDate: format(new Date(), "yyyy-MM-dd"),
+      baseSalary: 0,
+      incentive: 0,
+      reimbursement: 0,
     },
   });
 
@@ -225,6 +232,9 @@ export default function EmployeesPage() {
       departmentId: undefined,
       designationId: undefined,
       managerId: undefined,
+      baseSalary: 0,
+      incentive: 0,
+      reimbursement: 0,
     });
     setDialogOpen(true);
   };
@@ -246,6 +256,9 @@ export default function EmployeesPage() {
         ? format(new Date(employee.dateOfBirth), "yyyy-MM-dd")
         : undefined,
       emergencyContact: employee.emergencyContact ?? "",
+      baseSalary: employee.baseSalary ?? 0,
+      incentive: employee.incentive ?? 0,
+      reimbursement: employee.reimbursement ?? 0,
     });
     setDialogOpen(true);
   };
@@ -781,6 +794,44 @@ export default function EmployeesPage() {
                 />
               </div>
             </div>
+
+            {canEditSalary && (
+              <div className="space-y-3 rounded-xl border border-border/50 p-4">
+                <p className="text-sm font-medium">Salary Components (defaults for payslip)</p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="baseSalary">Base Salary</Label>
+                    <Input
+                      id="baseSalary"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("baseSalary", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="incentive">Incentive</Label>
+                    <Input
+                      id="incentive"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("incentive", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reimbursement">Reimbursement</Label>
+                    <Input
+                      id="reimbursement"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("reimbursement", { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={closeDialog}>

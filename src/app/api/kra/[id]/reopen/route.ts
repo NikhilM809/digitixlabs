@@ -6,7 +6,7 @@ import {
   createAuditLog,
 } from "@/lib/api-utils";
 import { canReopenKra } from "@/lib/permissions";
-import { averageRating } from "@/lib/kra";
+import { serializeKraReviewScores } from "@/lib/kra";
 import {
   getKraItemDelegate,
   getKraReviewDelegate,
@@ -64,7 +64,11 @@ export async function POST(
 
     await getKraItemDelegate().updateMany({
       where: { kraReviewId: id },
-      data: { managerRating: null, managerComments: null },
+      data: {
+        managerRating: null,
+        managerComments: null,
+        managerPercentage: null,
+      },
     });
 
     const refreshed = await getKraReviewDelegate().findUnique({
@@ -82,8 +86,7 @@ export async function POST(
 
     return apiSuccess({
       ...refreshed,
-      avgEmployeeRating: averageRating(refreshed!.items, "employeeRating"),
-      avgManagerRating: averageRating(refreshed!.items, "managerRating"),
+      ...serializeKraReviewScores(refreshed!.items),
     });
   } catch (err) {
     console.error("KRA reopen error:", err);

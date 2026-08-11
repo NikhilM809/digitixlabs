@@ -51,6 +51,7 @@ import {
 } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { payslipSchema } from "@/lib/validations";
+import { calculateGrossEarnings, calculateNetSalary } from "@/lib/payslip-calc";
 
 interface Payslip {
   id: string;
@@ -59,6 +60,8 @@ interface Payslip {
   year: number;
   salary: number;
   bonus: number;
+  incentive: number;
+  reimbursement: number;
   deductions: number;
   netSalary: number;
   fileUrl: string | null;
@@ -79,6 +82,9 @@ interface Employee {
   employeeId: string;
   firstName: string;
   lastName: string;
+  baseSalary?: number;
+  incentive?: number;
+  reimbursement?: number;
 }
 
 type PayslipFormValues = {
@@ -87,6 +93,8 @@ type PayslipFormValues = {
   year: number;
   salary: number;
   bonus: number;
+  incentive: number;
+  reimbursement: number;
   deductions: number;
   fileUrl?: string;
 };
@@ -129,6 +137,8 @@ function downloadPayslipPdf(payslip: Payslip) {
       year: payslip.year,
       salary: payslip.salary,
       bonus: payslip.bonus,
+      incentive: payslip.incentive ?? 0,
+      reimbursement: payslip.reimbursement ?? 0,
       deductions: payslip.deductions,
       netSalary: payslip.netSalary,
       generatedAt: new Date(payslip.createdAt),
@@ -177,6 +187,8 @@ export default function PayslipsPage() {
       year: currentYear,
       salary: 0,
       bonus: 0,
+      incentive: 0,
+      reimbursement: 0,
       deductions: 0,
       fileUrl: "",
     },
@@ -205,6 +217,8 @@ export default function PayslipsPage() {
       year: currentYear,
       salary: 0,
       bonus: 0,
+      incentive: 0,
+      reimbursement: 0,
       deductions: 0,
     },
   });
@@ -234,6 +248,20 @@ export default function PayslipsPage() {
       p.user.email.toLowerCase().includes(term)
     );
   });
+
+  function prefillFromEmployee(
+    employeeId: string,
+    setValues: (values: Partial<PayslipFormValues>) => void
+  ) {
+    const emp = employees.find((e) => e.id === employeeId);
+    if (!emp) return;
+    setValues({
+      userId: emp.id,
+      salary: emp.baseSalary ?? 0,
+      incentive: emp.incentive ?? 0,
+      reimbursement: emp.reimbursement ?? 0,
+    });
+  }
 
   const handleDownload = (payslip: Payslip) => {
     if (payslip.fileUrl) {
@@ -442,7 +470,14 @@ export default function PayslipsPage() {
               <Label>Employee</Label>
               <Select
                 value={form.watch("userId")}
-                onValueChange={(v) => form.setValue("userId", v)}
+                onValueChange={(v) => {
+                  form.setValue("userId", v);
+                  prefillFromEmployee(v, (values) => {
+                    Object.entries(values).forEach(([key, val]) => {
+                      form.setValue(key as keyof PayslipFormValues, val as never);
+                    });
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select employee" />
@@ -501,9 +536,9 @@ export default function PayslipsPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 grid-cols-3">
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="salary">Salary</Label>
+                <Label htmlFor="salary">Basic Salary</Label>
                 <Input
                   id="salary"
                   type="number"
@@ -518,6 +553,24 @@ export default function PayslipsPage() {
                   type="number"
                   min={0}
                   {...form.register("bonus", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="incentive">Incentive</Label>
+                <Input
+                  id="incentive"
+                  type="number"
+                  min={0}
+                  {...form.register("incentive", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reimbursement">Reimbursement</Label>
+                <Input
+                  id="reimbursement"
+                  type="number"
+                  min={0}
+                  {...form.register("reimbursement", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
@@ -540,15 +593,34 @@ export default function PayslipsPage() {
               />
             </div>
 
-            <div className="rounded-xl bg-muted/50 p-3 text-sm">
-              <span className="text-muted-foreground">Net Salary: </span>
-              <span className="font-semibold">
-                {formatCurrency(
-                  (form.watch("salary") || 0) +
-                    (form.watch("bonus") || 0) -
-                    (form.watch("deductions") || 0)
-                )}
-              </span>
+            <div className="rounded-xl bg-muted/50 p-3 text-sm space-y-1">
+              <div>
+                <span className="text-muted-foreground">Gross Earnings: </span>
+                <span className="font-semibold">
+                  {formatCurrency(
+                    calculateGrossEarnings({
+                      salary: form.watch("salary") || 0,
+                      bonus: form.watch("bonus") || 0,
+                      incentive: form.watch("incentive") || 0,
+                      reimbursement: form.watch("reimbursement") || 0,
+                    })
+                  )}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Net Salary: </span>
+                <span className="font-semibold">
+                  {formatCurrency(
+                    calculateNetSalary({
+                      salary: form.watch("salary") || 0,
+                      bonus: form.watch("bonus") || 0,
+                      incentive: form.watch("incentive") || 0,
+                      reimbursement: form.watch("reimbursement") || 0,
+                      deductions: form.watch("deductions") || 0,
+                    })
+                  )}
+                </span>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -590,7 +662,14 @@ export default function PayslipsPage() {
               <Label>Employee</Label>
               <Select
                 value={generateForm.watch("userId")}
-                onValueChange={(v) => generateForm.setValue("userId", v)}
+                onValueChange={(v) => {
+                  generateForm.setValue("userId", v);
+                  prefillFromEmployee(v, (values) => {
+                    Object.entries(values).forEach(([key, val]) => {
+                      generateForm.setValue(key as keyof PayslipFormValues, val as never);
+                    });
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select employee" />
@@ -644,9 +723,9 @@ export default function PayslipsPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 grid-cols-3">
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="gen-salary">Salary</Label>
+                <Label htmlFor="gen-salary">Basic Salary</Label>
                 <Input
                   id="gen-salary"
                   type="number"
@@ -664,6 +743,24 @@ export default function PayslipsPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="gen-incentive">Incentive</Label>
+                <Input
+                  id="gen-incentive"
+                  type="number"
+                  min={0}
+                  {...generateForm.register("incentive", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gen-reimbursement">Reimbursement</Label>
+                <Input
+                  id="gen-reimbursement"
+                  type="number"
+                  min={0}
+                  {...generateForm.register("reimbursement", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="gen-deductions">Deductions</Label>
                 <Input
                   id="gen-deductions"
@@ -674,15 +771,34 @@ export default function PayslipsPage() {
               </div>
             </div>
 
-            <div className="rounded-xl bg-muted/50 p-3 text-sm">
-              <span className="text-muted-foreground">Net Salary: </span>
-              <span className="font-semibold">
-                {formatCurrency(
-                  (generateForm.watch("salary") || 0) +
-                    (generateForm.watch("bonus") || 0) -
-                    (generateForm.watch("deductions") || 0)
-                )}
-              </span>
+            <div className="rounded-xl bg-muted/50 p-3 text-sm space-y-1">
+              <div>
+                <span className="text-muted-foreground">Gross Earnings: </span>
+                <span className="font-semibold">
+                  {formatCurrency(
+                    calculateGrossEarnings({
+                      salary: generateForm.watch("salary") || 0,
+                      bonus: generateForm.watch("bonus") || 0,
+                      incentive: generateForm.watch("incentive") || 0,
+                      reimbursement: generateForm.watch("reimbursement") || 0,
+                    })
+                  )}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Net Salary: </span>
+                <span className="font-semibold">
+                  {formatCurrency(
+                    calculateNetSalary({
+                      salary: generateForm.watch("salary") || 0,
+                      bonus: generateForm.watch("bonus") || 0,
+                      incentive: generateForm.watch("incentive") || 0,
+                      reimbursement: generateForm.watch("reimbursement") || 0,
+                      deductions: generateForm.watch("deductions") || 0,
+                    })
+                  )}
+                </span>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">

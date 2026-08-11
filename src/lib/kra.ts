@@ -25,6 +25,51 @@ export function averageRating(items: KraItem[], field: "employeeRating" | "manag
   return Math.round(avg * 10) / 10;
 }
 
+export function weightedAverageRating(
+  items: KraItem[],
+  field: "employeeRating" | "managerRating"
+) {
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const item of items) {
+    const rating = item[field];
+    if (rating === null || rating === undefined) continue;
+    const weight = item.weight > 0 ? item.weight : 0;
+    if (weight <= 0) continue;
+    weightedSum += rating * weight;
+    totalWeight += weight;
+  }
+  if (totalWeight === 0) return null;
+  return Math.round((weightedSum / totalWeight) * 10) / 10;
+}
+
+export function weightedAveragePercentage(
+  items: KraItem[],
+  field: "employeePercentage" | "managerPercentage"
+) {
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const item of items) {
+    const pct = item[field];
+    if (pct === null || pct === undefined) continue;
+    const weight = item.weight > 0 ? item.weight : 0;
+    if (weight <= 0) continue;
+    weightedSum += pct * weight;
+    totalWeight += weight;
+  }
+  if (totalWeight === 0) return null;
+  return Math.round((weightedSum / totalWeight) * 10) / 10;
+}
+
+export function serializeKraReviewScores(items: KraItem[]) {
+  return {
+    avgEmployeeRating: weightedAverageRating(items, "employeeRating"),
+    avgManagerRating: weightedAverageRating(items, "managerRating"),
+    avgEmployeePercentage: weightedAveragePercentage(items, "employeePercentage"),
+    avgManagerPercentage: weightedAveragePercentage(items, "managerPercentage"),
+  };
+}
+
 export function canEmployeeEditKra(review: Pick<KraReview, "status">) {
   return review.status === "DRAFT";
 }
