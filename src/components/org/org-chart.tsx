@@ -242,15 +242,14 @@ export function OrgChart({
       <div className="overflow-x-auto pb-6">
         <ul className="org-chart-root flex flex-wrap justify-center gap-10 min-w-max px-4">
           {tree.map((root) => (
-            <li key={root.id} data-org-self={root.id === currentUserId ? "true" : undefined}>
-              <OrgChartNode
-                node={root}
-                currentUserId={currentUserId}
-                expandedIds={expandedIds}
-                onToggle={onToggle}
-                depth={0}
-              />
-            </li>
+            <OrgChartNode
+              key={root.id}
+              node={root}
+              currentUserId={currentUserId}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              depth={0}
+            />
           ))}
         </ul>
       </div>
