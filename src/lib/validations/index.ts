@@ -319,6 +319,12 @@ export const companySettingsSchema = z.object({
   lateThreshold: z.number().min(0).max(120),
 });
 
+export const assignManagerSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  managerId: z.string().nullable().optional(),
+  effectiveFrom: z.string().optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type EmployeeInput = z.infer<typeof employeeSchema>;

@@ -22,6 +22,8 @@ import {
   X,
   Clock,
   Target,
+  Network,
+  UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,8 @@ const navItems: NavItem[] = [
   { title: "KRA", href: "/kra", icon: Target, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Work Schedules", href: "/work-schedules", icon: Clock, roles: ["ADMIN"] },
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
+  { title: "Org Hierarchy", href: "/org-hierarchy", icon: Network, roles: ["ADMIN"] },
+  { title: "My Team", href: "/my-team", icon: UsersRound, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Holiday Calendar", href: "/holidays", icon: PartyPopper, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { title: "Notifications", href: "/notifications", icon: Bell, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
@@ -95,20 +99,26 @@ export function Sidebar({
           const Icon = item.icon;
 
           return (
-            <Link key={item.href} href={item.href} onClick={onCloseMobile}>
-              <motion.div
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                isActive
+                  ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-500/25"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                collapsed && "justify-center px-2"
+              )}
+            >
+              <motion.span
                 whileHover={{ x: 4 }}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-500/25"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  collapsed && "justify-center px-2"
-                )}
+                className="flex items-center gap-3 min-w-0"
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 {!collapsed && <span>{item.title}</span>}
-              </motion.div>
+              </motion.span>
             </Link>
           );
         })}
@@ -117,7 +127,10 @@ export function Sidebar({
       <div className="p-3 border-t border-border/50 space-y-1">
         <Button
           variant="ghost"
-          className={cn("w-full justify-start gap-3 text-muted-foreground hover:text-destructive", collapsed && "justify-center px-2")}
+          className={cn(
+            "w-full justify-start gap-3 text-muted-foreground hover:text-destructive focus-visible:ring-offset-card",
+            collapsed && "justify-center px-2"
+          )}
           onClick={onLogout}
         >
           <LogOut className="h-5 w-5" />

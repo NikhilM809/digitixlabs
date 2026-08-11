@@ -61,6 +61,14 @@ export function canAccessDepartments(role: RoleName) {
   return role === "ADMIN";
 }
 
+export function canManageOrgHierarchy(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canViewTeam(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER";
+}
+
 export function canAccessReports(role: RoleName) {
   return role === "ADMIN" || role === "MANAGER";
 }

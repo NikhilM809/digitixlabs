@@ -136,6 +136,9 @@ model User {
   kraConfigsUpdated EmployeeKra[]     @relation("KraUpdatedBy")
   kraConfig        EmployeeKraConfig?
   kraConfigsFinalized EmployeeKraConfig[] @relation("KraFinalizedBy")
+  reportingHistory ReportingHistory[] @relation("ReportingHistoryUser")
+  managedReportingHistory ReportingHistory[] @relation("ReportingHistoryManager")
+  reportingChangesMade ReportingHistory[] @relation("ReportingHistoryChangedBy")
 
   @@index([departmentId])
   @@index([managerId])
@@ -478,6 +481,23 @@ model KraItem {
   kraReview        KraReview @relation(fields: [kraReviewId], references: [id], onDelete: Cascade)
 
   @@index([kraReviewId])
+}
+
+model ReportingHistory {
+  id            String    @id @default(cuid())
+  userId        String
+  managerId     String?
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  changedById   String?
+  createdAt     DateTime  @default(now())
+
+  user      User  @relation("ReportingHistoryUser", fields: [userId], references: [id], onDelete: Cascade)
+  manager   User? @relation("ReportingHistoryManager", fields: [managerId], references: [id], onDelete: SetNull)
+  changedBy User? @relation("ReportingHistoryChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, effectiveFrom])
+  @@index([managerId])
 }
 
 model Permission {

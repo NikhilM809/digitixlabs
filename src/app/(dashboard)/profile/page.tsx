@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  UsersRound,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -76,6 +77,28 @@ export default function ProfilePage() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile"],
     queryFn: () => fetchApi<ProfileData>("/api/profile"),
+  });
+
+  const { data: reporting } = useQuery({
+    queryKey: ["my-reporting"],
+    queryFn: () =>
+      fetchApi<{
+        manager: ProfileData["manager"];
+        directReports: Array<{
+          id: string;
+          employeeId: string;
+          firstName: string;
+          lastName: string;
+          designation: { name: string } | null;
+        }>;
+        history: Array<{
+          id: string;
+          effectiveFrom: string;
+          effectiveTo: string | null;
+          manager: { firstName: string; lastName: string } | null;
+        }>;
+      }>("/api/org-hierarchy/reporting"),
+    enabled: !!session,
   });
 
   const {
@@ -216,6 +239,10 @@ export default function ProfilePage() {
             <Lock className="h-4 w-4" />
             Change Password
           </TabsTrigger>
+          <TabsTrigger value="reporting" className="gap-2">
+            <UsersRound className="h-4 w-4" />
+            Reporting
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="edit">
@@ -292,6 +319,81 @@ export default function ProfilePage() {
                   )}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reporting">
+          <Card glass>
+            <CardHeader>
+              <CardTitle>My Reporting</CardTitle>
+              <CardDescription>
+                Your manager and direct team from the organization hierarchy
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
+                <p className="text-sm text-muted-foreground mb-1">My Manager</p>
+                {reporting?.manager ? (
+                  <>
+                    <p className="font-medium">
+                      {reporting.manager.firstName} {reporting.manager.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {reporting.manager.email}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">No manager assigned</p>
+                )}
+              </div>
+
+              {(reporting?.directReports?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">My Direct Team</p>
+                  <ul className="space-y-2">
+                    {reporting!.directReports.map((member) => (
+                      <li
+                        key={member.id}
+                        className="flex justify-between rounded-lg border border-border/50 px-3 py-2 text-sm"
+                      >
+                        <span>
+                          {member.firstName} {member.lastName}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {member.designation?.name ?? member.employeeId}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(reporting?.history?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Reporting History</p>
+                  <div className="space-y-2">
+                    {reporting!.history.map((h) => (
+                      <div
+                        key={h.id}
+                        className="rounded-lg border border-border/50 px-3 py-2 text-sm"
+                      >
+                        <p>
+                          {formatDate(h.effectiveFrom)}
+                          {" — "}
+                          {h.effectiveTo ? formatDate(h.effectiveTo) : "Present"}
+                        </p>
+                        <p className="text-muted-foreground">
+                          Manager:{" "}
+                          {h.manager
+                            ? `${h.manager.firstName} ${h.manager.lastName}`
+                            : "None"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
