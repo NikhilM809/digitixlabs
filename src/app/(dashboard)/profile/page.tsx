@@ -26,15 +26,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
 import { fetchApi } from "@/lib/api-client";
 import {
   profileSchema,
   changePasswordSchema,
   type ProfileInput,
 } from "@/lib/validations";
-import { formatDate, getInitials } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { z } from "zod";
 
 interface ProfileData {
@@ -186,12 +186,17 @@ export default function ProfilePage() {
         <Card glass>
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={profile.avatar ?? session?.user?.avatar ?? undefined} />
-                <AvatarFallback className="text-xl">
-                  {getInitials(profile.firstName, profile.lastName)}
-                </AvatarFallback>
-              </Avatar>
+              <ProfileAvatarUpload
+                avatarUrl={profile.avatar ?? session?.user?.avatar}
+                firstName={profile.firstName}
+                lastName={profile.lastName}
+                uploadUrl="/api/profile/avatar"
+                onUploaded={async (avatarUrl) => {
+                  await update({ avatar: avatarUrl });
+                  queryClient.invalidateQueries({ queryKey: ["profile"] });
+                  queryClient.invalidateQueries({ queryKey: ["org-chart"] });
+                }}
+              />
               <div className="flex-1 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl font-bold">

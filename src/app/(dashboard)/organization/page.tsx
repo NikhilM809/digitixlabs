@@ -141,7 +141,7 @@ export default function OrganizationPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Organization Chart</CardTitle>
           <CardDescription>
-            Expand or collapse levels to explore reporting relationships
+            Search or zoom to explore reporting relationships
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -157,7 +157,6 @@ export default function OrganizationPage() {
             <OrgChart
               tree={data.tree}
               currentUserId={data.currentUserId}
-              expandPath={data.expandPath}
               searchQuery={search}
               onSearch={setSearch}
             />

@@ -64,6 +64,7 @@ import { canManageEmployees, isAdminOrHr } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { employeeSchema, type EmployeeInput } from "@/lib/validations";
 import { cn } from "@/lib/utils";
+import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
 
 const EMPTY_EMPLOYEES: Employee[] = [];
 
@@ -82,6 +83,7 @@ interface Employee {
   firstName: string;
   lastName: string;
   phone: string | null;
+  avatar?: string | null;
   role: RoleName;
   employmentType: EmploymentType;
   status: UserStatus;
@@ -642,6 +644,22 @@ export default function EmployeesPage() {
             onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))}
             className="space-y-4"
           >
+            {editingEmployee && session?.user?.role && isAdminOrHr(session.user.role) && (
+              <ProfileAvatarUpload
+                avatarUrl={editingEmployee.avatar}
+                firstName={editingEmployee.firstName}
+                lastName={editingEmployee.lastName}
+                uploadUrl={`/api/employees/${editingEmployee.id}/avatar`}
+                size="md"
+                onUploaded={(avatarUrl) => {
+                  setEditingEmployee((prev) =>
+                    prev ? { ...prev, avatar: avatarUrl } : null
+                  );
+                  queryClient.invalidateQueries({ queryKey: ["employees"] });
+                }}
+              />
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
