@@ -407,19 +407,59 @@ async function main() {
   const priya = allUsers.find((u) => u.email === "priya.sharma@digitixlabs.com");
   if (priya) {
     const kraItems = [
-      { name: "Sales Target Achievement", measure: "Achieve 100% of assigned monthly sales quota", weight: 40 },
-      { name: "Customer Satisfaction", measure: "Maintain CSAT score of 4.5 or above", weight: 30 },
-      { name: "Process Compliance", measure: "Zero critical audit findings in assigned processes", weight: 30 },
+      {
+        name: "Email confirmation",
+        measure:
+          "Emails confirmed on time (Max 10-15 minutes delay can be acceptable on non-urgent request)",
+        weight: 10,
+        sortOrder: 1,
+      },
+      {
+        name: "Delivery timeline meeting",
+        measure: "Meeting the timeline committed",
+        weight: 15,
+        sortOrder: 2,
+      },
+      {
+        name: "Internal Quality standards",
+        measure: "Meeting minimum 98% quality criteria for each project undertaken",
+        weight: 45,
+        sortOrder: 3,
+      },
+      {
+        name: "Live Issue / Escalation",
+        measure: "No live issue reported by client DP/PM",
+        weight: 20,
+        sortOrder: 4,
+      },
+      {
+        name: "Live Projects",
+        measure: "Minimum 25 projects per quarter",
+        weight: 10,
+        sortOrder: 5,
+      },
+      {
+        name: "Guiding Juniors and Problem solving internally",
+        measure:
+          "Guiding junior to meet client standard and internal Quality standards and Participate in internal problem solving",
+        weight: null,
+        sortOrder: 6,
+      },
+      {
+        name: "Problem solving",
+        measure: "Providing suggestions to client and resolve possible roadblocks if any.",
+        weight: null,
+        sortOrder: 7,
+      },
     ];
-    for (const [index, item] of kraItems.entries()) {
-      await prisma.employeeKra.upsert({
-        where: { id: `${priya.id}-kra-${index}` },
-        update: item,
-        create: {
-          id: `${priya.id}-kra-${index}`,
+    for (const item of kraItems) {
+      await prisma.employeeKra.create({
+        data: {
           userId: priya.id,
-          ...item,
-          sortOrder: index,
+          name: item.name,
+          measure: item.measure,
+          weight: item.weight,
+          sortOrder: item.sortOrder,
           createdById: admin.id,
           updatedById: admin.id,
         },
@@ -427,12 +467,20 @@ async function main() {
     }
     await prisma.employeeKraConfig.upsert({
       where: { userId: priya.id },
-      update: { isFinalized: true, finalizedAt: new Date(), finalizedById: admin.id },
+      update: {
+        isFinalized: true,
+        finalizedAt: new Date(),
+        finalizedById: admin.id,
+        periodLabel: "Survey Programming and Operations (Quarterly - APR 2026)",
+        remarks: "Overall 50% performance",
+      },
       create: {
         userId: priya.id,
         isFinalized: true,
         finalizedAt: new Date(),
         finalizedById: admin.id,
+        periodLabel: "Survey Programming and Operations (Quarterly - APR 2026)",
+        remarks: "Overall 50% performance",
       },
     });
   }

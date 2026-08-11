@@ -61,11 +61,15 @@ export async function POST(request: NextRequest) {
         isFinalized: true,
         finalizedAt: new Date(),
         finalizedById: user.id,
+        periodLabel: parsed.data.periodLabel ?? null,
+        remarks: parsed.data.remarks ?? null,
       },
       update: {
         isFinalized: true,
         finalizedAt: new Date(),
         finalizedById: user.id,
+        periodLabel: parsed.data.periodLabel ?? undefined,
+        remarks: parsed.data.remarks ?? undefined,
       },
     });
 

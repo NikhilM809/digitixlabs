@@ -18,8 +18,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -42,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { canAccessKra, canConfigureKra, isAdminOrHr } from "@/lib/permissions";
+import { formatKraWeight } from "@/lib/employee-kra";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 
 interface EmployeeOption {
@@ -57,7 +60,7 @@ interface EmployeeKraItem {
   userId: string;
   name: string;
   measure: string;
-  weight: number;
+  weight: number | null;
   sortOrder: number;
 }
 
@@ -67,12 +70,16 @@ interface KraConfigResponse {
     userId: string;
     isFinalized: boolean;
     finalizedAt?: string | null;
+    periodLabel?: string | null;
+    remarks?: string | null;
   };
   weightSummary: {
     total: number;
     remaining: number;
     excess: number;
     isValid: boolean;
+    weightedCount: number;
+    qualitativeCount: number;
   };
   weightMessage: string;
 }
@@ -91,6 +98,9 @@ export default function KraPage() {
   const [formName, setFormName] = useState("");
   const [formMeasure, setFormMeasure] = useState("");
   const [formWeight, setFormWeight] = useState("");
+  const [formQualitative, setFormQualitative] = useState(false);
+  const [periodLabel, setPeriodLabel] = useState("");
+  const [remarks, setRemarks] = useState("");
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-kra"],
@@ -126,11 +136,22 @@ export default function KraPage() {
     enabled: status === "authenticated" && !!targetUserId && !!role && canAccessKra(role),
   });
 
+  useEffect(() => {
+    if (kraData?.config) {
+      setPeriodLabel(kraData.config.periodLabel ?? "");
+      setRemarks(kraData.config.remarks ?? "");
+    }
+  }, [kraData?.config]);
+
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["employee-kra", targetUserId] });
 
   const addMutation = useMutation({
-    mutationFn: (payload: { name: string; measure: string; weight: number }) =>
+    mutationFn: (payload: {
+      name: string;
+      measure: string;
+      weight: number | null;
+    }) =>
       apiFetch<KraConfigResponse>("/api/employee-kra", {
         method: "POST",
         body: JSON.stringify({ userId: targetUserId, ...payload }),
@@ -145,7 +166,12 @@ export default function KraPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { id: string; name: string; measure: string; weight: number }) =>
+    mutationFn: (payload: {
+      id: string;
+      name: string;
+      measure: string;
+      weight: number | null;
+    }) =>
       apiFetch<KraConfigResponse>(`/api/employee-kra/${payload.id}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -177,7 +203,11 @@ export default function KraPage() {
     mutationFn: () =>
       apiFetch("/api/employee-kra/finalize", {
         method: "POST",
-        body: JSON.stringify({ userId: targetUserId }),
+        body: JSON.stringify({
+          userId: targetUserId,
+          periodLabel: periodLabel || null,
+          remarks: remarks || null,
+        }),
       }),
     onSuccess: () => {
       toast.success("KRA configuration finalized");
@@ -202,6 +232,7 @@ export default function KraPage() {
     setFormName("");
     setFormMeasure("");
     setFormWeight("");
+    setFormQualitative(false);
   }
 
   function openAdd() {
@@ -213,16 +244,27 @@ export default function KraPage() {
     setEditItem(item);
     setFormName(item.name);
     setFormMeasure(item.measure);
-    setFormWeight(String(item.weight));
+    setFormQualitative(item.weight === null);
+    setFormWeight(item.weight === null ? "" : String(item.weight));
   }
 
   function submitForm(e: React.FormEvent) {
     e.preventDefault();
-    const weight = parseFloat(formWeight);
-    if (!formName.trim() || !formMeasure.trim() || Number.isNaN(weight) || weight <= 0) {
-      toast.error("Enter KRA Name, Measure, and a weight greater than 0");
+    if (!formName.trim() || !formMeasure.trim()) {
+      toast.error("Enter KRA and Measure");
       return;
     }
+
+    let weight: number | null = null;
+    if (!formQualitative) {
+      const parsed = parseFloat(formWeight);
+      if (Number.isNaN(parsed) || parsed <= 0) {
+        toast.error("Enter a weight greater than 0, or mark as qualitative KRA");
+        return;
+      }
+      weight = parsed;
+    }
+
     if (editItem) {
       updateMutation.mutate({
         id: editItem.id,
@@ -275,8 +317,8 @@ export default function KraPage() {
         </h1>
         <p className="text-muted-foreground mt-1">
           {isEmployeeOnly
-            ? "View your assigned KRAs and evaluation criteria"
-            : "Configure employee KRAs — total weight must equal 100% to finalize"}
+            ? "Your assigned KRAs — KRA, Measure, and Weight as configured by Admin/Manager"
+            : "Configure KRAs per the Digitix sheet — weighted KRAs must total 100%"}
         </p>
       </div>
 
@@ -312,9 +354,11 @@ export default function KraPage() {
                   ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}'s KRAs`
                   : "Assigned KRAs"}
             </CardTitle>
-            <CardDescription>
-              KRA Name, Measure, and Weight (%)
-            </CardDescription>
+            {(kraData?.config.periodLabel || periodLabel) && (
+              <CardDescription className="mt-1">
+                {kraData?.config.periodLabel || periodLabel}
+              </CardDescription>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isFinalized ? (
@@ -334,6 +378,29 @@ export default function KraPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {canEdit && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="period-label">Review Period (optional)</Label>
+                <Input
+                  id="period-label"
+                  value={periodLabel}
+                  onChange={(e) => setPeriodLabel(e.target.value)}
+                  placeholder="e.g. Survey Programming and Operations (Quarterly - APR 2026)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="kra-remarks">Overall Remarks (optional)</Label>
+                <Input
+                  id="kra-remarks"
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="e.g. Overall 50% performance"
+                />
+              </div>
+            </div>
+          )}
+
           {kraData && (
             <div
               className={`rounded-xl border p-3 text-sm ${
@@ -352,17 +419,20 @@ export default function KraPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/50">
-                  <th className="h-11 px-3 text-left font-medium text-muted-foreground">
-                    KRA Name
+                  <th className="h-11 px-3 text-left font-medium text-muted-foreground w-16">
+                    S.No
                   </th>
                   <th className="h-11 px-3 text-left font-medium text-muted-foreground">
+                    KRA
+                  </th>
+                  <th className="h-11 px-3 text-left font-medium text-muted-foreground min-w-[240px]">
                     Measure
                   </th>
-                  <th className="h-11 px-3 text-right font-medium text-muted-foreground">
+                  <th className="h-11 px-3 text-right font-medium text-muted-foreground w-24">
                     Weight
                   </th>
                   {canEdit && (
-                    <th className="h-11 px-3 text-right font-medium text-muted-foreground">
+                    <th className="h-11 px-3 text-right font-medium text-muted-foreground w-24">
                       Actions
                     </th>
                   )}
@@ -372,7 +442,7 @@ export default function KraPage() {
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <tr key={i} className="border-b border-border/50">
-                      {Array.from({ length: canEdit ? 4 : 3 }).map((_, j) => (
+                      {Array.from({ length: canEdit ? 5 : 4 }).map((_, j) => (
                         <td key={j} className="px-3 py-3">
                           <Skeleton className="h-5 w-full" />
                         </td>
@@ -382,23 +452,30 @@ export default function KraPage() {
                 ) : !kraData?.items.length ? (
                   <tr>
                     <td
-                      colSpan={canEdit ? 4 : 3}
+                      colSpan={canEdit ? 5 : 4}
                       className="px-3 py-10 text-center text-muted-foreground"
                     >
                       {isEmployeeOnly
                         ? "No KRAs assigned yet. Contact your manager or HR."
-                        : "No KRAs configured. Add KRAs and ensure total weight equals 100%."}
+                        : "No KRAs configured. Add weighted KRAs (total 100%) and optional qualitative KRAs."}
                     </td>
                   </tr>
                 ) : (
-                  kraData.items.map((item) => (
+                  kraData.items.map((item, index) => (
                     <tr
                       key={item.id}
-                      className="border-b border-border/50 hover:bg-muted/20"
+                      className="border-b border-border/50 hover:bg-muted/20 align-top"
                     >
+                      <td className="px-3 py-3 text-muted-foreground">
+                        {item.sortOrder > 0 ? item.sortOrder : index + 1}
+                      </td>
                       <td className="px-3 py-3 font-medium">{item.name}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{item.measure}</td>
-                      <td className="px-3 py-3 text-right font-semibold">{item.weight}%</td>
+                      <td className="px-3 py-3 text-muted-foreground whitespace-pre-wrap">
+                        {item.measure}
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold">
+                        {formatKraWeight(item.weight)}
+                      </td>
                       {canEdit && (
                         <td className="px-3 py-3 text-right">
                           <div className="flex justify-end gap-1">
@@ -425,6 +502,13 @@ export default function KraPage() {
               </tbody>
             </table>
           </div>
+
+          {!isEmployeeOnly && kraData?.config.remarks && isFinalized && (
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-3 text-sm">
+              <span className="font-medium">Remarks: </span>
+              {kraData.config.remarks}
+            </div>
+          )}
 
           {isConfigurator && !isEmployeeOnly && targetUserId && (
             <div className="flex flex-wrap gap-2 pt-2">
@@ -473,45 +557,58 @@ export default function KraPage() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editItem ? "Edit KRA" : "Add KRA"}</DialogTitle>
             <DialogDescription>
-              Set KRA Name, Measure, and Weight (%)
+              Match the Digitix KRA sheet: KRA, Measure, and Weight (%)
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submitForm} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="kra-name">KRA Name</Label>
+              <Label htmlFor="kra-name">KRA</Label>
               <Input
                 id="kra-name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="e.g. Sales Target Achievement"
+                placeholder="e.g. Email confirmation"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="kra-measure">Measure</Label>
-              <Input
+              <Textarea
                 id="kra-measure"
                 value={formMeasure}
                 onChange={(e) => setFormMeasure(e.target.value)}
-                placeholder="e.g. Achieve 100% of monthly sales quota"
+                placeholder="e.g. Emails confirmed on time (Max 10-15 minutes delay...)"
+                rows={3}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="kra-weight">Weight (%)</Label>
-              <Input
-                id="kra-weight"
-                type="number"
-                min={0.01}
-                max={100}
-                step={0.01}
-                value={formWeight}
-                onChange={(e) => setFormWeight(e.target.value)}
-                placeholder="e.g. 25"
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-3">
+              <Label htmlFor="qualitative" className="font-normal leading-snug">
+                Qualitative KRA (no weight — e.g. Guiding Juniors)
+              </Label>
+              <Switch
+                id="qualitative"
+                checked={formQualitative}
+                onCheckedChange={setFormQualitative}
               />
             </div>
+            {!formQualitative && (
+              <div className="space-y-2">
+                <Label htmlFor="kra-weight">Weight (%)</Label>
+                <Input
+                  id="kra-weight"
+                  type="number"
+                  min={0.01}
+                  max={100}
+                  step={0.01}
+                  value={formWeight}
+                  onChange={(e) => setFormWeight(e.target.value)}
+                  placeholder="e.g. 10"
+                />
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 type="button"

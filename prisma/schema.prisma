@@ -407,7 +407,7 @@ model EmployeeKra {
   userId      String
   name        String
   measure     String
-  weight      Float
+  weight      Float?
   sortOrder   Int      @default(0)
   createdById String?
   updatedById String?
@@ -425,6 +425,8 @@ model EmployeeKraConfig {
   isFinalized   Boolean   @default(false)
   finalizedAt   DateTime?
   finalizedById String?
+  periodLabel   String?
+  remarks       String?
   updatedAt     DateTime  @updatedAt
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   finalizedBy   User?     @relation("KraFinalizedBy", fields: [finalizedById], references: [id], onDelete: SetNull)
@@ -461,6 +463,8 @@ model KraItem {
   employeeComments String?
   employeeRating   Float?
   managerRating    Float?
+  employeePercentage Float?
+  managerPercentage  Float?
   managerComments  String?
   sortOrder        Int       @default(0)
   createdAt        DateTime  @default(now())

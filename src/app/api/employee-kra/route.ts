@@ -35,7 +35,14 @@ async function buildKraResponse(userId: string) {
 
   return {
     items,
-    config: config ?? { userId, isFinalized: false, finalizedAt: null, finalizedById: null },
+    config: config ?? {
+      userId,
+      isFinalized: false,
+      finalizedAt: null,
+      finalizedById: null,
+      periodLabel: null,
+      remarks: null,
+    },
     weightSummary,
     weightMessage: kraWeightMessage(weightSummary),
   };

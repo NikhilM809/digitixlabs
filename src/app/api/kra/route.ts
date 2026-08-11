@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
           create: assignedKras.map((kra, index) => ({
             name: kra.name,
             measure: kra.measure,
-            weight: kra.weight,
+            weight: kra.weight ?? 0,
             sortOrder: index,
           })),
         },

@@ -1,13 +1,8 @@
 /**
- * Import employee KRAs from an Excel KRA sheet.
+ * Import employee KRAs from Digitix Excel sheet (e.g. Akhil_APR26_JUL26.xlsx)
  *
  * Usage:
- *   npx tsx scripts/import-kra-from-excel.ts --file "path/to/sheet.xlsx" --employeeEmail priya.sharma@digitixlabs.com
- *
- * Expected columns (flexible header matching):
- *   - KRA Name / Key Result Area / Objective
- *   - Measure / Measurement / KPI
- *   - Weight / Weightage / Weight (%)
+ *   npx tsx scripts/import-kra-from-excel.ts --file "C:\Users\HP\Downloads\Akhil_APR26_JUL26.xlsx" --employeeEmail user@company.com --finalize
  */
 import { readFileSync } from "fs";
 import path from "path";
@@ -15,22 +10,11 @@ import * as XLSX from "xlsx";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { parseKraExcelRows, validateParsedKraSheet } from "../src/lib/kra-excel";
 
 function arg(name: string) {
   const idx = process.argv.indexOf(name);
   return idx >= 0 ? process.argv[idx + 1] : undefined;
-}
-
-function normalizeHeader(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[%()]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-function pickColumn(headers: string[], patterns: RegExp[]) {
-  return headers.find((h) => patterns.some((p) => p.test(h)));
 }
 
 async function main() {
@@ -38,10 +22,12 @@ async function main() {
   const employeeEmail = arg("--employeeEmail");
   const adminEmail = arg("--adminEmail") ?? "admin@digitixlabs.com";
   const finalize = process.argv.includes("--finalize");
+  const periodLabel = arg("--periodLabel");
+  const remarks = arg("--remarks");
 
   if (!file || !employeeEmail) {
     console.error(
-      "Usage: npx tsx scripts/import-kra-from-excel.ts --file sheet.xlsx --employeeEmail user@company.com [--finalize]"
+      "Usage: npx tsx scripts/import-kra-from-excel.ts --file sheet.xlsx --employeeEmail user@company.com [--finalize] [--periodLabel text] [--remarks text]"
     );
     process.exit(1);
   }
@@ -54,52 +40,8 @@ async function main() {
     defval: "",
   });
 
-  const headerRowIndex = rows.findIndex((row) =>
-    row.some((cell) => /kra|measure|weight|objective|key result/i.test(String(cell)))
-  );
-  if (headerRowIndex < 0) {
-    throw new Error("Could not find KRA header row in the Excel sheet");
-  }
-
-  const headers = rows[headerRowIndex].map(normalizeHeader);
-  const nameKey = pickColumn(headers, [
-    /^kra name$/,
-    /^key result area$/,
-    /^kra$/,
-    /^objective$/,
-    /kra name/,
-    /key result/,
-  ]);
-  const measureKey = pickColumn(headers, [/^measure$/, /^measurement$/, /^kpi$/, /measure/]);
-  const weightKey = pickColumn(headers, [/^weight$/, /^weightage$/, /weight/]);
-
-  if (!nameKey || !measureKey || !weightKey) {
-    throw new Error(
-      `Missing columns. Found headers: ${headers.join(", ")}. Need KRA Name, Measure, and Weight.`
-    );
-  }
-
-  const nameIdx = headers.indexOf(nameKey);
-  const measureIdx = headers.indexOf(measureKey);
-  const weightIdx = headers.indexOf(weightKey);
-
-  const kraRows = rows
-    .slice(headerRowIndex + 1)
-    .map((row) => ({
-      name: String(row[nameIdx] ?? "").trim(),
-      measure: String(row[measureIdx] ?? "").trim(),
-      weight: Number(String(row[weightIdx] ?? "").replace(/[^\d.]/g, "")),
-    }))
-    .filter((row) => row.name && row.measure && row.weight > 0);
-
-  if (kraRows.length === 0) {
-    throw new Error("No KRA rows found below the header");
-  }
-
-  const totalWeight = kraRows.reduce((sum, row) => sum + row.weight, 0);
-  if (Math.abs(totalWeight - 100) > 0.05) {
-    throw new Error(`KRA weights total ${totalWeight}% — expected 100%`);
-  }
+  const sheet = parseKraExcelRows(rows);
+  validateParsedKraSheet(sheet);
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
@@ -113,45 +55,42 @@ async function main() {
 
     await prisma.employeeKra.deleteMany({ where: { userId: employee.id } });
 
-    for (const [index, row] of kraRows.entries()) {
+    for (const [index, row] of sheet.rows.entries()) {
       await prisma.employeeKra.create({
         data: {
           userId: employee.id,
           name: row.name,
           measure: row.measure,
           weight: row.weight,
-          sortOrder: index,
+          sortOrder: row.serialNo ?? index,
           createdById: admin.id,
           updatedById: admin.id,
         },
       });
     }
 
-    if (finalize) {
-      await prisma.employeeKraConfig.upsert({
-        where: { userId: employee.id },
-        create: {
-          userId: employee.id,
-          isFinalized: true,
-          finalizedAt: new Date(),
-          finalizedById: admin.id,
-        },
-        update: {
-          isFinalized: true,
-          finalizedAt: new Date(),
-          finalizedById: admin.id,
-        },
-      });
-    } else {
-      await prisma.employeeKraConfig.upsert({
-        where: { userId: employee.id },
-        create: { userId: employee.id, isFinalized: false },
-        update: { isFinalized: false, finalizedAt: null, finalizedById: null },
-      });
-    }
+    const configData = {
+      periodLabel: periodLabel ?? sheet.periodLabel,
+      remarks: remarks ?? null,
+      isFinalized: finalize,
+      finalizedAt: finalize ? new Date() : null,
+      finalizedById: finalize ? admin.id : null,
+    };
 
-    console.log(`Imported ${kraRows.length} KRAs for ${employeeEmail}`);
-    kraRows.forEach((row) => console.log(`  - ${row.name} (${row.weight}%): ${row.measure}`));
+    await prisma.employeeKraConfig.upsert({
+      where: { userId: employee.id },
+      create: { userId: employee.id, ...configData },
+      update: configData,
+    });
+
+    console.log(`Imported ${sheet.rows.length} KRAs for ${employeeEmail}`);
+    console.log(`Weighted total: ${sheet.weightedTotal}%`);
+    if (configData.periodLabel) console.log(`Period: ${configData.periodLabel}`);
+    sheet.rows.forEach((row) => {
+      const w = row.weight === null ? "N/A" : `${row.weight}%`;
+      console.log(`  ${row.serialNo ?? "-"}. ${row.name} (${w})`);
+      console.log(`     Measure: ${row.measure}`);
+    });
   } finally {
     await prisma.$disconnect();
     await pool.end();

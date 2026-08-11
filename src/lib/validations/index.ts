@@ -174,23 +174,46 @@ export const kraItemSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 
+export const kraPercentageSchema = z
+  .number()
+  .min(0, "Percentage must be at least 0")
+  .max(100, "Percentage must be at most 100");
+
 export const employeeKraSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
-  name: z.string().min(2, "KRA Name is required"),
+  name: z.string().min(2, "KRA is required"),
   measure: z.string().min(1, "Measure is required"),
-  weight: z.number().positive("Weight must be greater than 0").max(100),
+  weight: z
+    .number()
+    .positive("Weight must be greater than 0")
+    .max(100)
+    .optional()
+    .nullable(),
   sortOrder: z.number().int().min(0).optional(),
 });
 
 export const employeeKraUpdateSchema = z.object({
-  name: z.string().min(2, "KRA Name is required").optional(),
+  name: z.string().min(2, "KRA is required").optional(),
   measure: z.string().min(1, "Measure is required").optional(),
-  weight: z.number().positive("Weight must be greater than 0").max(100).optional(),
+  weight: z
+    .number()
+    .positive("Weight must be greater than 0")
+    .max(100)
+    .optional()
+    .nullable(),
   sortOrder: z.number().int().min(0).optional(),
+});
+
+export const employeeKraConfigSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  periodLabel: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
 });
 
 export const employeeKraFinalizeSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
+  periodLabel: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
 });
 
 export const kraCreateSchema = z.object({
@@ -206,6 +229,7 @@ export const kraUpdateSchema = z.object({
       achievement: z.string().optional(),
       employeeComments: z.string().optional(),
       employeeRating: kraRatingSchema.optional().nullable(),
+      employeePercentage: kraPercentageSchema.optional().nullable(),
     })
   ).min(1, "At least one KRA item is required"),
 });
@@ -214,7 +238,8 @@ export const kraReviewSubmitSchema = z.object({
   items: z.array(
     z.object({
       id: z.string().min(1),
-      managerRating: kraRatingSchema,
+      managerRating: kraRatingSchema.optional().nullable(),
+      managerPercentage: kraPercentageSchema.optional().nullable(),
       managerComments: z.string().optional(),
     })
   ).min(1),
