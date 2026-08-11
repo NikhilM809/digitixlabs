@@ -9,7 +9,7 @@ import {
 } from "@/lib/api-utils";
 import { kraUpdateSchema } from "@/lib/validations";
 import { canAccessKra } from "@/lib/permissions";
-import { weightedAverageRating } from "@/lib/kra";
+import { serializeKraReviewScores } from "@/lib/kra";
 import {
   getKraItemDelegate,
   getKraReviewDelegate,
@@ -31,6 +31,10 @@ const reviewInclude = {
   },
   items: { orderBy: { sortOrder: "asc" as const } },
 };
+
+function requiresPercentage(item: { weight: number }) {
+  return item.weight > 0;
+}
 
 export async function POST(
   request: NextRequest,
@@ -61,7 +65,7 @@ export async function POST(
   }
 
   if (review.status !== "DRAFT") {
-    return apiError("KRA has already been submitted", 400);
+    return apiError("KRA evaluation has already been submitted", 400);
   }
 
   try {
@@ -76,22 +80,22 @@ export async function POST(
       if (!existing) {
         return apiError("KRA item not found", 400);
       }
-      if (item.employeeRating === undefined || item.employeeRating === null) {
-        return apiError(`Self rating is required for "${existing.name}"`, 400);
+      if (
+        requiresPercentage(existing) &&
+        (item.employeePercentage === undefined || item.employeePercentage === null)
+      ) {
+        return apiError(`Your percentage is required for "${existing.name}"`, 400);
       }
     }
 
     for (const item of parsed.data.items) {
       const existing = review.items.find((i) => i.id === item.id);
-      if (!existing) {
-        return apiError("KRA item not found", 400);
-      }
+      if (!existing) continue;
       await getKraItemDelegate().update({
         where: { id: existing.id },
         data: {
-          achievement: item.achievement,
           employeeComments: item.employeeComments,
-          employeeRating: item.employeeRating ?? null,
+          employeePercentage: item.employeePercentage ?? null,
         },
       });
     }
@@ -109,9 +113,9 @@ export async function POST(
       await createNotification({
         userId: updated.managerId,
         type: "GENERAL",
-        title: "KRA Submitted for Review",
-        message: `${review.user.firstName} ${review.user.lastName} submitted KRA for ${updated.month}/${updated.year}`,
-        link: `/kra?id=${id}`,
+        title: "KRA Submitted for Manager Review",
+        message: `${review.user.firstName} ${review.user.lastName} submitted KRA evaluation for ${updated.month}/${updated.year}`,
+        link: `/kra?tab=evaluation&id=${id}`,
       });
     }
 
@@ -120,13 +124,12 @@ export async function POST(
       action: "UPDATE",
       entity: "KraReview",
       entityId: id,
-      details: "Employee submitted KRA",
+      details: "Employee submitted KRA evaluation",
     });
 
     return apiSuccess({
       ...updated,
-      avgEmployeeRating: weightedAverageRating(updated.items, "employeeRating"),
-      avgManagerRating: weightedAverageRating(updated.items, "managerRating"),
+      ...serializeKraReviewScores(updated.items),
     });
   } catch (err) {
     console.error("KRA submit error:", err);

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Target,
@@ -46,6 +47,8 @@ import {
 import { canAccessKra, canConfigureKra, isAdminOrHr } from "@/lib/permissions";
 import { formatKraWeight } from "@/lib/employee-kra";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { KraEvaluationPanel } from "@/components/kra/kra-evaluation-panel";
 
 interface EmployeeOption {
   id: string;
@@ -85,12 +88,14 @@ interface KraConfigResponse {
 }
 
 export default function KraPage() {
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const role = session?.user?.role;
   const userId = session?.user?.id;
   const queryClient = useQueryClient();
   const isConfigurator = role ? canConfigureKra(role) : false;
   const isEmployeeOnly = role === "EMPLOYEE";
+  const activeTab = searchParams.get("tab") === "evaluation" ? "evaluation" : "setup";
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [addOpen, setAddOpen] = useState(false);
@@ -317,10 +322,20 @@ export default function KraPage() {
         </h1>
         <p className="text-muted-foreground mt-1">
           {isEmployeeOnly
-            ? "Your assigned KRAs — KRA, Measure, and Weight as configured by Admin/Manager"
-            : "Configure KRAs per the Digitix sheet — weighted KRAs must total 100%"}
+            ? "View assigned KRAs and submit your performance evaluation"
+            : "Set KRA, Measure & Weight (100% total), then review employee self-assessment"}
         </p>
       </div>
+
+      <Tabs defaultValue={activeTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="setup">
+            {isEmployeeOnly ? "My KRAs" : "KRA Setup"}
+          </TabsTrigger>
+          <TabsTrigger value="evaluation">Performance Evaluation</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="setup" className="space-y-6">
 
       {isConfigurator && !isEmployeeOnly && (
         <Card glass>
@@ -634,6 +649,16 @@ export default function KraPage() {
           </form>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="evaluation">
+          <KraEvaluationPanel
+            configFinalized={kraData?.config.isFinalized ?? false}
+            selectedEmployeeId={targetUserId}
+            isConfigurator={isConfigurator && !isEmployeeOnly}
+          />
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 }

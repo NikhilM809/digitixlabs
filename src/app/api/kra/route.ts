@@ -9,7 +9,7 @@ import {
 } from "@/lib/api-utils";
 import { kraCreateSchema } from "@/lib/validations";
 import { canAccessKra, isAdminOrHr } from "@/lib/permissions";
-import { weightedAverageRating } from "@/lib/kra";
+import { weightedAverageRating, serializeKraReviewScores } from "@/lib/kra";
 import {
   getKraReviewDelegate,
   isKraSetupFailure,
@@ -55,8 +55,7 @@ function serializeReview(review: Awaited<ReturnType<typeof fetchReview>>) {
   if (!review) return null;
   return {
     ...review,
-    avgEmployeeRating: weightedAverageRating(review.items, "employeeRating"),
-    avgManagerRating: weightedAverageRating(review.items, "managerRating"),
+    ...serializeKraReviewScores(review.items),
   };
 }
 
@@ -116,8 +115,7 @@ export async function GET(request: NextRequest) {
     return apiSuccess(
       reviews.map((r) => ({
         ...r,
-        avgEmployeeRating: weightedAverageRating(r.items, "employeeRating"),
-        avgManagerRating: weightedAverageRating(r.items, "managerRating"),
+        ...serializeKraReviewScores(r.items),
       }))
     );
   } catch (err) {
@@ -173,6 +171,16 @@ export async function POST(request: NextRequest) {
         return apiError("KRA not found", 404);
       }
       return apiSuccess(serializeReview(review));
+    }
+
+    const kraConfig = await prisma.employeeKraConfig.findUnique({
+      where: { userId: targetUserId },
+    });
+    if (!kraConfig?.isFinalized) {
+      return apiError(
+        "KRA setup must be finalized by Admin/Manager before employee evaluation",
+        400
+      );
     }
 
     const assignedKras = await prisma.employeeKra.findMany({

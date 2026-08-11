@@ -10,7 +10,7 @@ import {
 import { kraUpdateSchema } from "@/lib/validations";
 import {
   canEmployeeEditKra,
-  weightedAverageRating,
+  serializeKraReviewScores,
 } from "@/lib/kra";
 import { isAdminOrHr } from "@/lib/permissions";
 import { getKraItemDelegate, getKraReviewDelegate, kraDbSetupError } from "@/lib/kra-db";
@@ -82,8 +82,7 @@ export async function GET(
 
   return apiSuccess({
     ...review,
-    avgEmployeeRating: weightedAverageRating(review.items, "employeeRating"),
-    avgManagerRating: weightedAverageRating(review.items, "managerRating"),
+    ...serializeKraReviewScores(review.items),
   });
 }
 
@@ -133,9 +132,8 @@ export async function PATCH(
       await getKraItemDelegate().update({
         where: { id: existingItem.id },
         data: {
-          achievement: item.achievement,
           employeeComments: item.employeeComments,
-          employeeRating: item.employeeRating ?? null,
+          employeePercentage: item.employeePercentage ?? null,
         },
       });
     }
@@ -155,8 +153,7 @@ export async function PATCH(
 
     return apiSuccess({
       ...updated,
-      avgEmployeeRating: weightedAverageRating(updated!.items, "employeeRating"),
-      avgManagerRating: weightedAverageRating(updated!.items, "managerRating"),
+      ...serializeKraReviewScores(updated!.items),
     });
   } catch (err) {
     console.error("KRA update error:", err);

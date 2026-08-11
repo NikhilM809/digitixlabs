@@ -226,9 +226,7 @@ export const kraUpdateSchema = z.object({
   items: z.array(
     z.object({
       id: z.string().min(1),
-      achievement: z.string().optional(),
       employeeComments: z.string().optional(),
-      employeeRating: kraRatingSchema.optional().nullable(),
       employeePercentage: kraPercentageSchema.optional().nullable(),
     })
   ).min(1, "At least one KRA item is required"),
@@ -238,7 +236,6 @@ export const kraReviewSubmitSchema = z.object({
   items: z.array(
     z.object({
       id: z.string().min(1),
-      managerRating: kraRatingSchema.optional().nullable(),
       managerPercentage: kraPercentageSchema.optional().nullable(),
       managerComments: z.string().optional(),
     })
