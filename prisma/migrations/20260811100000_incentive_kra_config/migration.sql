@@ -57,13 +57,29 @@ DO $$ BEGIN
     FOREIGN KEY ("finalizedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- KraItem: goal/target -> name/measure + weight
+-- KraItem: goal/target -> name/measure + weight (safe when rows already exist)
 DO $$ BEGIN
-  ALTER TABLE "KraItem" RENAME COLUMN "goal" TO "name";
-EXCEPTION WHEN undefined_column THEN NULL; END $$;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'KraItem' AND column_name = 'goal'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'KraItem' AND column_name = 'name'
+  ) THEN
+    ALTER TABLE "KraItem" RENAME COLUMN "goal" TO "name";
+  END IF;
+END $$;
 
 DO $$ BEGIN
-  ALTER TABLE "KraItem" RENAME COLUMN "target" TO "measure";
-EXCEPTION WHEN undefined_column THEN NULL; END $$;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'KraItem' AND column_name = 'target'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'KraItem' AND column_name = 'measure'
+  ) THEN
+    ALTER TABLE "KraItem" RENAME COLUMN "target" TO "measure";
+  END IF;
+END $$;
 
 ALTER TABLE "KraItem" ADD COLUMN IF NOT EXISTS "weight" DOUBLE PRECISION NOT NULL DEFAULT 0;

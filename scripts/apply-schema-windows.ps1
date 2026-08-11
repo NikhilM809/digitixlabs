@@ -3,12 +3,27 @@
 
 Write-Host ""
 Write-Host "=== Digitix HRMS: sync database schema ===" -ForegroundColor Cyan
-Write-Host "Uses 'prisma db push' — no shadow database, no migration history required."
+Write-Host "Step 1: Fix KraItem column rename (goal -> name) if needed..."
+Write-Host ""
+
+npx prisma db execute --file scripts/fix-kra-item-columns.sql
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "Column fix failed. Check DATABASE_URL in .env" -ForegroundColor Red
+  exit 1
+}
+
+Write-Host ""
+Write-Host "Step 2: prisma db push"
 Write-Host ""
 
 npx prisma db push
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "db push failed. Check DATABASE_URL in .env" -ForegroundColor Red
+  Write-Host ""
+  Write-Host "db push failed. Run manually:" -ForegroundColor Yellow
+  Write-Host "  npx prisma db execute --file scripts/fix-kra-item-columns.sql"
+  Write-Host "  npx prisma db push"
+  Write-Host ""
+  Write-Host "Or in pgAdmin, run scripts/fix-kra-item-columns.sql then db push again." -ForegroundColor Red
   exit 1
 }
 
