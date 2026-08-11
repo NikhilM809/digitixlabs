@@ -37,6 +37,10 @@ export function canManagePolicies(role: RoleName) {
   return isAdminOrHr(role);
 }
 
+export function canViewPolicies(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER" || role === "EMPLOYEE";
+}
+
 export function canManageHolidays(role: RoleName) {
   return isAdminOrHr(role);
 }
