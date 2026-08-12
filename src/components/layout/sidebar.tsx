@@ -26,6 +26,8 @@ import {
   Network,
   UsersRound,
   GitBranch,
+  FolderOpen,
+  FolderArchive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Employees", href: "/employees", icon: Users, roles: ["ADMIN", "HR", "MANAGER"] },
+  { title: "Employee Documents", href: "/employee-documents", icon: FolderArchive, roles: ["ADMIN", "HR"] },
+  { title: "My Documents", href: "/my-documents", icon: FolderOpen, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["HR", "MANAGER", "EMPLOYEE"] },
   { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },

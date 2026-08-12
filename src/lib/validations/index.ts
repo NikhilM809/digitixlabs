@@ -327,6 +327,20 @@ export const assignManagerSchema = z.object({
   effectiveFrom: z.string().optional(),
 });
 
+export const employeeDocumentUploadSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  title: z.string().min(2, "Title is required"),
+  category: z.enum([
+    "APPRAISAL",
+    "LAPTOP_UNDERTAKING",
+    "OFFER_LETTER",
+    "APPOINTMENT_LETTER",
+    "NDA",
+    "ID_PROOF",
+    "OTHER",
+  ]),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type EmployeeInput = z.infer<typeof employeeSchema>;

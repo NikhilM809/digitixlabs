@@ -84,6 +84,16 @@ enum KraReviewCycle {
   QUARTERLY
 }
 
+enum EmployeeDocumentCategory {
+  APPRAISAL
+  LAPTOP_UNDERTAKING
+  OFFER_LETTER
+  APPOINTMENT_LETTER
+  NDA
+  ID_PROOF
+  OTHER
+}
+
 model User {
   id                 String         @id @default(cuid())
   employeeId         String         @unique
@@ -139,6 +149,8 @@ model User {
   reportingHistory ReportingHistory[] @relation("ReportingHistoryUser")
   managedReportingHistory ReportingHistory[] @relation("ReportingHistoryManager")
   reportingChangesMade ReportingHistory[] @relation("ReportingHistoryChangedBy")
+  employeeDocuments EmployeeDocument[] @relation("EmployeeDocuments")
+  uploadedDocuments EmployeeDocument[] @relation("UploadedDocuments")
 
   @@index([departmentId])
   @@index([managerId])
@@ -500,6 +512,27 @@ model ReportingHistory {
 
   @@index([userId, effectiveFrom])
   @@index([managerId])
+}
+
+model EmployeeDocument {
+  id           String                   @id @default(cuid())
+  userId       String
+  title        String
+  category     EmployeeDocumentCategory @default(OTHER)
+  fileName     String
+  fileUrl      String
+  fileSize     Int
+  mimeType     String
+  uploadedById String
+  isActive     Boolean                  @default(true)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  user       User @relation("EmployeeDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation("UploadedDocuments", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([userId, isActive])
+  @@index([category])
 }
 
 model Permission {
