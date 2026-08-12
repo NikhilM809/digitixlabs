@@ -67,6 +67,10 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(homePathForRole(role), req.url));
   }
 
+  if (role !== "ADMIN" && pathname.startsWith("/org-hierarchy")) {
+    return NextResponse.redirect(new URL(homePathForRole(role), req.url));
+  }
+
   return NextResponse.next();
 });
 

@@ -37,6 +37,18 @@ export function canManagePolicies(role: RoleName) {
   return isAdminOrHr(role);
 }
 
+export function canViewPolicies(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER" || role === "EMPLOYEE";
+}
+
+export function canManageEmployeeDocuments(role: RoleName) {
+  return isAdminOrHr(role);
+}
+
+export function canViewOwnDocuments(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER" || role === "EMPLOYEE";
+}
+
 export function canManageHolidays(role: RoleName) {
   return isAdminOrHr(role);
 }
@@ -59,6 +71,14 @@ export function canAccessCompanySettings(role: RoleName) {
 
 export function canAccessDepartments(role: RoleName) {
   return role === "ADMIN";
+}
+
+export function canManageOrgHierarchy(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canViewTeam(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER";
 }
 
 export function canAccessReports(role: RoleName) {

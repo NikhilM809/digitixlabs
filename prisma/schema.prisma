@@ -84,6 +84,16 @@ enum KraReviewCycle {
   QUARTERLY
 }
 
+enum EmployeeDocumentCategory {
+  APPRAISAL
+  LAPTOP_UNDERTAKING
+  OFFER_LETTER
+  APPOINTMENT_LETTER
+  NDA
+  ID_PROOF
+  OTHER
+}
+
 model User {
   id                 String         @id @default(cuid())
   employeeId         String         @unique
@@ -136,6 +146,11 @@ model User {
   kraConfigsUpdated EmployeeKra[]     @relation("KraUpdatedBy")
   kraConfig        EmployeeKraConfig?
   kraConfigsFinalized EmployeeKraConfig[] @relation("KraFinalizedBy")
+  reportingHistory ReportingHistory[] @relation("ReportingHistoryUser")
+  managedReportingHistory ReportingHistory[] @relation("ReportingHistoryManager")
+  reportingChangesMade ReportingHistory[] @relation("ReportingHistoryChangedBy")
+  employeeDocuments EmployeeDocument[] @relation("EmployeeDocuments")
+  uploadedDocuments EmployeeDocument[] @relation("UploadedDocuments")
 
   @@index([departmentId])
   @@index([managerId])
@@ -377,6 +392,8 @@ model CompanySettings {
   workStartTime   String   @default("09:00")
   workEndTime     String   @default("18:00")
   lateThreshold   Int      @default(15)
+  orgHierarchyVisibleToEmployees Boolean @default(true)
+  orgHierarchyVisibleToManagers  Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -478,6 +495,44 @@ model KraItem {
   kraReview        KraReview @relation(fields: [kraReviewId], references: [id], onDelete: Cascade)
 
   @@index([kraReviewId])
+}
+
+model ReportingHistory {
+  id            String    @id @default(cuid())
+  userId        String
+  managerId     String?
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  changedById   String?
+  createdAt     DateTime  @default(now())
+
+  user      User  @relation("ReportingHistoryUser", fields: [userId], references: [id], onDelete: Cascade)
+  manager   User? @relation("ReportingHistoryManager", fields: [managerId], references: [id], onDelete: SetNull)
+  changedBy User? @relation("ReportingHistoryChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, effectiveFrom])
+  @@index([managerId])
+}
+
+model EmployeeDocument {
+  id           String                   @id @default(cuid())
+  userId       String
+  title        String
+  category     EmployeeDocumentCategory @default(OTHER)
+  fileName     String
+  fileUrl      String
+  fileSize     Int
+  mimeType     String
+  uploadedById String
+  isActive     Boolean                  @default(true)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  user       User @relation("EmployeeDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation("UploadedDocuments", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([userId, isActive])
+  @@index([category])
 }
 
 model Permission {

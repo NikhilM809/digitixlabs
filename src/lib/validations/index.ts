@@ -317,6 +317,28 @@ export const companySettingsSchema = z.object({
   workStartTime: z.string().min(1),
   workEndTime: z.string().min(1),
   lateThreshold: z.number().min(0).max(120),
+  orgHierarchyVisibleToEmployees: z.boolean().optional(),
+  orgHierarchyVisibleToManagers: z.boolean().optional(),
+});
+
+export const assignManagerSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  managerId: z.string().nullable().optional(),
+  effectiveFrom: z.string().optional(),
+});
+
+export const employeeDocumentUploadSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  title: z.string().min(2, "Title is required"),
+  category: z.enum([
+    "APPRAISAL",
+    "LAPTOP_UNDERTAKING",
+    "OFFER_LETTER",
+    "APPOINTMENT_LETTER",
+    "NDA",
+    "ID_PROOF",
+    "OTHER",
+  ]),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

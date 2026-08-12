@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -22,9 +23,15 @@ import {
   X,
   Clock,
   Target,
+  Network,
+  UsersRound,
+  GitBranch,
+  FolderOpen,
+  FolderArchive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/client-api";
 import type { RoleName } from "@prisma/client";
 
 interface NavItem {
@@ -32,22 +39,34 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   roles: RoleName[];
+  requiresOrgVisibility?: boolean;
 }
 
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Employees", href: "/employees", icon: Users, roles: ["ADMIN", "HR", "MANAGER"] },
+  { title: "Employee Documents", href: "/employee-documents", icon: FolderArchive, roles: ["ADMIN", "HR"] },
   { title: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["HR", "MANAGER", "EMPLOYEE"] },
   { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "KRA", href: "/kra", icon: Target, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  { title: "My Documents", href: "/my-documents", icon: FolderOpen, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
+  {
+    title: "Organization Structure",
+    href: "/organization",
+    icon: Network,
+    roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+    requiresOrgVisibility: true,
+  },
   { title: "Work Schedules", href: "/work-schedules", icon: Clock, roles: ["ADMIN"] },
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
+  { title: "Manage Hierarchy", href: "/org-hierarchy", icon: GitBranch, roles: ["ADMIN"] },
+  { title: "My Team", href: "/my-team", icon: UsersRound, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Holiday Calendar", href: "/holidays", icon: PartyPopper, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { title: "Notifications", href: "/notifications", icon: Bell, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Settings", href: "/settings", icon: Settings, roles: ["ADMIN"] },
-  { title: "Policies", href: "/policies", icon: FileText, roles: ["ADMIN", "HR"] },
+  { title: "Policies", href: "/policies", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Profile", href: "/profile", icon: UserCircle, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
 ];
 
@@ -69,7 +88,17 @@ export function Sidebar({
   onLogout,
 }: SidebarProps) {
   const pathname = usePathname();
-  const filteredItems = navItems.filter((item) => item.roles.includes(role));
+
+  const { data: orgAccess } = useQuery({
+    queryKey: ["org-hierarchy-visibility"],
+    queryFn: () => apiFetch<{ canView: boolean }>("/api/org-hierarchy/visibility"),
+  });
+
+  const filteredItems = navItems.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    if (item.requiresOrgVisibility && orgAccess && !orgAccess.canView) return false;
+    return true;
+  });
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
@@ -95,20 +124,26 @@ export function Sidebar({
           const Icon = item.icon;
 
           return (
-            <Link key={item.href} href={item.href} onClick={onCloseMobile}>
-              <motion.div
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                isActive
+                  ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-500/25"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                collapsed && "justify-center px-2"
+              )}
+            >
+              <motion.span
                 whileHover={{ x: 4 }}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-500/25"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  collapsed && "justify-center px-2"
-                )}
+                className="flex items-center gap-3 min-w-0"
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 {!collapsed && <span>{item.title}</span>}
-              </motion.div>
+              </motion.span>
             </Link>
           );
         })}
@@ -117,7 +152,10 @@ export function Sidebar({
       <div className="p-3 border-t border-border/50 space-y-1">
         <Button
           variant="ghost"
-          className={cn("w-full justify-start gap-3 text-muted-foreground hover:text-destructive", collapsed && "justify-center px-2")}
+          className={cn(
+            "w-full justify-start gap-3 text-muted-foreground hover:text-destructive focus-visible:ring-offset-card",
+            collapsed && "justify-center px-2"
+          )}
           onClick={onLogout}
         >
           <LogOut className="h-5 w-5" />
