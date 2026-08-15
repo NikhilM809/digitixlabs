@@ -43,8 +43,6 @@ export const resetPasswordSchema = z
   });
 
 export const profileSchema = z.object({
-  firstName: z.string().min(2, "First name is required"),
-  lastName: z.string().min(2, "Last name is required"),
   phone: z.string().optional(),
   emergencyContact: z.string().optional(),
 });
@@ -68,8 +66,10 @@ export const employeeSchema = z.object({
     .optional()
     .or(z.literal("")),
   baseSalary: z.coerce.number().min(0).optional(),
+  ctc: z.coerce.number().min(0, "CTC must be a positive amount").optional(),
   incentive: z.coerce.number().min(0).optional(),
   reimbursement: z.coerce.number().min(0).optional(),
+  status: z.enum(["ACTIVE", "LEFT", "TERMINATED"]).optional(),
 });
 
 export const leaveApplicationSchema = z
@@ -77,8 +77,6 @@ export const leaveApplicationSchema = z
     leaveTypeId: z.string().min(1, "Leave type is required"),
     fromDate: z.string().min(1, "From date is required"),
     toDate: z.string().min(1, "To date is required"),
-    isHalfDay: z.boolean().default(false),
-    halfDayPeriod: z.enum(["FIRST_HALF", "SECOND_HALF"]).optional(),
     reason: z.string().min(10, "Reason must be at least 10 characters"),
     attachment: z.string().optional(),
     emergencyContact: z.string().optional(),
@@ -99,10 +97,6 @@ export const leaveApplicationSchema = z
       return from >= today;
     },
     { message: "Cannot apply for past dates", path: ["fromDate"] }
-  )
-  .refine(
-    (data) => !data.isHalfDay || !!data.halfDayPeriod,
-    { message: "Please select half day period", path: ["halfDayPeriod"] }
   );
 
 export const adminLeaveApplicationSchema = z
@@ -111,8 +105,6 @@ export const adminLeaveApplicationSchema = z
     leaveTypeId: z.string().min(1, "Leave type is required"),
     fromDate: z.string().min(1, "From date is required"),
     toDate: z.string().min(1, "To date is required"),
-    isHalfDay: z.boolean().default(false),
-    halfDayPeriod: z.enum(["FIRST_HALF", "SECOND_HALF"]).optional(),
     reason: z.string().min(10, "Reason must be at least 10 characters"),
     attachment: z.string().optional(),
     emergencyContact: z.string().optional(),
@@ -124,10 +116,6 @@ export const adminLeaveApplicationSchema = z
       return to >= from;
     },
     { message: "To date must be after from date", path: ["toDate"] }
-  )
-  .refine(
-    (data) => !data.isHalfDay || !!data.halfDayPeriod,
-    { message: "Please select half day period", path: ["halfDayPeriod"] }
   );
 
 export const leaveBalanceUpdateSchema = z.object({
@@ -248,7 +236,7 @@ export const payslipGenerateSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2020),
-  salary: z.number().min(0),
+  salary: z.number().positive("Basic salary must be greater than 0"),
   bonus: z.number().min(0).default(0),
   incentive: z.number().min(0).default(0),
   reimbursement: z.number().min(0).default(0),
@@ -271,14 +259,6 @@ export const designationSchema = z.object({
   description: z.string().optional(),
 });
 
-export const holidaySchema = z.object({
-  name: z.string().min(2, "Holiday name is required"),
-  date: z.string().min(1, "Date is required"),
-  description: z.string().optional(),
-  isRegional: z.boolean().default(false),
-  region: z.string().optional(),
-});
-
 export const leaveTypeSchema = z.object({
   name: z.string().min(2, "Leave type name is required"),
   code: z.string().min(2, "Code is required").max(10),
@@ -292,7 +272,7 @@ export const payslipSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   month: z.number().min(1).max(12),
   year: z.number().min(2020),
-  salary: z.number().min(0),
+  salary: z.number().positive("Basic salary must be greater than 0"),
   bonus: z.number().min(0).default(0),
   incentive: z.number().min(0).default(0),
   reimbursement: z.number().min(0).default(0),
@@ -319,6 +299,21 @@ export const companySettingsSchema = z.object({
   lateThreshold: z.number().min(0).max(120),
   orgHierarchyVisibleToEmployees: z.boolean().optional(),
   orgHierarchyVisibleToManagers: z.boolean().optional(),
+  dependentDetailsEnabled: z.boolean().optional(),
+});
+
+export const employeeDependentSchema = z.object({
+  name: z.string().min(2, "Dependent name is required"),
+  relationship: z.string().min(2, "Relationship is required"),
+  dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
+  metadata: z.record(z.string()).optional(),
+});
+
+export const attendanceCheckInSchema = z.object({
+  action: z.enum(["check-in", "check-out"]),
+  notes: z.string().optional(),
+  lateReason: z.string().optional(),
 });
 
 export const assignManagerSchema = z.object({
@@ -357,8 +352,8 @@ export type PayslipGenerateInput = z.infer<typeof payslipGenerateSchema>;
 export type CompanyPolicyInput = z.infer<typeof companyPolicySchema>;
 export type DepartmentInput = z.infer<typeof departmentSchema>;
 export type DesignationInput = z.infer<typeof designationSchema>;
-export type HolidayInput = z.infer<typeof holidaySchema>;
 export type LeaveTypeInput = z.infer<typeof leaveTypeSchema>;
 export type PayslipInput = z.infer<typeof payslipSchema>;
 export type AnnouncementInput = z.infer<typeof announcementSchema>;
 export type CompanySettingsInput = z.infer<typeof companySettingsSchema>;
+export type EmployeeDependentInput = z.infer<typeof employeeDependentSchema>;

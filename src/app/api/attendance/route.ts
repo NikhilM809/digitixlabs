@@ -1,5 +1,4 @@
 import { RoleName } from "@prisma/client";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
   requireAuth,
@@ -7,12 +6,9 @@ import {
   apiError,
   createAuditLog,
 } from "@/lib/api-utils";
+import { attendanceCheckInSchema } from "@/lib/validations";
 import { getWorkScheduleForUserOnDate } from "@/lib/work-schedule";
-
-const attendanceActionSchema = z.object({
-  action: z.enum(["check-in", "check-out"]),
-  notes: z.string().optional(),
-});
+import { canViewLateAttendance } from "@/lib/permissions";
 
 function startOfDay(date = new Date()) {
   const d = new Date(date);
@@ -28,7 +24,7 @@ function parseTimeToDate(timeStr: string, baseDate: Date): Date {
 }
 
 async function getAttendanceUserFilter(role: RoleName, userId: string, requestedUserId?: string | null) {
-  if (role === RoleName.ADMIN) {
+  if (role === RoleName.ADMIN || role === RoleName.HR) {
     return requestedUserId ? { userId: requestedUserId } : {};
   }
   if (role === RoleName.MANAGER) {
@@ -63,13 +59,22 @@ export async function GET(request: Request) {
     const userId = searchParams.get("userId");
     const fromDate = searchParams.get("fromDate");
     const toDate = searchParams.get("toDate");
+    const lateOnly = searchParams.get("lateOnly") === "true";
 
     const userFilter = await getAttendanceUserFilter(user.role, user.id, userId);
     if (userFilter === null) {
       return apiError("Forbidden", 403);
     }
 
+    if (lateOnly && !canViewLateAttendance(user.role)) {
+      return apiError("Forbidden", 403);
+    }
+
     const where: Record<string, unknown> = { ...userFilter };
+
+    if (lateOnly) {
+      where.isLate = true;
+    }
 
     if (fromDate || toDate) {
       where.date = {};
@@ -129,13 +134,13 @@ export async function POST(request: Request) {
     if (error || !user) return error;
 
     const body = await request.json();
-    const parsed = attendanceActionSchema.safeParse(body);
+    const parsed = attendanceCheckInSchema.safeParse(body);
 
     if (!parsed.success) {
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    const { action, notes } = parsed.data;
+    const { action, notes, lateReason } = parsed.data;
     const today = startOfDay();
     const now = new Date();
 
@@ -145,7 +150,6 @@ export async function POST(request: Request) {
         status: "APPROVED",
         fromDate: { lte: now },
         toDate: { gte: today },
-        isHalfDay: false,
       },
     });
 
@@ -172,6 +176,10 @@ export async function POST(request: Request) {
       const lateCutoff = new Date(workStart.getTime() + lateThreshold * 60 * 1000);
       const isLate = now > lateCutoff;
 
+      if (isLate && (!lateReason || lateReason.trim().length < 5)) {
+        return apiError("Reason for late arrival is required (minimum 5 characters)", 400);
+      }
+
       const attendance = await prisma.attendance.upsert({
         where: {
           userId_date: { userId: user.id, date: today },
@@ -182,12 +190,14 @@ export async function POST(request: Request) {
           checkIn: now,
           status: isLate ? "LATE" : "PRESENT",
           isLate,
+          lateReason: isLate ? lateReason?.trim() : null,
           notes,
         },
         update: {
           checkIn: now,
           status: isLate ? "LATE" : "PRESENT",
           isLate,
+          lateReason: isLate ? lateReason?.trim() : null,
           notes,
         },
         include: {

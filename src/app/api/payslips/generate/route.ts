@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
         firstName: true,
         lastName: true,
         pan: true,
+        baseSalary: true,
         department: { select: { name: true } },
         designation: { select: { name: true } },
       },
@@ -58,6 +59,13 @@ export async function POST(req: NextRequest) {
 
     if (!employee) {
       return apiError("Employee not found", 404);
+    }
+
+    if (!employee.baseSalary || employee.baseSalary <= 0) {
+      return apiError(
+        "Basic salary is not configured for this employee. Update it in Employee Management before generating a payslip.",
+        400
+      );
     }
 
     const settings = await prisma.companySettings.findFirst();

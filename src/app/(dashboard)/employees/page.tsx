@@ -97,9 +97,24 @@ interface Employee {
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   baseSalary?: number;
+  ctc?: number;
   incentive?: number;
   reimbursement?: number;
 }
+
+interface EmployeeDependent {
+  id: string;
+  name: string;
+  relationship: string;
+  dateOfBirth: string | null;
+  gender: string | null;
+}
+
+const statusColors: Record<UserStatus, string> = {
+  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  LEFT: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
+  TERMINATED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
 
 interface Department {
   id: string;
@@ -111,11 +126,13 @@ interface Designation {
   name: string;
 }
 
-const statusColors: Record<UserStatus, string> = {
-  ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  INACTIVE: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
-  SUSPENDED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-};
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 function buildEmployeeQuery(params: Record<string, string>) {
   const search = new URLSearchParams();
@@ -187,6 +204,7 @@ export default function EmployeesPage() {
       employmentType: "FULL_TIME",
       joiningDate: format(new Date(), "yyyy-MM-dd"),
       baseSalary: 0,
+      ctc: 0,
       incentive: 0,
       reimbursement: 0,
     },
@@ -211,12 +229,21 @@ export default function EmployeesPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const { data: editingDependents } = useQuery({
+    queryKey: ["employee-dependents", editingEmployee?.id],
+    queryFn: () =>
+      apiFetch<{ enabled: boolean; dependents: EmployeeDependent[] }>(
+        `/api/employees/${editingEmployee!.id}/dependents`
+      ),
+    enabled: !!editingEmployee && canCreateEmployee,
+  });
+
   const deactivateMutation = useMutation({
     mutationFn: (id: string) =>
       apiFetch(`/api/employees/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
-      toast.success("Employee deactivated");
+      toast.success("Employee marked as left");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -259,8 +286,10 @@ export default function EmployeesPage() {
         : undefined,
       emergencyContact: employee.emergencyContact ?? "",
       baseSalary: employee.baseSalary ?? 0,
+      ctc: employee.ctc ?? 0,
       incentive: employee.incentive ?? 0,
       reimbursement: employee.reimbursement ?? 0,
+      status: employee.status,
     });
     setDialogOpen(true);
   };
@@ -346,7 +375,7 @@ export default function EmployeesPage() {
                         onClick={() => {
                           if (
                             confirm(
-                              `Deactivate ${row.original.firstName} ${row.original.lastName}?`
+                              `Mark ${row.original.firstName} ${row.original.lastName} as left? Their records will be preserved.`
                             )
                           ) {
                             deactivateMutation.mutate(row.original.id);
@@ -469,8 +498,8 @@ export default function EmployeesPage() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="INACTIVE">Inactive</SelectItem>
-                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                <SelectItem value="LEFT">Left</SelectItem>
+                <SelectItem value="TERMINATED">Terminated</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -815,10 +844,25 @@ export default function EmployeesPage() {
 
             {canEditSalary && (
               <div className="space-y-3 rounded-xl border border-border/50 p-4">
-                <p className="text-sm font-medium">Salary Components (defaults for payslip)</p>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <p className="text-sm font-medium">Compensation (defaults for payslip)</p>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="baseSalary">Base Salary</Label>
+                    <Label htmlFor="ctc">CTC (Cost to Company)</Label>
+                    <Input
+                      id="ctc"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("ctc", { valueAsNumber: true })}
+                    />
+                    {form.formState.errors.ctc && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.ctc.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="baseSalary">Basic Salary</Label>
                     <Input
                       id="baseSalary"
                       type="number"
@@ -827,6 +871,8 @@ export default function EmployeesPage() {
                       {...form.register("baseSalary", { valueAsNumber: true })}
                     />
                   </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="incentive">Incentive</Label>
                     <Input
@@ -848,6 +894,55 @@ export default function EmployeesPage() {
                     />
                   </div>
                 </div>
+                {editingEmployee && (
+                  <div className="space-y-2 pt-2 border-t border-border/50">
+                    <Label>Employment Status</Label>
+                    <Select
+                      value={form.watch("status") ?? editingEmployee.status}
+                      onValueChange={(v) =>
+                        form.setValue("status", v as EmployeeInput["status"])
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ACTIVE">Active</SelectItem>
+                        <SelectItem value="LEFT">Left</SelectItem>
+                        <SelectItem value="TERMINATED">Terminated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {editingEmployee.ctc != null && editingEmployee.ctc > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Current CTC: {formatCurrency(editingEmployee.ctc)}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {editingEmployee &&
+                  editingDependents?.enabled &&
+                  editingDependents.dependents.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border/50">
+                      <p className="text-sm font-medium">Dependent / Insurance Details</p>
+                      <div className="space-y-2">
+                        {editingDependents.dependents.map((dep) => (
+                          <div
+                            key={dep.id}
+                            className="rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                          >
+                            <p className="font-medium">{dep.name}</p>
+                            <p className="text-muted-foreground">
+                              {dep.relationship}
+                              {dep.gender ? ` · ${dep.gender}` : ""}
+                              {dep.dateOfBirth
+                                ? ` · DOB ${format(new Date(dep.dateOfBirth), "MMM d, yyyy")}`
+                                : ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
 

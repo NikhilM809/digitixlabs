@@ -73,7 +73,10 @@ export async function PATCH(request: Request) {
 
     const profile = await prisma.user.update({
       where: { id: user!.id },
-      data: parsed.data,
+      data: {
+        phone: parsed.data.phone,
+        emergencyContact: parsed.data.emergencyContact,
+      },
       select: profileSelect,
     });
 

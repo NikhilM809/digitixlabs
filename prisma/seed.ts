@@ -117,14 +117,24 @@ async function main() {
       create: { name: "Annual Leave", code: "AL", defaultDays: 20, description: "Annual vacation leave" },
     }),
     prisma.leaveType.upsert({
+      where: { code: "FL" },
+      update: { isActive: true, name: "Floater Leave" },
+      create: {
+        name: "Floater Leave",
+        code: "FL",
+        defaultDays: 2,
+        description: "Optional floater leave for special occasions",
+      },
+    }),
+    prisma.leaveType.upsert({
       where: { code: "WFH" },
-      update: {},
-      create: { name: "Work From Home", code: "WFH", defaultDays: 24, description: "Remote work days" },
+      update: { isActive: false },
+      create: { name: "Work From Home", code: "WFH", defaultDays: 24, description: "Remote work days", isActive: false },
     }),
     prisma.leaveType.upsert({
       where: { code: "HD" },
-      update: {},
-      create: { name: "Half Day", code: "HD", defaultDays: 0, description: "Half day leave" },
+      update: { isActive: false },
+      create: { name: "Half Day", code: "HD", defaultDays: 0, description: "Half day leave", isActive: false },
     }),
     prisma.leaveType.upsert({
       where: { code: "ML" },
@@ -308,23 +318,6 @@ async function main() {
         });
       }
     }
-  }
-
-  // Holidays 2026
-  const holidays = [
-    { name: "Republic Day", date: new Date("2026-01-26"), description: "National Holiday" },
-    { name: "Holi", date: new Date("2026-03-17"), description: "Festival of Colors" },
-    { name: "Good Friday", date: new Date("2026-04-03"), description: "Christian Holiday" },
-    { name: "Independence Day", date: new Date("2026-08-15"), description: "National Holiday" },
-    { name: "Gandhi Jayanti", date: new Date("2026-10-02"), description: "National Holiday" },
-    { name: "Diwali", date: new Date("2026-11-08"), description: "Festival of Lights" },
-    { name: "Christmas", date: new Date("2026-12-25"), description: "Christmas Day" },
-  ];
-
-  for (const holiday of holidays) {
-    await prisma.holidayCalendar.create({
-      data: holiday,
-    }).catch(() => {});
   }
 
   // Sample Announcements

@@ -175,7 +175,7 @@ export default function PayslipsPage() {
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-list"],
-    queryFn: () => apiFetchArray<Employee>("/api/employees"),
+    queryFn: () => apiFetchArray<Employee>("/api/employees?activeOnly=true"),
     enabled: status === "authenticated" && (canUpload || canGenerate),
   });
 
@@ -255,9 +255,15 @@ export default function PayslipsPage() {
   ) {
     const emp = employees.find((e) => e.id === employeeId);
     if (!emp) return;
+    const salary = emp.baseSalary ?? 0;
+    if (!salary || salary <= 0) {
+      toast.error(
+        "Basic salary is not configured for this employee. Update it in Employee Management first."
+      );
+    }
     setValues({
       userId: emp.id,
-      salary: emp.baseSalary ?? 0,
+      salary,
       incentive: emp.incentive ?? 0,
       reimbursement: emp.reimbursement ?? 0,
     });
@@ -543,8 +549,18 @@ export default function PayslipsPage() {
                   id="salary"
                   type="number"
                   min={0}
+                  readOnly
+                  className="bg-muted/50"
                   {...form.register("salary", { valueAsNumber: true })}
                 />
+                {form.watch("userId") && (!form.watch("salary") || form.watch("salary") <= 0) && (
+                  <p className="text-sm text-destructive">
+                    Basic salary is missing for this employee. Configure it in Employee Management.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Auto-filled from the employee record. Historical payslips keep their stored salary.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bonus">Bonus</Label>

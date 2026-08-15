@@ -59,7 +59,7 @@ const employees: OrgEmployee[] = [
     firstName: "Dan",
     lastName: "Inactive",
     role: "EMPLOYEE",
-    status: "INACTIVE",
+    status: "LEFT",
     managerId: "mgr",
     avatar: null,
     department: null,

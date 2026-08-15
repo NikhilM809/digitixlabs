@@ -63,7 +63,7 @@ export async function GET() {
       presentToday,
       onLeaveToday,
       pendingApprovals,
-      upcomingHolidays,
+      lateToday,
       employees,
       attendances,
       leaveRequests,
@@ -104,10 +104,12 @@ export async function GET() {
             },
           }),
 
-      prisma.holidayCalendar.findMany({
-        where: { isActive: true, date: { gte: today } },
-        orderBy: { date: "asc" },
-        take: 5,
+      prisma.attendance.count({
+        where: {
+          userId: { in: scopedUserIds },
+          date: today,
+          isLate: true,
+        },
       }),
 
       prisma.user.findMany({
@@ -305,12 +307,6 @@ export async function GET() {
     }));
 
     const upcomingEvents = [
-      ...upcomingHolidays.map((h) => ({
-        id: h.id,
-        title: h.name,
-        date: h.date.toISOString(),
-        type: "holiday" as const,
-      })),
       ...birthdays.map((b) => ({
         id: b.id,
         title: `${b.name}'s Birthday`,
@@ -333,7 +329,7 @@ export async function GET() {
         presentToday,
         onLeave: onLeaveToday,
         pendingApprovals,
-        upcomingHolidays: upcomingHolidays.length,
+        lateToday,
         birthdays: birthdays.length,
         workAnniversaries: workAnniversaries.length,
       },

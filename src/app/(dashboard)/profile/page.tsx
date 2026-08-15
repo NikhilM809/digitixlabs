@@ -19,6 +19,7 @@ import {
   EyeOff,
   Loader2,
   UsersRound,
+  Users,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
+import { DependentDetailsPanel } from "@/components/profile/dependent-details-panel";
 import { fetchApi } from "@/lib/api-client";
 import {
   profileSchema,
@@ -109,8 +111,6 @@ export default function ProfilePage() {
     resolver: zodResolver(profileSchema),
     values: profile
       ? {
-          firstName: profile.firstName,
-          lastName: profile.lastName,
           phone: profile.phone ?? "",
           emergencyContact: profile.emergencyContact ?? "",
         }
@@ -132,12 +132,8 @@ export default function ProfilePage() {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       toast.success("Profile updated successfully");
-      await update({
-        firstName: data.firstName,
-        lastName: data.lastName,
-      });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -248,6 +244,10 @@ export default function ProfilePage() {
             <UsersRound className="h-4 w-4" />
             Reporting
           </TabsTrigger>
+          <TabsTrigger value="dependents" className="gap-2">
+            <Users className="h-4 w-4" />
+            Dependents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="edit">
@@ -264,17 +264,14 @@ export default function ProfilePage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" {...registerProfile("firstName")} />
-                    {profileErrors.firstName && (
-                      <p className="text-sm text-destructive">{profileErrors.firstName.message}</p>
-                    )}
+                    <Input id="firstName" value={profile.firstName} disabled readOnly />
+                    <p className="text-xs text-muted-foreground">
+                      Contact HR/Admin to update your name.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" {...registerProfile("lastName")} />
-                    {profileErrors.lastName && (
-                      <p className="text-sm text-destructive">{profileErrors.lastName.message}</p>
-                    )}
+                    <Input id="lastName" value={profile.lastName} disabled readOnly />
                   </div>
                 </div>
 
@@ -501,6 +498,10 @@ export default function ProfilePage() {
               </form>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="dependents">
+          <DependentDetailsPanel />
         </TabsContent>
       </Tabs>
     </div>
