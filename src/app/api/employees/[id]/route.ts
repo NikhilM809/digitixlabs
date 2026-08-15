@@ -31,6 +31,11 @@ export async function GET(_req: NextRequest, context: RouteContext) {
       joiningDate: true,
       dateOfBirth: true,
       emergencyContact: true,
+      pan: true,
+      baseSalary: true,
+      ctc: true,
+      incentive: true,
+      reimbursement: true,
       departmentId: true,
       designationId: true,
       managerId: true,
@@ -83,8 +88,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         emergencyContact: parsed.emergencyContact,
         pan: parsed.pan || null,
         baseSalary: parsed.baseSalary ?? 0,
+        ctc: parsed.ctc ?? 0,
         incentive: parsed.incentive ?? 0,
         reimbursement: parsed.reimbursement ?? 0,
+        ...(parsed.status ? { status: parsed.status } : {}),
       },
       select: {
         id: true,
@@ -101,6 +108,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         emergencyContact: true,
         pan: true,
         baseSalary: true,
+        ctc: true,
         incentive: true,
         reimbursement: true,
         departmentId: true,
@@ -142,7 +150,7 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   try {
     const employee = await prisma.user.update({
       where: { id },
-      data: { status: "INACTIVE" },
+      data: { status: "LEFT" },
       select: { id: true, firstName: true, lastName: true },
     });
 
@@ -151,7 +159,7 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
       action: "DELETE",
       entity: "User",
       entityId: employee.id,
-      details: `Deactivated employee ${employee.firstName} ${employee.lastName}`,
+      details: `Marked employee ${employee.firstName} ${employee.lastName} as left`,
     });
 
     return apiSuccess({ id: employee.id });

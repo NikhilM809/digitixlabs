@@ -18,9 +18,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/dashboard/activity-feed";
 import { fetchApi } from "@/lib/api-client";
 import { formatDate, formatDateTime, formatLocalDate, cn } from "@/lib/utils";
+import { canViewLateAttendance } from "@/lib/permissions";
+import type { RoleName } from "@prisma/client";
 
 interface AttendanceRecord {
   id: string;
@@ -30,7 +41,15 @@ interface AttendanceRecord {
   status: string;
   workingHours: number | null;
   isLate: boolean;
+  lateReason?: string | null;
   notes?: string | null;
+  user?: {
+    id: string;
+    employeeId: string;
+    firstName: string;
+    lastName: string;
+    department?: { name: string } | null;
+  };
 }
 
 interface AttendanceListResponse {
@@ -69,9 +88,25 @@ export default function AttendancePage() {
   const now = new Date();
   const todayStr = formatLocalDate(now);
   const userId = session?.user?.id;
+  const role = session?.user?.role as RoleName | undefined;
+  const canViewLate = role ? canViewLateAttendance(role) : false;
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [checkInOpen, setCheckInOpen] = useState(false);
+  const [lateReason, setLateReason] = useState("");
   const monthRange = formatMonthRange(selectedYear, selectedMonth);
+
+  const { data: checkInPreview } = useQuery({
+    queryKey: ["attendance-check-in-preview", todayStr, userId],
+    queryFn: () =>
+      fetchApi<{
+        workStartTime: string;
+        lateThreshold: number;
+        isLateNow: boolean;
+        alreadyCheckedIn: boolean;
+      }>("/api/attendance/check-in-preview"),
+    enabled: !!userId && checkInOpen,
+  });
 
   const { data: todayData, isLoading: todayLoading, isError: todayError } = useQuery({
     queryKey: ["attendance-today", todayStr, userId],
@@ -91,16 +126,31 @@ export default function AttendancePage() {
     enabled: !!userId,
   });
 
+  const { data: lateData, isLoading: lateLoading } = useQuery({
+    queryKey: ["attendance-late", selectedMonth, selectedYear],
+    queryFn: () =>
+      fetchApi<AttendanceListResponse>(
+        `/api/attendance?lateOnly=true&fromDate=${monthRange.fromDate}&toDate=${monthRange.toDate}&limit=100`
+      ),
+    enabled: canViewLate,
+  });
+
   const checkInMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (reason?: string) =>
       fetchApi("/api/attendance", {
         method: "POST",
-        body: JSON.stringify({ action: "check-in" }),
+        body: JSON.stringify({
+          action: "check-in",
+          lateReason: reason?.trim() || undefined,
+        }),
       }),
     onSuccess: () => {
       toast.success("Checked in successfully!");
+      setCheckInOpen(false);
+      setLateReason("");
       queryClient.invalidateQueries({ queryKey: ["attendance-today"] });
       queryClient.invalidateQueries({ queryKey: ["attendance-history"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance-late"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -119,10 +169,24 @@ export default function AttendancePage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const isProcessing = checkInMutation.isPending || checkOutMutation.isPending;
+
+  function handleCheckInClick() {
+    setLateReason("");
+    setCheckInOpen(true);
+  }
+
+  function submitCheckIn() {
+    if (checkInPreview?.isLateNow && lateReason.trim().length < 5) {
+      toast.error("Please provide a reason for your late arrival (minimum 5 characters).");
+      return;
+    }
+    checkInMutation.mutate(lateReason);
+  }
+
   const today = todayData?.records[0] ?? null;
   const canCheckIn = !today?.checkIn;
   const canCheckOut = today?.checkIn && !today?.checkOut;
-  const isProcessing = checkInMutation.isPending || checkOutMutation.isPending;
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -183,7 +247,7 @@ export default function AttendancePage() {
               <div className="flex flex-wrap gap-3">
                 <Button
                   size="lg"
-                  onClick={() => checkInMutation.mutate()}
+                  onClick={handleCheckInClick}
                   disabled={!canCheckIn || isProcessing}
                   className="flex-1 sm:flex-none"
                 >
@@ -338,6 +402,101 @@ export default function AttendancePage() {
           )}
         </CardContent>
       </Card>
+
+      {canViewLate && (
+        <Card glass>
+          <CardHeader>
+            <CardTitle>Late Arrivals</CardTitle>
+            <CardDescription>
+              Review employees who checked in late and their stated reasons
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {lateLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-14 rounded-xl" />
+                ))}
+              </div>
+            ) : lateData?.records && lateData.records.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      <th className="text-left py-3 px-2 font-medium text-muted-foreground">Employee</th>
+                      <th className="text-left py-3 px-2 font-medium text-muted-foreground">Date</th>
+                      <th className="text-left py-3 px-2 font-medium text-muted-foreground">Check In</th>
+                      <th className="text-left py-3 px-2 font-medium text-muted-foreground">Reason for Late</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lateData.records.map((record) => (
+                      <tr key={record.id} className="border-b border-border/30 hover:bg-muted/30">
+                        <td className="py-3 px-2">
+                          <p className="font-medium">
+                            {record.user
+                              ? `${record.user.firstName} ${record.user.lastName}`
+                              : "—"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {record.user?.employeeId}
+                          </p>
+                        </td>
+                        <td className="py-3 px-2">{formatDate(record.date)}</td>
+                        <td className="py-3 px-2">
+                          {record.checkIn ? formatTimeFromISO(record.checkIn) : "—"}
+                        </td>
+                        <td className="py-3 px-2 text-muted-foreground">
+                          {record.lateReason || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                icon={Clock}
+                title="No late arrivals"
+                description={`No late check-ins recorded for ${monthNames[selectedMonth - 1]} ${selectedYear}.`}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={checkInOpen} onOpenChange={setCheckInOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Check In</DialogTitle>
+            <DialogDescription>
+              {checkInPreview?.isLateNow
+                ? "You are checking in late. Please provide a reason before continuing."
+                : "Confirm your check-in for today."}
+            </DialogDescription>
+          </DialogHeader>
+          {checkInPreview?.isLateNow && (
+            <div className="space-y-2">
+              <Label htmlFor="lateReason">Reason for Late *</Label>
+              <Textarea
+                id="lateReason"
+                placeholder="Briefly explain why you are late today..."
+                value={lateReason}
+                onChange={(e) => setLateReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setCheckInOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitCheckIn} disabled={checkInMutation.isPending}>
+              {checkInMutation.isPending ? "Checking in..." : "Confirm Check In"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

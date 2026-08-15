@@ -49,7 +49,11 @@ export function canViewOwnDocuments(role: RoleName) {
   return role === "ADMIN" || role === "HR" || role === "MANAGER" || role === "EMPLOYEE";
 }
 
-export function canManageHolidays(role: RoleName) {
+export function canViewEmployeeDependents(role: RoleName) {
+  return isAdminOrHr(role);
+}
+
+export function canViewLateAttendance(role: RoleName) {
   return isAdminOrHr(role);
 }
 

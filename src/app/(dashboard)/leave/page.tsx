@@ -25,7 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -117,10 +116,7 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
     formState: { errors },
   } = useForm<LeaveApplicationInput>({
     resolver: zodResolver(leaveApplicationSchema) as Resolver<LeaveApplicationInput>,
-    defaultValues: { isHalfDay: false },
   });
-
-  const isHalfDay = watch("isHalfDay");
 
   const mutation = useMutation({
     mutationFn: (data: LeaveApplicationInput) =>
@@ -186,41 +182,6 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
               )}
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <Controller
-              name="isHalfDay"
-              control={control}
-              render={({ field }) => (
-                <Switch checked={field.value} onCheckedChange={field.onChange} />
-              )}
-            />
-            <Label>Half Day Leave</Label>
-          </div>
-
-          {isHalfDay && (
-            <div className="space-y-2">
-              <Label>Half Day Period</Label>
-              <Controller
-                name="halfDayPeriod"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select period" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FIRST_HALF">First Half</SelectItem>
-                      <SelectItem value="SECOND_HALF">Second Half</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.halfDayPeriod && (
-                <p className="text-sm text-destructive">{errors.halfDayPeriod.message}</p>
-              )}
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="attachment">Supporting Document (optional)</Label>
@@ -294,10 +255,8 @@ function AdminApplyLeaveForm({
     formState: { errors },
   } = useForm<AdminLeaveApplicationInput>({
     resolver: zodResolver(adminLeaveApplicationSchema) as Resolver<AdminLeaveApplicationInput>,
-    defaultValues: { isHalfDay: false, userId: "" },
+    defaultValues: { userId: "" },
   });
-
-  const isHalfDay = watch("isHalfDay");
 
   const mutation = useMutation({
     mutationFn: (data: AdminLeaveApplicationInput) =>
@@ -392,38 +351,6 @@ function AdminApplyLeaveForm({
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <Controller
-              name="isHalfDay"
-              control={control}
-              render={({ field }) => (
-                <Switch checked={field.value} onCheckedChange={field.onChange} />
-              )}
-            />
-            <Label>Half Day Leave</Label>
-          </div>
-
-          {isHalfDay && (
-            <div className="space-y-2">
-              <Label>Half Day Period</Label>
-              <Controller
-                name="halfDayPeriod"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select period" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FIRST_HALF">First Half</SelectItem>
-                      <SelectItem value="SECOND_HALF">Second Half</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-          )}
-
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? (
               <>
@@ -450,8 +377,7 @@ function LeaveRow({ leave, onCancel }: { leave: LeaveRequest; onCancel?: (id: st
         </div>
         <p className="text-sm text-muted-foreground">
           {formatDate(leave.fromDate)}
-          {!leave.isHalfDay && leave.fromDate !== leave.toDate && ` — ${formatDate(leave.toDate)}`}
-          {leave.isHalfDay && ` (${leave.halfDayPeriod?.replace("_", " ")})`}
+          {leave.fromDate !== leave.toDate && ` — ${formatDate(leave.toDate)}`}
         </p>
         <p className="text-xs text-muted-foreground">
           {leave.totalDays} day{leave.totalDays !== 1 ? "s" : ""} · Applied {formatDate(leave.createdAt)}
@@ -580,7 +506,7 @@ export default function LeavePage() {
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-for-leave"],
-    queryFn: () => apiFetchArray<EmployeeOption>("/api/employees"),
+    queryFn: () => apiFetchArray<EmployeeOption>("/api/employees?activeOnly=true"),
     enabled: canApplyForOthers || canEditBalance,
   });
 

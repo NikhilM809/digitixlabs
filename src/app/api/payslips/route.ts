@@ -76,6 +76,21 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = payslipSchema.parse(body);
+
+    const employee = await prisma.user.findUnique({
+      where: { id: parsed.userId },
+      select: { baseSalary: true, firstName: true, lastName: true },
+    });
+    if (!employee) {
+      return apiError("Employee not found", 404);
+    }
+    if (!employee.baseSalary || employee.baseSalary <= 0) {
+      return apiError(
+        "Basic salary is not configured for this employee. Update it in Employee Management before creating a payslip.",
+        400
+      );
+    }
+
     const netSalary = calculateNetSalary(parsed);
 
     const payslip = await prisma.payslip.upsert({

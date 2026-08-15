@@ -8,7 +8,6 @@ import {
   CalendarCheck,
   Clock,
   Palmtree,
-  PartyPopper,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import {
@@ -28,7 +27,7 @@ interface DashboardData {
     presentToday: number;
     onLeave: number;
     pendingApprovals: number;
-    upcomingHolidays: number;
+    lateToday: number;
     birthdays: number;
     workAnniversaries: number;
   };
@@ -49,7 +48,13 @@ interface DashboardData {
     id: string;
     title: string;
     date: string;
-    type: "holiday" | "birthday" | "anniversary";
+    type: "birthday" | "anniversary";
+  }[];
+  announcements: {
+    id: string;
+    title: string;
+    content: string;
+    createdAt: string;
   }[];
 }
 
@@ -133,10 +138,10 @@ export default function DashboardPage() {
           delay={0.1}
         />
         <StatCard
-          title="Upcoming Holidays"
-          value={data.stats.upcomingHolidays}
+          title="Late Arrivals Today"
+          value={data.stats.lateToday}
           subtitle={`${data.stats.birthdays} birthdays this month`}
-          icon={showManagerStats ? PartyPopper : Palmtree}
+          icon={showManagerStats ? Clock : Palmtree}
           gradient="purple"
           delay={0.15}
         />
