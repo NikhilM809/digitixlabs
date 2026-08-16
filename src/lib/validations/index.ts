@@ -65,6 +65,16 @@ export const employeeSchema = z.object({
     .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format (e.g. ABCDE1234F)")
     .optional()
     .or(z.literal("")),
+  aadhaarNumber: z
+    .string()
+    .regex(/^\d{12}$/, "Aadhaar must be 12 digits")
+    .optional()
+    .or(z.literal("")),
+  bankAccountNumber: z
+    .string()
+    .regex(/^\d{9,18}$/, "Bank account number must be 9–18 digits")
+    .optional()
+    .or(z.literal("")),
   baseSalary: z.coerce.number().min(0).optional(),
   ctc: z.coerce.number().min(0, "CTC must be a positive amount").optional(),
   incentive: z.coerce.number().min(0).optional(),

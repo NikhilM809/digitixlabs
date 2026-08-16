@@ -90,6 +90,9 @@ interface Employee {
   joiningDate: string;
   dateOfBirth: string | null;
   emergencyContact: string | null;
+  pan?: string | null;
+  aadhaarNumber?: string | null;
+  bankAccountNumber?: string | null;
   departmentId: string | null;
   designationId: string | null;
   managerId: string | null;
@@ -203,6 +206,9 @@ export default function EmployeesPage() {
       role: "EMPLOYEE",
       employmentType: "FULL_TIME",
       joiningDate: format(new Date(), "yyyy-MM-dd"),
+      pan: "",
+      aadhaarNumber: "",
+      bankAccountNumber: "",
       baseSalary: 0,
       ctc: 0,
       incentive: 0,
@@ -261,6 +267,9 @@ export default function EmployeesPage() {
       departmentId: undefined,
       designationId: undefined,
       managerId: undefined,
+      pan: "",
+      aadhaarNumber: "",
+      bankAccountNumber: "",
       baseSalary: 0,
       incentive: 0,
       reimbursement: 0,
@@ -285,6 +294,9 @@ export default function EmployeesPage() {
         ? format(new Date(employee.dateOfBirth), "yyyy-MM-dd")
         : undefined,
       emergencyContact: employee.emergencyContact ?? "",
+      pan: employee.pan ?? "",
+      aadhaarNumber: employee.aadhaarNumber ?? "",
+      bankAccountNumber: employee.bankAccountNumber ?? "",
       baseSalary: employee.baseSalary ?? 0,
       ctc: employee.ctc ?? 0,
       incentive: employee.incentive ?? 0,
@@ -839,6 +851,58 @@ export default function EmployeesPage() {
                   id="emergencyContact"
                   {...form.register("emergencyContact")}
                 />
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border/50 p-4">
+              <p className="text-sm font-medium">Identity &amp; Bank Details</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="pan">PAN Number</Label>
+                  <Input
+                    id="pan"
+                    placeholder="ABCDE1234F"
+                    maxLength={10}
+                    className="uppercase"
+                    {...form.register("pan", {
+                      setValueAs: (v: string) => v?.toUpperCase() ?? "",
+                    })}
+                  />
+                  {form.formState.errors.pan && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.pan.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="aadhaarNumber">Aadhaar Number</Label>
+                  <Input
+                    id="aadhaarNumber"
+                    placeholder="12-digit Aadhaar"
+                    maxLength={12}
+                    inputMode="numeric"
+                    {...form.register("aadhaarNumber")}
+                  />
+                  {form.formState.errors.aadhaarNumber && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.aadhaarNumber.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                <Input
+                  id="bankAccountNumber"
+                  placeholder="9–18 digit account number"
+                  inputMode="numeric"
+                  {...form.register("bankAccountNumber")}
+                />
+                {form.formState.errors.bankAccountNumber && (
+                  <p className="text-sm text-destructive">
+                    {form.formState.errors.bankAccountNumber.message}
+                  </p>
+                )}
               </div>
             </div>
 

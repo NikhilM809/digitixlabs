@@ -110,6 +110,8 @@ model User {
   dateOfBirth        DateTime?
   emergencyContact   String?
   pan                String?
+  aadhaarNumber      String?
+  bankAccountNumber  String?
   baseSalary         Float          @default(0)
   ctc                Float          @default(0)
   incentive          Float          @default(0)

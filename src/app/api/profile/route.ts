@@ -21,6 +21,9 @@ const profileSelect = {
   joiningDate: true,
   dateOfBirth: true,
   emergencyContact: true,
+  pan: true,
+  aadhaarNumber: true,
+  bankAccountNumber: true,
   mustChangePassword: true,
   lastLoginAt: true,
   createdAt: true,
@@ -69,10 +72,14 @@ export async function PATCH(request: Request) {
     if (
       body &&
       typeof body === "object" &&
-      ("firstName" in body || "lastName" in body)
+      ("firstName" in body ||
+        "lastName" in body ||
+        "pan" in body ||
+        "aadhaarNumber" in body ||
+        "bankAccountNumber" in body)
     ) {
       return apiError(
-        "You cannot update your name. Please contact Admin or HR.",
+        "You cannot update restricted fields. Please contact Admin or HR.",
         403
       );
     }

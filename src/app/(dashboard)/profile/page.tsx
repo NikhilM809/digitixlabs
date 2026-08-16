@@ -53,6 +53,9 @@ interface ProfileData {
   joiningDate: string;
   dateOfBirth: string | null;
   emergencyContact: string | null;
+  pan: string | null;
+  aadhaarNumber: string | null;
+  bankAccountNumber: string | null;
   department: { id: string; name: string } | null;
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string; email: string } | null;
@@ -306,6 +309,42 @@ export default function ProfilePage() {
                     placeholder="Emergency contact number"
                     {...registerProfile("emergencyContact")}
                   />
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-border/50 p-4">
+                  <p className="text-sm font-medium">Identity &amp; Bank Details</p>
+                  <p className="text-xs text-muted-foreground">
+                    These details are managed by Admin/HR and cannot be edited here.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="pan">PAN Number</Label>
+                      <Input
+                        id="pan"
+                        value={profile.pan ?? "—"}
+                        disabled
+                        readOnly
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="aadhaarNumber">Aadhaar Number</Label>
+                      <Input
+                        id="aadhaarNumber"
+                        value={profile.aadhaarNumber ?? "—"}
+                        disabled
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                    <Input
+                      id="bankAccountNumber"
+                      value={profile.bankAccountNumber ?? "—"}
+                      disabled
+                      readOnly
+                    />
+                  </div>
                 </div>
 
                 {profile.manager && (
