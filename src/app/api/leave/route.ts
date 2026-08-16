@@ -12,6 +12,7 @@ import {
   adminLeaveApplicationSchema,
 } from "@/lib/validations";
 import { calculateLeaveDays } from "@/lib/utils";
+import { isDeprecatedLeaveTypeCode } from "@/lib/leave-types-sync";
 import {
   canApplyLeaveOnBehalf,
   canManageAllLeaves,
@@ -136,14 +137,6 @@ export async function POST(request: Request) {
     const fromDate = startOfDay(new Date(data.fromDate));
     const toDate = startOfDay(new Date(data.toDate));
 
-    if (data.isHalfDay && fromDate.getTime() !== toDate.getTime()) {
-      return apiError("Half-day leave must be for a single day", 400);
-    }
-
-    if (data.isHalfDay && !data.halfDayPeriod) {
-      return apiError("Half-day period is required for half-day leave", 400);
-    }
-
     const leaveType = await prisma.leaveType.findUnique({
       where: { id: data.leaveTypeId },
     });
@@ -152,24 +145,15 @@ export async function POST(request: Request) {
       return apiError("Invalid leave type", 400);
     }
 
+    if (isDeprecatedLeaveTypeCode(leaveType.code)) {
+      return apiError("This leave type is no longer available", 400);
+    }
+
     if (leaveType.requiresAttachment && !data.attachment) {
       return apiError("Attachment is required for this leave type", 400);
     }
 
-    const holidays = await prisma.holidayCalendar.findMany({
-      where: {
-        isActive: true,
-        date: { gte: fromDate, lte: toDate },
-      },
-      select: { date: true },
-    });
-
-    const totalDays = calculateLeaveDays(
-      fromDate,
-      toDate,
-      data.isHalfDay,
-      holidays.map((h) => new Date(h.date))
-    );
+    const totalDays = calculateLeaveDays(fromDate, toDate);
 
     if (totalDays <= 0) {
       return apiError("No working days in the selected date range", 400);
@@ -217,8 +201,8 @@ export async function POST(request: Request) {
           leaveTypeId: data.leaveTypeId,
           fromDate,
           toDate,
-          isHalfDay: data.isHalfDay,
-          halfDayPeriod: data.isHalfDay ? data.halfDayPeriod : null,
+          isHalfDay: false,
+          halfDayPeriod: null,
           totalDays,
           reason: data.reason,
           attachment: data.attachment,

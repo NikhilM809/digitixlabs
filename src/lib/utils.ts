@@ -28,24 +28,14 @@ export function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
 
-export function calculateLeaveDays(
-  fromDate: Date,
-  toDate: Date,
-  isHalfDay: boolean,
-  holidays: Date[] = []
-): number {
-  if (isHalfDay) return 0.5;
-
+export function calculateLeaveDays(fromDate: Date, toDate: Date): number {
   let days = 0;
   const current = new Date(fromDate);
   const end = new Date(toDate);
 
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    const isHoliday = holidays.some(
-      (h) => h.toDateString() === current.toDateString()
-    );
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoliday) {
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
       days++;
     }
     current.setDate(current.getDate() + 1);

@@ -8,7 +8,6 @@ export {
   canViewAllSalaries,
   canManageEmployees,
   canManagePolicies,
-  canManageHolidays,
   canEditLeaveBalance,
   canApplyLeaveOnBehalf,
   canUploadPayslip,

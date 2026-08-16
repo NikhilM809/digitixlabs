@@ -60,6 +60,7 @@ export default function SettingsPage() {
       lateThreshold: 15,
       orgHierarchyVisibleToEmployees: true,
       orgHierarchyVisibleToManagers: true,
+      dependentDetailsEnabled: false,
     },
   });
 
@@ -81,6 +82,7 @@ export default function SettingsPage() {
           settings.orgHierarchyVisibleToEmployees ?? true,
         orgHierarchyVisibleToManagers:
           settings.orgHierarchyVisibleToManagers ?? true,
+        dependentDetailsEnabled: settings.dependentDetailsEnabled ?? false,
       });
     }
   }, [settings, form]);
@@ -94,6 +96,7 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       queryClient.invalidateQueries({ queryKey: ["org-hierarchy-visibility"] });
+      queryClient.invalidateQueries({ queryKey: ["dependents-settings"] });
       toast.success("Settings saved successfully");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -292,6 +295,36 @@ export default function SettingsPage() {
                   rows={3}
                   placeholder="Password requirements for employees..."
                   {...form.register("passwordPolicy")}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card glass>
+            <CardHeader>
+              <CardTitle className="text-base">Employee Profile Features</CardTitle>
+              <CardDescription>
+                Control optional sections shown on employee profiles
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="dependent-details-enabled" className="font-medium">
+                    Dependent Details
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    When enabled, employees can enter dependent information for insurance
+                  </p>
+                </div>
+                <Switch
+                  id="dependent-details-enabled"
+                  checked={form.watch("dependentDetailsEnabled") ?? false}
+                  onCheckedChange={(checked) =>
+                    form.setValue("dependentDetailsEnabled", checked, {
+                      shouldDirty: true,
+                    })
+                  }
                 />
               </div>
             </CardContent>

@@ -21,6 +21,9 @@ const profileSelect = {
   joiningDate: true,
   dateOfBirth: true,
   emergencyContact: true,
+  pan: true,
+  aadhaarNumber: true,
+  bankAccountNumber: true,
   mustChangePassword: true,
   lastLoginAt: true,
   createdAt: true,
@@ -65,6 +68,22 @@ export async function PATCH(request: Request) {
     if (error) return error;
 
     const body = await request.json();
+
+    if (
+      body &&
+      typeof body === "object" &&
+      ("firstName" in body ||
+        "lastName" in body ||
+        "pan" in body ||
+        "aadhaarNumber" in body ||
+        "bankAccountNumber" in body)
+    ) {
+      return apiError(
+        "You cannot update restricted fields. Please contact Admin or HR.",
+        403
+      );
+    }
+
     const parsed = profileSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -73,7 +92,10 @@ export async function PATCH(request: Request) {
 
     const profile = await prisma.user.update({
       where: { id: user!.id },
-      data: parsed.data,
+      data: {
+        phone: parsed.data.phone,
+        emergencyContact: parsed.data.emergencyContact,
+      },
       select: profileSelect,
     });
 

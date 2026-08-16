@@ -24,8 +24,13 @@ export async function GET(req: NextRequest) {
   const role = searchParams.get("role");
   const status = searchParams.get("status");
   const employmentType = searchParams.get("employmentType");
+  const activeOnly = searchParams.get("activeOnly") === "true";
 
   const where: Prisma.UserWhereInput = {};
+
+  if (activeOnly) {
+    where.status = "ACTIVE";
+  }
 
   if (user!.role === "MANAGER") {
     where.OR = [{ managerId: user!.id }, { id: user!.id }];
@@ -67,7 +72,10 @@ export async function GET(req: NextRequest) {
       dateOfBirth: true,
       emergencyContact: true,
       pan: true,
+      aadhaarNumber: true,
+      bankAccountNumber: true,
       baseSalary: true,
+      ctc: true,
       incentive: true,
       reimbursement: true,
       departmentId: true,
@@ -117,7 +125,10 @@ export async function POST(req: NextRequest) {
         dateOfBirth: parsed.dateOfBirth ? new Date(parsed.dateOfBirth) : null,
         emergencyContact: parsed.emergencyContact,
         pan: parsed.pan || null,
+        aadhaarNumber: parsed.aadhaarNumber || null,
+        bankAccountNumber: parsed.bankAccountNumber || null,
         baseSalary: parsed.baseSalary ?? 0,
+        ctc: parsed.ctc ?? 0,
         incentive: parsed.incentive ?? 0,
         reimbursement: parsed.reimbursement ?? 0,
         mustChangePassword: true,
@@ -136,7 +147,10 @@ export async function POST(req: NextRequest) {
         dateOfBirth: true,
         emergencyContact: true,
         pan: true,
+        aadhaarNumber: true,
+        bankAccountNumber: true,
         baseSalary: true,
+        ctc: true,
         incentive: true,
         reimbursement: true,
         departmentId: true,

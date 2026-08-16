@@ -18,11 +18,10 @@ interface UpcomingItem {
   id: string;
   title: string;
   date: string;
-  type: "holiday" | "birthday" | "anniversary";
+  type: "birthday" | "anniversary";
 }
 
 const typeIcons = {
-  holiday: Calendar,
   birthday: Cake,
   anniversary: Award,
   announcement: Megaphone,

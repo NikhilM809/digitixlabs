@@ -19,6 +19,7 @@ import {
   EyeOff,
   Loader2,
   UsersRound,
+  Users,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
+import { DependentDetailsPanel } from "@/components/profile/dependent-details-panel";
 import { fetchApi } from "@/lib/api-client";
 import {
   profileSchema,
@@ -51,6 +53,9 @@ interface ProfileData {
   joiningDate: string;
   dateOfBirth: string | null;
   emergencyContact: string | null;
+  pan: string | null;
+  aadhaarNumber: string | null;
+  bankAccountNumber: string | null;
   department: { id: string; name: string } | null;
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string; email: string } | null;
@@ -101,6 +106,12 @@ export default function ProfilePage() {
     enabled: !!session,
   });
 
+  const { data: dependentsSettings } = useQuery({
+    queryKey: ["dependents-settings"],
+    queryFn: () => fetchApi<{ enabled: boolean }>("/api/profile/dependents-settings"),
+    enabled: !!session,
+  });
+
   const {
     register: registerProfile,
     handleSubmit: handleProfileSubmit,
@@ -109,8 +120,6 @@ export default function ProfilePage() {
     resolver: zodResolver(profileSchema),
     values: profile
       ? {
-          firstName: profile.firstName,
-          lastName: profile.lastName,
           phone: profile.phone ?? "",
           emergencyContact: profile.emergencyContact ?? "",
         }
@@ -132,12 +141,8 @@ export default function ProfilePage() {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       toast.success("Profile updated successfully");
-      await update({
-        firstName: data.firstName,
-        lastName: data.lastName,
-      });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -248,6 +253,12 @@ export default function ProfilePage() {
             <UsersRound className="h-4 w-4" />
             Reporting
           </TabsTrigger>
+          {dependentsSettings?.enabled && (
+            <TabsTrigger value="dependents" className="gap-2">
+              <Users className="h-4 w-4" />
+              Dependents
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="edit">
@@ -264,17 +275,14 @@ export default function ProfilePage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" {...registerProfile("firstName")} />
-                    {profileErrors.firstName && (
-                      <p className="text-sm text-destructive">{profileErrors.firstName.message}</p>
-                    )}
+                    <Input id="firstName" value={profile.firstName} disabled readOnly />
+                    <p className="text-xs text-muted-foreground">
+                      Contact HR/Admin to update your name.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" {...registerProfile("lastName")} />
-                    {profileErrors.lastName && (
-                      <p className="text-sm text-destructive">{profileErrors.lastName.message}</p>
-                    )}
+                    <Input id="lastName" value={profile.lastName} disabled readOnly />
                   </div>
                 </div>
 
@@ -301,6 +309,42 @@ export default function ProfilePage() {
                     placeholder="Emergency contact number"
                     {...registerProfile("emergencyContact")}
                   />
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-border/50 p-4">
+                  <p className="text-sm font-medium">Identity &amp; Bank Details</p>
+                  <p className="text-xs text-muted-foreground">
+                    These details are managed by Admin/HR and cannot be edited here.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="pan">PAN Number</Label>
+                      <Input
+                        id="pan"
+                        value={profile.pan ?? "—"}
+                        disabled
+                        readOnly
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="aadhaarNumber">Aadhaar Number</Label>
+                      <Input
+                        id="aadhaarNumber"
+                        value={profile.aadhaarNumber ?? "—"}
+                        disabled
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                    <Input
+                      id="bankAccountNumber"
+                      value={profile.bankAccountNumber ?? "—"}
+                      disabled
+                      readOnly
+                    />
+                  </div>
                 </div>
 
                 {profile.manager && (
@@ -502,6 +546,12 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {dependentsSettings?.enabled && (
+          <TabsContent value="dependents">
+            <DependentDetailsPanel />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
