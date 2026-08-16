@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { DEPRECATED_LEAVE_TYPE_CODES } from "@/lib/leave-types-sync";
 
 export async function computeLeaveBalancesForUser(userId: string, year: number) {
   const yearStart = new Date(`${year}-01-01T00:00:00.000Z`);
@@ -20,7 +21,10 @@ export async function computeLeaveBalancesForUser(userId: string, year: number) 
       },
     }),
     prisma.leaveType.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        code: { notIn: [...DEPRECATED_LEAVE_TYPE_CODES] },
+      },
       select: {
         id: true,
         name: true,

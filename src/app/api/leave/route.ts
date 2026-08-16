@@ -12,6 +12,7 @@ import {
   adminLeaveApplicationSchema,
 } from "@/lib/validations";
 import { calculateLeaveDays } from "@/lib/utils";
+import { isDeprecatedLeaveTypeCode } from "@/lib/leave-types-sync";
 import {
   canApplyLeaveOnBehalf,
   canManageAllLeaves,
@@ -142,6 +143,10 @@ export async function POST(request: Request) {
 
     if (!leaveType || !leaveType.isActive) {
       return apiError("Invalid leave type", 400);
+    }
+
+    if (isDeprecatedLeaveTypeCode(leaveType.code)) {
+      return apiError("This leave type is no longer available", 400);
     }
 
     if (leaveType.requiresAttachment && !data.attachment) {

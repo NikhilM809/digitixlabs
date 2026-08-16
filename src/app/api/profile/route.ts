@@ -65,6 +65,18 @@ export async function PATCH(request: Request) {
     if (error) return error;
 
     const body = await request.json();
+
+    if (
+      body &&
+      typeof body === "object" &&
+      ("firstName" in body || "lastName" in body)
+    ) {
+      return apiError(
+        "You cannot update your name. Please contact Admin or HR.",
+        403
+      );
+    }
+
     const parsed = profileSchema.safeParse(body);
 
     if (!parsed.success) {

@@ -103,6 +103,12 @@ export default function ProfilePage() {
     enabled: !!session,
   });
 
+  const { data: dependentsSettings } = useQuery({
+    queryKey: ["dependents-settings"],
+    queryFn: () => fetchApi<{ enabled: boolean }>("/api/profile/dependents-settings"),
+    enabled: !!session,
+  });
+
   const {
     register: registerProfile,
     handleSubmit: handleProfileSubmit,
@@ -244,10 +250,12 @@ export default function ProfilePage() {
             <UsersRound className="h-4 w-4" />
             Reporting
           </TabsTrigger>
-          <TabsTrigger value="dependents" className="gap-2">
-            <Users className="h-4 w-4" />
-            Dependents
-          </TabsTrigger>
+          {dependentsSettings?.enabled && (
+            <TabsTrigger value="dependents" className="gap-2">
+              <Users className="h-4 w-4" />
+              Dependents
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="edit">
@@ -500,9 +508,11 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="dependents">
-          <DependentDetailsPanel />
-        </TabsContent>
+        {dependentsSettings?.enabled && (
+          <TabsContent value="dependents">
+            <DependentDetailsPanel />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

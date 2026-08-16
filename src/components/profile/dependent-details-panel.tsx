@@ -87,8 +87,33 @@ export function DependentDetailsPanel() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  if (!settings?.enabled) {
-    return null;
+  if (settings === undefined) {
+    return (
+      <Card glass>
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          Loading dependent details settings...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!settings.enabled) {
+    return (
+      <Card glass>
+        <CardHeader>
+          <CardTitle>Dependent / Insurance Details</CardTitle>
+          <CardDescription>
+            This section is currently disabled by your administrator.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            When enabled by Admin, you can enter dependent information here for
+            insurance purposes.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   function startEdit(dep: Dependent) {

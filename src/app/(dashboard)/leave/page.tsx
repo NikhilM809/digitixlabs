@@ -97,6 +97,12 @@ interface LeaveBalanceItem {
   availableDays: number;
 }
 
+const DEPRECATED_LEAVE_CODES = ["WFH", "HD"];
+
+function filterLeaveTypes(types: LeaveType[] | undefined) {
+  return (types ?? []).filter((t) => !DEPRECATED_LEAVE_CODES.includes(t.code));
+}
+
 const statusVariant: Record<string, "warning" | "success" | "destructive" | "secondary"> = {
   PENDING: "warning",
   APPROVED: "success",
@@ -504,6 +510,8 @@ export default function LeavePage() {
     queryFn: () => fetchApi<LeaveType[]>("/api/leave-types"),
   });
 
+  const visibleLeaveTypes = filterLeaveTypes(leaveTypes);
+
   const { data: employees = [] } = useQuery({
     queryKey: ["employees-for-leave"],
     queryFn: () => apiFetchArray<EmployeeOption>("/api/employees?activeOnly=true"),
@@ -606,8 +614,8 @@ export default function LeavePage() {
         <TabsContent value="apply">
           {typesLoading ? (
             <Skeleton className="h-96 rounded-2xl" />
-          ) : leaveTypes && leaveTypes.length > 0 ? (
-            <ApplyLeaveForm leaveTypes={leaveTypes} />
+          ) : visibleLeaveTypes.length > 0 ? (
+            <ApplyLeaveForm leaveTypes={visibleLeaveTypes} />
           ) : (
             <EmptyState
               icon={CalendarDays}
@@ -621,8 +629,8 @@ export default function LeavePage() {
           <TabsContent value="apply-behalf">
             {typesLoading ? (
               <Skeleton className="h-96 rounded-2xl" />
-            ) : leaveTypes && leaveTypes.length > 0 ? (
-              <AdminApplyLeaveForm leaveTypes={leaveTypes} employees={employees} />
+            ) : visibleLeaveTypes.length > 0 ? (
+              <AdminApplyLeaveForm leaveTypes={visibleLeaveTypes} employees={employees} />
             ) : (
               <EmptyState
                 icon={CalendarDays}
