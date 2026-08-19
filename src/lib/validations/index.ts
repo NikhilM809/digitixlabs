@@ -48,6 +48,14 @@ export const profileSchema = z.object({
 });
 
 export const employeeSchema = z.object({
+  employeeId: z
+    .string()
+    .trim()
+    .min(2, "Employee ID must be at least 2 characters")
+    .max(20, "Employee ID must be at most 20 characters")
+    .regex(/^[A-Za-z0-9_-]+$/, "Use letters, numbers, hyphens, or underscores only")
+    .optional()
+    .or(z.literal("")),
   firstName: z.string().min(2, "First name is required"),
   lastName: z.string().min(2, "Last name is required"),
   email: z.string().email("Invalid email"),
