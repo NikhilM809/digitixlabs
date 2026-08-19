@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import {
   requireAuth,
+  requirePermission,
+  requireAnyPermission,
   apiSuccess,
   apiError,
   createAuditLog,
@@ -15,7 +17,10 @@ function generateEmployeeId() {
 }
 
 export async function GET(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN", "HR", "MANAGER"]);
+  const { error, user } = await requireAnyPermission(
+    ["employees.view", "employees.create", "employees.edit"],
+    ["ADMIN", "HR", "MANAGER"]
+  );
   if (error) return error;
 
   const { searchParams } = req.nextUrl;
@@ -92,7 +97,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN", "HR"]);
+  const { error, user } = await requirePermission("employees.create", ["ADMIN", "HR"]);
   if (error) return error;
 
   try {

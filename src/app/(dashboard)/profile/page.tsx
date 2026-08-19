@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
 import { DependentDetailsPanel } from "@/components/profile/dependent-details-panel";
+import { EmployeeRolesPanel } from "@/components/employees/employee-roles-panel";
 import { fetchApi } from "@/lib/api-client";
 import {
   profileSchema,
@@ -356,6 +357,14 @@ export default function ProfilePage() {
                     <p className="text-sm text-muted-foreground">{profile.manager.email}</p>
                   </div>
                 )}
+
+                <div className="rounded-xl border border-border/50 p-4">
+                  <p className="text-sm text-muted-foreground mb-1">System Role</p>
+                  <p className="font-medium">{profile.role}</p>
+                  <div className="mt-4">
+                    <EmployeeRolesPanel employeeId={profile.id} readOnly />
+                  </div>
+                </div>
 
                 <Button type="submit" disabled={!isDirty || profileMutation.isPending}>
                   {profileMutation.isPending ? (
