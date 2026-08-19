@@ -8,6 +8,11 @@
  * By default clears all users except admin@digitixlabs.com, then imports the full list.
  * Missing fields are stored as "0".
  */
+import "./load-env";
+import { requireDatabaseUrl } from "./load-env";
+
+requireDatabaseUrl();
+
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
 import { ensureEmployeeRoles } from "../src/lib/employee-roles";
@@ -29,7 +34,7 @@ const ZERO = "0";
 
 const EMPLOYEE_ROWS: EmployeeRow[] = [
   {
-    employeeId: "DigitiX00001",
+    employeeId: "DXL00001",
     name: "Neha Agarwal",
     pan: "CWJPA3189F",
     bankName: "Federal Bank",
@@ -39,7 +44,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00002",
+    employeeId: "DXL00002",
     name: "Sabhya Patel",
     pan: "CXJPP0512Q",
     bankName: "SBI",
@@ -49,7 +54,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00003",
+    employeeId: "DXL00003",
     name: "Nidhi",
     pan: "ANPPN2247L",
     bankName: "HDFC",
@@ -59,7 +64,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00004",
+    employeeId: "DXL00004",
     name: "Anita",
     pan: "AKDPA1637Q",
     bankName: "Federal Bank",
@@ -69,7 +74,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00005",
+    employeeId: "DXL00005",
     name: "Angoori Niranjan",
     pan: "BKUPN9250N",
     bankName: "SBI",
@@ -79,7 +84,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00006",
+    employeeId: "DXL00006",
     name: "Jyoti Maurya",
     pan: "EYLPM6243L",
     bankName: "Axis",
@@ -89,12 +94,12 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00007",
+    employeeId: "DXL00007",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00008",
+    employeeId: "DXL00008",
     name: "Yashvi",
     pan: "BHFPY5638F",
     bankName: "Kotak Mahindra",
@@ -104,7 +109,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "TERMINATED",
   },
   {
-    employeeId: "DigitiX00009",
+    employeeId: "DXL00009",
     name: "Shivank Saini",
     pan: "FLNPS9115P",
     bankName: "Yes Bank",
@@ -114,7 +119,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "TERMINATED",
   },
   {
-    employeeId: "DigitiX00010",
+    employeeId: "DXL00010",
     name: "Mehek Jain",
     pan: "CZYPJ2199G",
     bankName: "Union Bank, Civil Township",
@@ -124,7 +129,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00011",
+    employeeId: "DXL00011",
     name: "Prachi Verma",
     pan: "CETPV8274C",
     bankName: "SBI, JanakPuri",
@@ -134,7 +139,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00012",
+    employeeId: "DXL00012",
     name: "Akhil Pratap Singh",
     pan: "LEFPS4917C",
     bankName: "Bank of Baroda",
@@ -144,7 +149,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00013",
+    employeeId: "DXL00013",
     name: "NAMAN GOENKA",
     pan: "DNIPG6426C",
     bankName: "INDUSIND BANK",
@@ -154,7 +159,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00014",
+    employeeId: "DXL00014",
     name: "Deependra Singh Niranjan",
     pan: "CLRPN0413N",
     bankName: "IDFC",
@@ -164,7 +169,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00015",
+    employeeId: "DXL00015",
     name: "Lovekush Yadav",
     pan: "EMPPK0829A",
     bankName: "SBI",
@@ -174,7 +179,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00016",
+    employeeId: "DXL00016",
     name: "Harsh Tiwari",
     pan: "BORPT2826K",
     bankName: "UCO Bank",
@@ -184,7 +189,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "TERMINATED",
   },
   {
-    employeeId: "DigitiX00017",
+    employeeId: "DXL00017",
     name: "Sneha chaudhary",
     pan: "DHSPC6539L",
     bankName: "Canara bank",
@@ -194,7 +199,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00018",
+    employeeId: "DXL00018",
     name: "Mukesh Tomer",
     pan: "AFMPT2266G",
     bankName: "Punjab National Bank",
@@ -204,52 +209,52 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00019",
+    employeeId: "DXL00019",
     name: "Srinivasan Iyer",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00020",
+    employeeId: "DXL00020",
     name: "Adarsh Choubey",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00021",
+    employeeId: "DXL00021",
     name: "Bethina Ramachandramurthy",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00022",
+    employeeId: "DXL00022",
     name: "PURINI HARSHA CHANDRA YOGA",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00023",
+    employeeId: "DXL00023",
     name: "Shoshal Yadav",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00024",
+    employeeId: "DXL00024",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00025",
+    employeeId: "DXL00025",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "DigitiX00026",
+    employeeId: "DXL00026",
     department: "Survey Programing",
     status: "ACTIVE",
   },
   {
-    employeeId: "VEND_DigitiX0001",
+    employeeId: "DXLV0001",
     name: "Sushama Kumari (Deepak)",
     pan: "JSGPK9272P",
     bankName: "IDFC",
@@ -260,7 +265,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     employmentType: "CONTRACT",
   },
   {
-    employeeId: "VEND_DigitiX0002",
+    employeeId: "DXLV0002",
     name: "GARIMA ADHIKARI",
     pan: "BVCPA6769A",
     bankName: "SBI",
@@ -271,7 +276,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     employmentType: "CONTRACT",
   },
   {
-    employeeId: "VEND_DigitiX0003",
+    employeeId: "DXLV0003",
     name: "Rajendra Prasad Baunthiyal",
     pan: "AGAPB6188J",
     bankName: "Uttarakhand Gramin Bank",
@@ -282,7 +287,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     employmentType: "CONTRACT",
   },
   {
-    employeeId: "VEND_DigitiX0004",
+    employeeId: "DXLV0004",
     name: "Veena Bathla",
     pan: "CXQPB4834E",
     bankName: "State of India, Jansath",
@@ -293,7 +298,7 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     employmentType: "CONTRACT",
   },
   {
-    employeeId: "VEND_DigitiX0005",
+    employeeId: "DXLV0005",
     name: "Chabi Agarwal",
     pan: "AGVPA3347B",
     bankName: "State of India, Kavi Nagar Ghaziabad",
