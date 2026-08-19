@@ -100,6 +100,51 @@ async function main() {
       update: {},
       create: { name: "HR Executive" },
     }),
+    prisma.designation.upsert({
+      where: { name: "Chief Technology Officer" },
+      update: {},
+      create: { name: "Chief Technology Officer", description: "CTO" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "Delivery Manager" },
+      update: {},
+      create: { name: "Delivery Manager", description: "Delivery and execution lead" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "Project Manager" },
+      update: {},
+      create: { name: "Project Manager", description: "Project delivery manager" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "Team Lead" },
+      update: {},
+      create: { name: "Team Lead", description: "Functional team lead" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "QA Engineer" },
+      update: {},
+      create: { name: "QA Engineer" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "DevOps Engineer" },
+      update: {},
+      create: { name: "DevOps Engineer" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "Business Analyst" },
+      update: {},
+      create: { name: "Business Analyst" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "UI/UX Designer" },
+      update: {},
+      create: { name: "UI/UX Designer" },
+    }),
+    prisma.designation.upsert({
+      where: { name: "Technical Architect" },
+      update: {},
+      create: { name: "Technical Architect" },
+    }),
   ]);
 
   // Leave Types

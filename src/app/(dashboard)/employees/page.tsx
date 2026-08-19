@@ -203,7 +203,7 @@ export default function EmployeesPage() {
 
   const { data: designations = [] } = useQuery({
     queryKey: ["designations"],
-    queryFn: () => apiFetchArray<Designation>("/api/designations"),
+    queryFn: () => apiFetchArray<Designation>("/api/designations?activeOnly=true"),
     enabled: status === "authenticated" && canManage,
   });
 

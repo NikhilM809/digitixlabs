@@ -27,6 +27,7 @@ import {
   GitBranch,
   FolderOpen,
   FolderArchive,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
   },
   { title: "Work Schedules", href: "/work-schedules", icon: Clock, roles: ["ADMIN"] },
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
+  { title: "Designations", href: "/designations", icon: Briefcase, roles: ["ADMIN"] },
   { title: "Manage Hierarchy", href: "/org-hierarchy", icon: GitBranch, roles: ["ADMIN"] },
   { title: "My Team", href: "/my-team", icon: UsersRound, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
