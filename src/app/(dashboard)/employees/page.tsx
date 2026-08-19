@@ -85,6 +85,8 @@ interface Employee {
   phone: string | null;
   avatar?: string | null;
   role: RoleName;
+  orgRoleId: string | null;
+  orgRole?: { id: string; name: string; code: string; accessLevel: RoleName } | null;
   employmentType: EmploymentType;
   status: UserStatus;
   joiningDate: string;
@@ -127,6 +129,15 @@ interface Department {
 interface Designation {
   id: string;
   name: string;
+}
+
+interface EmployeeRoleOption {
+  id: string;
+  name: string;
+  code: string;
+  accessLevel: RoleName;
+  isSystem: boolean;
+  isActive: boolean;
 }
 
 function formatCurrency(amount: number) {
@@ -173,7 +184,7 @@ export default function EmployeesPage() {
   const queryParams = {
     search,
     departmentId: departmentFilter,
-    role: roleFilter,
+    orgRoleId: roleFilter,
     status: statusFilter,
     employmentType: employmentFilter,
   };
@@ -196,6 +207,16 @@ export default function EmployeesPage() {
     enabled: status === "authenticated" && canManage,
   });
 
+  const { data: employeeRoles = [] } = useQuery({
+    queryKey: ["employee-roles", "active"],
+    queryFn: () =>
+      apiFetchArray<EmployeeRoleOption>("/api/employee-roles?activeOnly=true"),
+    enabled: status === "authenticated" && canManage,
+  });
+
+  const defaultEmployeeRoleId =
+    employeeRoles.find((r) => r.code === "EMPLOYEE")?.id ?? employeeRoles[0]?.id ?? "";
+
   const form = useForm<EmployeeInput>({
     resolver: zodResolver(employeeSchema) as Resolver<EmployeeInput>,
     defaultValues: {
@@ -203,7 +224,7 @@ export default function EmployeesPage() {
       lastName: "",
       email: "",
       phone: "",
-      role: "EMPLOYEE",
+      orgRoleId: "",
       employmentType: "FULL_TIME",
       joiningDate: format(new Date(), "yyyy-MM-dd"),
       pan: "",
@@ -261,7 +282,7 @@ export default function EmployeesPage() {
       lastName: "",
       email: "",
       phone: "",
-      role: "EMPLOYEE",
+      orgRoleId: defaultEmployeeRoleId,
       employmentType: "FULL_TIME",
       joiningDate: format(new Date(), "yyyy-MM-dd"),
       departmentId: undefined,
@@ -284,7 +305,7 @@ export default function EmployeesPage() {
       lastName: employee.lastName,
       email: employee.email,
       phone: employee.phone ?? "",
-      role: employee.role,
+      orgRoleId: employee.orgRoleId ?? defaultEmployeeRoleId,
       employmentType: employee.employmentType,
       departmentId: employee.departmentId ?? undefined,
       designationId: employee.designationId ?? undefined,
@@ -340,11 +361,12 @@ export default function EmployeesPage() {
           id: "department",
           header: "Department",
         }),
-        columnHelper.accessor("role", {
+        columnHelper.accessor((row) => row.orgRole?.name ?? row.role, {
+          id: "role",
           header: "Role",
           cell: (info) => (
-            <Badge variant="outline" className="capitalize">
-              {info.getValue().toLowerCase()}
+            <Badge variant="outline">
+              {info.getValue()}
             </Badge>
           ),
         }),
@@ -498,9 +520,11 @@ export default function EmployeesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="MANAGER">Manager</SelectItem>
-                <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                {employeeRoles.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -751,21 +775,33 @@ export default function EmployeesPage() {
               <div className="space-y-2">
                 <Label>Role</Label>
                 <Select
-                  value={form.watch("role")}
-                  onValueChange={(v) =>
-                    form.setValue("role", v as EmployeeInput["role"])
-                  }
+                  value={form.watch("orgRoleId") || undefined}
+                  onValueChange={(v) => form.setValue("orgRoleId", v)}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="HR">HR</SelectItem>
-                    <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                    <SelectItem value="MANAGER">Manager</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    {employeeRoles.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                        {!r.isSystem ? ` (${r.code})` : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {form.formState.errors.orgRoleId && (
+                  <p className="text-sm text-destructive">
+                    {form.formState.errors.orgRoleId.message}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Includes Admin, HR, Manager, Employee, CEO, Delivery Manager, etc.
+                  {" "}
+                  <a href="/settings/roles" className="underline">
+                    Manage roles
+                  </a>
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Employment Type</Label>

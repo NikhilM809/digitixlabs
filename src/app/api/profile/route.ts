@@ -16,6 +16,7 @@ const profileSelect = {
   phone: true,
   avatar: true,
   role: true,
+  orgRoleId: true,
   employmentType: true,
   status: true,
   joiningDate: true,
@@ -30,6 +31,7 @@ const profileSelect = {
   updatedAt: true,
   department: { select: { id: true, name: true } },
   designation: { select: { id: true, name: true } },
+  orgRole: { select: { id: true, name: true, code: true } },
   manager: {
     select: {
       id: true,

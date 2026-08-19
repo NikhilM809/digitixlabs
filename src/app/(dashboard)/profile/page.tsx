@@ -48,6 +48,7 @@ interface ProfileData {
   phone: string | null;
   avatar: string | null;
   role: string;
+  orgRole?: { id: string; name: string; code: string } | null;
   employmentType: string;
   status: string;
   joiningDate: string;
@@ -207,7 +208,7 @@ export default function ProfilePage() {
                   <h2 className="text-xl font-bold">
                     {profile.firstName} {profile.lastName}
                   </h2>
-                  <Badge variant="info">{profile.role}</Badge>
+                  <Badge variant="info">{profile.orgRole?.name ?? profile.role}</Badge>
                   <Badge variant={profile.status === "ACTIVE" ? "success" : "secondary"}>
                     {profile.status}
                   </Badge>

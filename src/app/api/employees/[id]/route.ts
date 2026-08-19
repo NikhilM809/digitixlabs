@@ -7,8 +7,39 @@ import {
   createAuditLog,
 } from "@/lib/api-utils";
 import { employeeSchema } from "@/lib/validations";
+import { resolveOrgRole } from "@/lib/employee-roles";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+const employeeSelect = {
+  id: true,
+  employeeId: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  role: true,
+  orgRoleId: true,
+  employmentType: true,
+  status: true,
+  joiningDate: true,
+  dateOfBirth: true,
+  emergencyContact: true,
+  pan: true,
+  aadhaarNumber: true,
+  bankAccountNumber: true,
+  baseSalary: true,
+  ctc: true,
+  incentive: true,
+  reimbursement: true,
+  departmentId: true,
+  designationId: true,
+  managerId: true,
+  orgRole: { select: { id: true, name: true, code: true, accessLevel: true } },
+  department: { select: { id: true, name: true } },
+  designation: { select: { id: true, name: true } },
+  manager: { select: { id: true, firstName: true, lastName: true } },
+} as const;
 
 export async function GET(_req: NextRequest, context: RouteContext) {
   const { error, user } = await requireAuth(["ADMIN", "HR", "MANAGER"]);
@@ -18,33 +49,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 
   const employee = await prisma.user.findUnique({
     where: { id },
-    select: {
-      id: true,
-      employeeId: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      phone: true,
-      role: true,
-      employmentType: true,
-      status: true,
-      joiningDate: true,
-      dateOfBirth: true,
-      emergencyContact: true,
-      pan: true,
-      aadhaarNumber: true,
-      bankAccountNumber: true,
-      baseSalary: true,
-      ctc: true,
-      incentive: true,
-      reimbursement: true,
-      departmentId: true,
-      designationId: true,
-      managerId: true,
-      department: { select: { id: true, name: true } },
-      designation: { select: { id: true, name: true } },
-      manager: { select: { id: true, firstName: true, lastName: true } },
-    },
+    select: employeeSelect,
   });
 
   if (!employee) return apiError("Employee not found", 404);
@@ -73,6 +78,8 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       return apiError("An employee with this email already exists", 409);
     }
 
+    const orgRole = await resolveOrgRole(parsed.orgRoleId);
+
     const employee = await prisma.user.update({
       where: { id },
       data: {
@@ -80,7 +87,8 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         firstName: parsed.firstName,
         lastName: parsed.lastName,
         phone: parsed.phone,
-        role: parsed.role,
+        role: orgRole.accessLevel,
+        orgRoleId: orgRole.id,
         employmentType: parsed.employmentType,
         departmentId: parsed.departmentId || null,
         designationId: parsed.designationId || null,
@@ -97,31 +105,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         reimbursement: parsed.reimbursement ?? 0,
         ...(parsed.status ? { status: parsed.status } : {}),
       },
-      select: {
-        id: true,
-        employeeId: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        role: true,
-        employmentType: true,
-        status: true,
-        joiningDate: true,
-        dateOfBirth: true,
-        emergencyContact: true,
-        pan: true,
-        baseSalary: true,
-        ctc: true,
-        incentive: true,
-        reimbursement: true,
-        departmentId: true,
-        designationId: true,
-        managerId: true,
-        department: { select: { id: true, name: true } },
-        designation: { select: { id: true, name: true } },
-        manager: { select: { id: true, firstName: true, lastName: true } },
-      },
+      select: employeeSelect,
     });
 
     await createAuditLog({
@@ -136,6 +120,9 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   } catch (err) {
     if (err instanceof Error && err.name === "ZodError") {
       return apiError("Invalid employee data", 422);
+    }
+    if (err instanceof Error && err.message.includes("role")) {
+      return apiError(err.message, 400);
     }
     if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
       return apiError("Employee not found", 404);
