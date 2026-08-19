@@ -80,31 +80,44 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 
     const orgRole = await resolveOrgRole(parsed.orgRoleId);
 
+    const updateData: Parameters<typeof prisma.user.update>[0]["data"] = {
+      email: parsed.email,
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+      phone: parsed.phone,
+      role: orgRole.accessLevel,
+      orgRoleId: orgRole.id,
+      employmentType: parsed.employmentType,
+      departmentId: parsed.departmentId || null,
+      designationId: parsed.designationId || null,
+      managerId: parsed.managerId || null,
+      joiningDate: new Date(parsed.joiningDate),
+      dateOfBirth: parsed.dateOfBirth ? new Date(parsed.dateOfBirth) : null,
+      emergencyContact: parsed.emergencyContact,
+      pan: parsed.pan || null,
+      aadhaarNumber: parsed.aadhaarNumber || null,
+      bankAccountNumber: parsed.bankAccountNumber || null,
+      baseSalary: parsed.baseSalary ?? 0,
+      ctc: parsed.ctc ?? 0,
+      incentive: parsed.incentive ?? 0,
+      reimbursement: parsed.reimbursement ?? 0,
+      ...(parsed.status ? { status: parsed.status } : {}),
+    };
+
+    if (user!.role === "ADMIN" && parsed.employeeId?.trim()) {
+      const employeeId = parsed.employeeId.trim();
+      const existingEmployeeId = await prisma.user.findFirst({
+        where: { employeeId, NOT: { id } },
+      });
+      if (existingEmployeeId) {
+        return apiError("An employee with this ID already exists", 409);
+      }
+      updateData.employeeId = employeeId;
+    }
+
     const employee = await prisma.user.update({
       where: { id },
-      data: {
-        email: parsed.email,
-        firstName: parsed.firstName,
-        lastName: parsed.lastName,
-        phone: parsed.phone,
-        role: orgRole.accessLevel,
-        orgRoleId: orgRole.id,
-        employmentType: parsed.employmentType,
-        departmentId: parsed.departmentId || null,
-        designationId: parsed.designationId || null,
-        managerId: parsed.managerId || null,
-        joiningDate: new Date(parsed.joiningDate),
-        dateOfBirth: parsed.dateOfBirth ? new Date(parsed.dateOfBirth) : null,
-        emergencyContact: parsed.emergencyContact,
-        pan: parsed.pan || null,
-        aadhaarNumber: parsed.aadhaarNumber || null,
-        bankAccountNumber: parsed.bankAccountNumber || null,
-        baseSalary: parsed.baseSalary ?? 0,
-        ctc: parsed.ctc ?? 0,
-        incentive: parsed.incentive ?? 0,
-        reimbursement: parsed.reimbursement ?? 0,
-        ...(parsed.status ? { status: parsed.status } : {}),
-      },
+      data: updateData,
       select: employeeSelect,
     });
 

@@ -162,6 +162,7 @@ export default function EmployeesPage() {
   const canCreateEmployee = session?.user?.role
     ? isAdminOrHr(session.user.role)
     : false;
+  const isAdmin = session?.user?.role === "ADMIN";
   const canEditSalary = canCreateEmployee;
   const canManage = session?.user?.role
     ? canManageEmployees(session.user.role)
@@ -220,6 +221,7 @@ export default function EmployeesPage() {
   const form = useForm<EmployeeInput>({
     resolver: zodResolver(employeeSchema) as Resolver<EmployeeInput>,
     defaultValues: {
+      employeeId: "",
       firstName: "",
       lastName: "",
       email: "",
@@ -278,6 +280,7 @@ export default function EmployeesPage() {
   const openCreate = () => {
     setEditingEmployee(null);
     form.reset({
+      employeeId: "",
       firstName: "",
       lastName: "",
       email: "",
@@ -301,6 +304,7 @@ export default function EmployeesPage() {
   const openEdit = (employee: Employee) => {
     setEditingEmployee(employee);
     form.reset({
+      employeeId: employee.employeeId,
       firstName: employee.firstName,
       lastName: employee.lastName,
       email: employee.email,
@@ -755,6 +759,37 @@ export default function EmployeesPage() {
                 </p>
               )}
             </div>
+
+            {(isAdmin || !editingEmployee) && (
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">Employee ID</Label>
+                <Input
+                  id="employeeId"
+                  placeholder={editingEmployee ? undefined : "e.g. DXL0007 (auto-generated if blank)"}
+                  {...form.register("employeeId")}
+                  disabled={!!editingEmployee && !isAdmin}
+                />
+                {form.formState.errors.employeeId && (
+                  <p className="text-sm text-destructive">
+                    {form.formState.errors.employeeId.message}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {editingEmployee
+                    ? isAdmin
+                      ? "Admin can update the employee ID. Use letters, numbers, hyphens, or underscores."
+                      : "Only Admin can change employee ID."
+                    : "Leave blank to auto-generate, or enter a custom ID like DXL0007."}
+                </p>
+              </div>
+            )}
+
+            {editingEmployee && !isAdmin && (
+              <div className="space-y-2">
+                <Label>Employee ID</Label>
+                <Input value={editingEmployee.employeeId} disabled />
+              </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

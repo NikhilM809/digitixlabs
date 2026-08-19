@@ -113,11 +113,19 @@ export async function POST(req: NextRequest) {
 
     const orgRole = await resolveOrgRole(parsed.orgRoleId);
 
+    const employeeId = parsed.employeeId?.trim() || generateEmployeeId();
+    const existingEmployeeId = await prisma.user.findUnique({
+      where: { employeeId },
+    });
+    if (existingEmployeeId) {
+      return apiError("An employee with this ID already exists", 409);
+    }
+
     const defaultPassword = await bcrypt.hash("Digitix@123", 12);
 
     const employee = await prisma.user.create({
       data: {
-        employeeId: generateEmployeeId(),
+        employeeId,
         email: parsed.email,
         password: defaultPassword,
         firstName: parsed.firstName,
