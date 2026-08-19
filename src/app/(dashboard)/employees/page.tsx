@@ -65,6 +65,7 @@ import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { employeeSchema, type EmployeeInput } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
+import { EmployeeRolesPanel } from "@/components/employees/employee-roles-panel";
 
 const EMPTY_EMPLOYEES: Employee[] = [];
 
@@ -981,6 +982,14 @@ export default function EmployeesPage() {
                         Current CTC: {formatCurrency(editingEmployee.ctc)}
                       </p>
                     )}
+                  </div>
+                )}
+                {editingEmployee && canCreateEmployee && (
+                  <div className="space-y-2 pt-2 border-t border-border/50">
+                    <EmployeeRolesPanel
+                      employeeId={editingEmployee.id}
+                      canManage
+                    />
                   </div>
                 )}
                 {editingEmployee &&

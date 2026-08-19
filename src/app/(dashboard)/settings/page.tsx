@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import { Settings, Loader2, ShieldAlert, Clock, Building, Network } from "lucide-react";
+import { Settings, Loader2, ShieldAlert, Clock, Building, Network, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,6 +146,24 @@ export default function SettingsPage() {
           Configure organization-wide policies and preferences
         </p>
       </div>
+
+      <Card glass>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Roles & Permissions
+          </CardTitle>
+          <CardDescription>
+            Create custom roles such as CEO, CTO, or Delivery Manager and assign granular
+            permissions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link href="/settings/roles">Manage Roles & Permissions</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
         <Skeleton className="h-[600px] w-full rounded-2xl" />

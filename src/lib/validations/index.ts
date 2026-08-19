@@ -367,3 +367,33 @@ export type PayslipInput = z.infer<typeof payslipSchema>;
 export type AnnouncementInput = z.infer<typeof announcementSchema>;
 export type CompanySettingsInput = z.infer<typeof companySettingsSchema>;
 export type EmployeeDependentInput = z.infer<typeof employeeDependentSchema>;
+
+export const customRoleSchema = z.object({
+  name: z.string().min(2, "Role name is required").max(100),
+  code: z
+    .string()
+    .regex(/^[A-Z][A-Z0-9_]*$/, "Code must be uppercase letters, numbers, and underscores")
+    .optional()
+    .or(z.literal("")),
+  description: z.string().max(500).optional().or(z.literal("")),
+  departmentId: z.string().optional().or(z.literal("")),
+  managerId: z.string().optional().or(z.literal("")),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  parentRoleId: z.string().optional().or(z.literal("")),
+  hierarchyLevel: z.coerce.number().int().min(0).max(1000).optional(),
+  permissionIds: z.array(z.string()).optional(),
+});
+
+export const customRolePermissionsSchema = z.object({
+  permissionIds: z.array(z.string()),
+});
+
+export const assignUserRoleSchema = z.object({
+  customRoleId: z.string().min(1, "Role is required"),
+  effectiveFrom: z.string().optional(),
+  effectiveTo: z.string().optional().nullable(),
+});
+
+export type CustomRoleInput = z.infer<typeof customRoleSchema>;
+export type CustomRolePermissionsInput = z.infer<typeof customRolePermissionsSchema>;
+export type AssignUserRoleInput = z.infer<typeof assignUserRoleSchema>;
