@@ -2,9 +2,11 @@
  * Import employees from the Digitix spreadsheet.
  *
  * Usage:
- *   npx tsx scripts/import-employees-from-sheet.ts --clear
+ *   npm run db:import-employees
+ *   npm run db:import-employees -- --no-clear   # keep existing users, upsert only
  *
- * --clear  Removes all users except admin@digitixlabs.com before import
+ * By default clears all users except admin@digitixlabs.com, then imports the full list.
+ * Missing fields are stored as "0".
  */
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
@@ -13,15 +15,17 @@ import type { EmploymentType, UserStatus } from "@prisma/client";
 
 interface EmployeeRow {
   employeeId: string;
-  name: string;
+  name?: string;
   pan?: string;
   bankName?: string;
   accountNumber?: string;
   department: "Survey Programing" | "Vendor";
   ifscCode?: string;
-  status: UserStatus;
+  status?: UserStatus;
   employmentType?: EmploymentType;
 }
+
+const ZERO = "0";
 
 const EMPLOYEE_ROWS: EmployeeRow[] = [
   {
@@ -82,6 +86,11 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     accountNumber: "925010000000000",
     department: "Survey Programing",
     ifscCode: "UTIB0003475",
+    status: "ACTIVE",
+  },
+  {
+    employeeId: "DigitiX00007",
+    department: "Survey Programing",
     status: "ACTIVE",
   },
   {
@@ -225,6 +234,21 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
     status: "ACTIVE",
   },
   {
+    employeeId: "DigitiX00024",
+    department: "Survey Programing",
+    status: "ACTIVE",
+  },
+  {
+    employeeId: "DigitiX00025",
+    department: "Survey Programing",
+    status: "ACTIVE",
+  },
+  {
+    employeeId: "DigitiX00026",
+    department: "Survey Programing",
+    status: "ACTIVE",
+  },
+  {
     employeeId: "VEND_DigitiX0001",
     name: "Sushama Kumari (Deepak)",
     pan: "JSGPK9272P",
@@ -281,11 +305,22 @@ const EMPLOYEE_ROWS: EmployeeRow[] = [
   },
 ];
 
+function val(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : ZERO;
+}
+
 function parseName(fullName: string) {
+  if (fullName === ZERO) {
+    return { firstName: ZERO, lastName: ZERO };
+  }
   const cleaned = fullName.replace(/\s*\([^)]*\)\s*/g, " ").trim();
-  const parts = cleaned.split(/\s+/);
-  const firstName = parts[0] ?? cleaned;
-  const lastName = parts.slice(1).join(" ") || ".";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return { firstName: ZERO, lastName: ZERO };
+  }
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(" ") || ZERO;
   return { firstName, lastName };
 }
 
@@ -294,10 +329,89 @@ function emailFromEmployeeId(employeeId: string) {
   return `${local}@digitixlabs.com`;
 }
 
+async function clearEmployeeDatabase(adminId: string) {
+  const usersToRemove = await prisma.user.findMany({
+    where: { id: { not: adminId } },
+    select: { id: true, email: true },
+  });
+
+  if (usersToRemove.length === 0) {
+    console.log("No employees to remove.");
+    return 0;
+  }
+
+  const ids = usersToRemove.map((u) => u.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.updateMany({
+      where: { managerId: { in: ids } },
+      data: { managerId: null },
+    });
+
+    await tx.leaveRequest.updateMany({
+      where: { approvedById: { in: ids } },
+      data: { approvedById: null },
+    });
+
+    await tx.kraReview.updateMany({
+      where: { managerId: { in: ids } },
+      data: { managerId: null },
+    });
+
+    await tx.reportingHistory.updateMany({
+      where: { managerId: { in: ids } },
+      data: { managerId: null },
+    });
+
+    await tx.reportingHistory.updateMany({
+      where: { changedById: { in: ids } },
+      data: { changedById: null },
+    });
+
+    await tx.employeeDocument.deleteMany({
+      where: {
+        OR: [{ userId: { in: ids } }, { uploadedById: { in: ids } }],
+      },
+    });
+
+    await tx.employeeKra.updateMany({
+      where: { createdById: { in: ids } },
+      data: { createdById: null },
+    });
+
+    await tx.employeeKra.updateMany({
+      where: { updatedById: { in: ids } },
+      data: { updatedById: null },
+    });
+
+    await tx.employeeKraConfig.updateMany({
+      where: { finalizedById: { in: ids } },
+      data: { finalizedById: null },
+    });
+
+    const deleted = await tx.user.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    console.log(
+      `Removed ${deleted.count} users (kept admin). Emails removed: ${usersToRemove.map((u) => u.email).join(", ")}`
+    );
+  });
+
+  return usersToRemove.length;
+}
+
 async function main() {
-  const shouldClear = process.argv.includes("--clear");
+  const shouldClear = !process.argv.includes("--no-clear");
 
   await ensureEmployeeRoles();
+
+  const admin = await prisma.user.findUnique({
+    where: { email: "admin@digitixlabs.com" },
+  });
+  if (!admin) {
+    throw new Error("admin@digitixlabs.com not found. Run npm run db:seed first.");
+  }
 
   const surveyDept = await prisma.department.upsert({
     where: { name: "Survey Programing" },
@@ -319,12 +433,10 @@ async function main() {
   }
 
   if (shouldClear) {
-    const deleted = await prisma.user.deleteMany({
-      where: {
-        email: { not: "admin@digitixlabs.com" },
-      },
-    });
-    console.log(`Removed ${deleted.count} existing users (kept admin@digitixlabs.com).`);
+    console.log("Clearing employee database (keeping admin)...");
+    await clearEmployeeDatabase(admin.id);
+  } else {
+    console.log("Skipping clear (--no-clear). Upserting employees only.");
   }
 
   const defaultPassword = await bcrypt.hash("Digitix@123", 12);
@@ -332,7 +444,8 @@ async function main() {
   let updated = 0;
 
   for (const row of EMPLOYEE_ROWS) {
-    const { firstName, lastName } = parseName(row.name);
+    const name = val(row.name);
+    const { firstName, lastName } = parseName(name);
     const email = emailFromEmployeeId(row.employeeId);
     const departmentId = row.department === "Vendor" ? vendorDept.id : surveyDept.id;
 
@@ -340,12 +453,13 @@ async function main() {
       email,
       firstName,
       lastName,
-      pan: row.pan ?? null,
-      bankName: row.bankName ?? null,
-      bankAccountNumber: row.accountNumber ?? null,
-      ifscCode: row.ifscCode?.toUpperCase() ?? null,
+      pan: val(row.pan).toUpperCase(),
+      aadhaarNumber: ZERO,
+      bankName: val(row.bankName),
+      bankAccountNumber: val(row.accountNumber),
+      ifscCode: val(row.ifscCode).toUpperCase(),
       departmentId,
-      status: row.status,
+      status: row.status ?? "ACTIVE",
       employmentType: row.employmentType ?? "FULL_TIME",
       role: "EMPLOYEE" as const,
       orgRoleId: employeeRole.id,
@@ -375,13 +489,16 @@ async function main() {
     }
   }
 
+  const total = await prisma.user.count();
   console.log(`Import complete: ${created} created, ${updated} updated.`);
+  console.log(`Total users in database now: ${total}`);
+  console.log(`Expected imported rows: ${EMPLOYEE_ROWS.length}`);
   console.log("Default password for new employees: Digitix@123");
 }
 
 main()
   .catch((err) => {
-    console.error(err);
+    console.error("Import failed:", err);
     process.exit(1);
   })
   .finally(async () => {

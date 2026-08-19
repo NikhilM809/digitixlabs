@@ -70,23 +70,29 @@ export const employeeSchema = z.object({
   emergencyContact: z.string().optional(),
   pan: z
     .string()
-    .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format (e.g. ABCDE1234F)")
+    .refine(
+      (v) => v === "0" || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
+      "Invalid PAN format (e.g. ABCDE1234F) or use 0 if unknown"
+    )
     .optional()
     .or(z.literal("")),
   aadhaarNumber: z
     .string()
-    .regex(/^\d{12}$/, "Aadhaar must be 12 digits")
+    .refine((v) => v === "0" || /^\d{12}$/.test(v), "Aadhaar must be 12 digits or 0 if unknown")
     .optional()
     .or(z.literal("")),
   bankAccountNumber: z
     .string()
-    .regex(/^\d{6,20}$/, "Bank account number must be 6–20 digits")
+    .refine((v) => v === "0" || /^\d{1,20}$/.test(v), "Use digits only, or 0 if unknown")
     .optional()
     .or(z.literal("")),
   bankName: z.string().max(120, "Bank name is too long").optional().or(z.literal("")),
   ifscCode: z
     .string()
-    .regex(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/, "Invalid IFSC format (e.g. SBIN0001234)")
+    .refine(
+      (v) => v === "0" || /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(v),
+      "Invalid IFSC format (e.g. SBIN0001234) or use 0 if unknown"
+    )
     .optional()
     .or(z.literal("")),
   baseSalary: z.coerce.number().min(0).optional(),
