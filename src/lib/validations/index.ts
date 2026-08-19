@@ -52,7 +52,7 @@ export const employeeSchema = z.object({
   lastName: z.string().min(2, "Last name is required"),
   email: z.string().email("Invalid email"),
   phone: z.string().optional(),
-  role: z.enum(["ADMIN", "HR", "MANAGER", "EMPLOYEE"]),
+  orgRoleId: z.string().min(1, "Role is required"),
   employmentType: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT", "INTERN"]),
   departmentId: z.string().optional(),
   designationId: z.string().optional(),
@@ -367,3 +367,17 @@ export type PayslipInput = z.infer<typeof payslipSchema>;
 export type AnnouncementInput = z.infer<typeof announcementSchema>;
 export type CompanySettingsInput = z.infer<typeof companySettingsSchema>;
 export type EmployeeDependentInput = z.infer<typeof employeeDependentSchema>;
+
+export const employeeRoleDefinitionSchema = z.object({
+  name: z.string().min(2, "Role name is required").max(80),
+  code: z
+    .string()
+    .regex(/^[A-Z][A-Z0-9_]*$/, "Code must be uppercase (e.g. DELIVERY_MANAGER)")
+    .optional()
+    .or(z.literal("")),
+  description: z.string().max(300).optional().or(z.literal("")),
+  accessLevel: z.enum(["ADMIN", "HR", "MANAGER", "EMPLOYEE"]),
+  isActive: z.boolean().optional(),
+});
+
+export type EmployeeRoleDefinitionInput = z.infer<typeof employeeRoleDefinitionSchema>;

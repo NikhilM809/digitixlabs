@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+import { ensureEmployeeRoles } from "../src/lib/employee-roles";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -10,6 +11,8 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱 Seeding Digitix HRMS database...");
+
+  await ensureEmployeeRoles();
 
   // Company Settings
   await prisma.companySettings.upsert({
@@ -530,6 +533,16 @@ async function main() {
         });
       }
     });
+  }
+
+  const roleDefs = await prisma.employeeRoleDefinition.findMany();
+  const roleIdByCode = new Map(roleDefs.map((r) => [r.code, r.id]));
+  const usersForOrgRole = await prisma.user.findMany();
+  for (const u of usersForOrgRole) {
+    const orgRoleId = roleIdByCode.get(u.role);
+    if (orgRoleId) {
+      await prisma.user.update({ where: { id: u.id }, data: { orgRoleId } });
+    }
   }
 
   console.log("✅ Database seeded successfully!");

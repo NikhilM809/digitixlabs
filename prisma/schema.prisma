@@ -119,6 +119,7 @@ model User {
   departmentId       String?
   designationId      String?
   managerId          String?
+  orgRoleId          String?
   workStartTime      String?
   workEndTime        String?
   lateThreshold      Int?
@@ -127,10 +128,11 @@ model User {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
-  department     Department?    @relation(fields: [departmentId], references: [id])
-  designation    Designation?   @relation(fields: [designationId], references: [id])
-  manager        User?          @relation("ManagerTeam", fields: [managerId], references: [id])
-  teamMembers    User[]         @relation("ManagerTeam")
+  department     Department?             @relation(fields: [departmentId], references: [id])
+  designation    Designation?            @relation(fields: [designationId], references: [id])
+  manager        User?                   @relation("ManagerTeam", fields: [managerId], references: [id])
+  orgRole        EmployeeRoleDefinition? @relation(fields: [orgRoleId], references: [id], onDelete: SetNull)
+  teamMembers    User[]                  @relation("ManagerTeam")
   leaveRequests  LeaveRequest[] @relation("EmployeeLeaves")
   approvedLeaves LeaveRequest[] @relation("ApprovedLeaves")
   leaveBalances  LeaveBalance[]
@@ -158,8 +160,26 @@ model User {
 
   @@index([departmentId])
   @@index([managerId])
+  @@index([orgRoleId])
   @@index([role])
   @@index([status])
+}
+
+model EmployeeRoleDefinition {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  accessLevel RoleName @default(EMPLOYEE)
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employees User[]
+
+  @@index([isActive])
+  @@index([accessLevel])
 }
 
 model Account {
