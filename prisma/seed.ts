@@ -1,5 +1,5 @@
-import "./load-env";
-import { requireDatabaseUrl } from "./load-env";
+import "../scripts/load-env";
+import { requireDatabaseUrl } from "../scripts/load-env";
 
 requireDatabaseUrl();
 
