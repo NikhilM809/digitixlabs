@@ -184,6 +184,61 @@ export default function SettingsPage() {
           <Card glass>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                Organization Hierarchy Visibility
+              </CardTitle>
+              <CardDescription>
+                Show or hide Organization Structure and My Team for employees and managers
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="org-visible-employees" className="font-medium">
+                    Show to Employees
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    When off, employees cannot see Organization Structure in the menu
+                  </p>
+                </div>
+                <Switch
+                  id="org-visible-employees"
+                  checked={form.watch("orgHierarchyVisibleToEmployees") ?? true}
+                  onCheckedChange={(checked) =>
+                    form.setValue("orgHierarchyVisibleToEmployees", checked, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="org-visible-managers" className="font-medium">
+                    Show to Managers
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    When off, managers cannot see Organization Structure or My Team
+                  </p>
+                </div>
+                <Switch
+                  id="org-visible-managers"
+                  checked={form.watch("orgHierarchyVisibleToManagers") ?? true}
+                  onCheckedChange={(checked) =>
+                    form.setValue("orgHierarchyVisibleToManagers", checked, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Admin and HR always have access.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card glass>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
                 <Building className="h-4 w-4" />
                 Company Information
               </CardTitle>
@@ -341,58 +396,6 @@ export default function SettingsPage() {
                   checked={form.watch("dependentDetailsEnabled") ?? false}
                   onCheckedChange={(checked) =>
                     form.setValue("dependentDetailsEnabled", checked, {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card glass>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Network className="h-4 w-4" />
-                Organization Hierarchy Visibility
-              </CardTitle>
-              <CardDescription>
-                Control who can view the organization structure chart
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
-                <div>
-                  <Label htmlFor="org-visible-employees" className="font-medium">
-                    Show to Employees
-                  </Label>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Employees can access Organization Structure from the menu
-                  </p>
-                </div>
-                <Switch
-                  id="org-visible-employees"
-                  checked={form.watch("orgHierarchyVisibleToEmployees") ?? true}
-                  onCheckedChange={(checked) =>
-                    form.setValue("orgHierarchyVisibleToEmployees", checked, {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
-                <div>
-                  <Label htmlFor="org-visible-managers" className="font-medium">
-                    Show to Managers
-                  </Label>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Managers can access Organization Structure from the menu
-                  </p>
-                </div>
-                <Switch
-                  id="org-visible-managers"
-                  checked={form.watch("orgHierarchyVisibleToManagers") ?? true}
-                  onCheckedChange={(checked) =>
-                    form.setValue("orgHierarchyVisibleToManagers", checked, {
                       shouldDirty: true,
                     })
                   }

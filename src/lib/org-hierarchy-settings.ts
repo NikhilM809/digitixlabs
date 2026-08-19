@@ -32,6 +32,14 @@ export function canViewOrgStructure(
   return false;
 }
 
+/** Managers/employees: org chart + my team. Admin/HR always allowed. */
+export function canViewOrgHierarchyFeatures(
+  role: RoleName,
+  visibility: OrgHierarchyVisibility
+): boolean {
+  return canViewOrgStructure(role, visibility);
+}
+
 export async function assertCanViewOrgStructure(role: RoleName) {
   const visibility = await getOrgHierarchyVisibility();
   if (!canViewOrgStructure(role, visibility)) {

@@ -3,6 +3,7 @@ import { RoleName } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiSuccess, apiError } from "@/lib/api-utils";
 import { canViewTeam, isAdminOrHr } from "@/lib/permissions";
+import { assertCanViewOrgStructure } from "@/lib/org-hierarchy-settings";
 import { getDirectReports, getReportingHistory } from "@/lib/org-hierarchy";
 
 export async function GET(request: NextRequest) {
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (!isAdminOrHr(user.role)) {
+      await assertCanViewOrgStructure(user.role);
+    }
     const targetUserId = request.nextUrl.searchParams.get("userId");
     const managerId =
       targetUserId && isAdminOrHr(user.role)
