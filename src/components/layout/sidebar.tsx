@@ -62,7 +62,7 @@ const navItems: NavItem[] = [
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
   { title: "Designations", href: "/designations", icon: Briefcase, roles: ["ADMIN"] },
   { title: "Manage Hierarchy", href: "/org-hierarchy", icon: GitBranch, roles: ["ADMIN"] },
-  { title: "My Team", href: "/my-team", icon: UsersRound, roles: ["ADMIN", "HR", "MANAGER"] },
+  { title: "My Team", href: "/my-team", icon: UsersRound, roles: ["ADMIN", "HR", "MANAGER"], requiresOrgVisibility: true },
   { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { title: "Notifications", href: "/notifications", icon: Bell, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Settings", href: "/settings", icon: Settings, roles: ["ADMIN"] },
