@@ -160,6 +160,8 @@ export function RoleFormDialog({ open, onOpenChange, editingRole }: RoleFormDial
     onSuccess: () => {
       toast.success(editingRole ? "Role updated" : "Role created");
       queryClient.invalidateQueries({ queryKey: ["roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles-assignable"] });
+      queryClient.invalidateQueries({ queryKey: ["roles-options"] });
       onOpenChange(false);
     },
     onError: (err: Error) => toast.error(err.message),

@@ -81,6 +81,7 @@ export default function RolesSettingsPage() {
     onSuccess: () => {
       toast.success("Role duplicated");
       queryClient.invalidateQueries({ queryKey: ["roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles-assignable"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });

@@ -5,6 +5,7 @@ import {
   apiSuccess,
   apiError,
   requirePermission,
+  requireAnyPermission,
   createAuditLog,
 } from "@/lib/api-utils";
 import { customRoleSchema } from "@/lib/validations";
@@ -13,12 +14,19 @@ import { createRoleAuditLog } from "@/lib/role-audit";
 import { ensureSystemRoles, invalidateUserPermissionCache } from "@/lib/authorization";
 
 export async function GET(req: NextRequest) {
-  const { error } = await requirePermission("admin.manage_roles", ["ADMIN"]);
+  const { searchParams } = req.nextUrl;
+  const forAssignment = searchParams.get("forAssignment") === "true";
+
+  const { error } = forAssignment
+    ? await requireAnyPermission(
+        ["admin.manage_users", "admin.manage_roles"],
+        ["ADMIN", "HR"]
+      )
+    : await requirePermission("admin.manage_roles", ["ADMIN"]);
   if (error) return error;
 
   await ensureSystemRoles();
 
-  const { searchParams } = req.nextUrl;
   const search = searchParams.get("search")?.trim() ?? "";
   const status = searchParams.get("status");
   const departmentId = searchParams.get("departmentId");

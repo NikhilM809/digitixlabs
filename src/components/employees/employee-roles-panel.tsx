@@ -19,6 +19,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -44,6 +45,7 @@ interface AssignableRole {
   name: string;
   code: string;
   status: string;
+  isSystem: boolean;
 }
 
 interface EmployeeRolesPanelProps {
@@ -69,11 +71,22 @@ export function EmployeeRolesPanel({
     enabled: !!employeeId,
   });
 
-  const { data: availableRoles = [] } = useQuery({
-    queryKey: ["roles-active"],
-    queryFn: () => apiFetchArray<AssignableRole>("/api/roles?status=ACTIVE"),
-    enabled: assignOpen && canManage,
+  const { data: availableRoles = [], isLoading: rolesLoading } = useQuery({
+    queryKey: ["roles-assignable"],
+    queryFn: () =>
+      apiFetchArray<AssignableRole>("/api/roles?status=ACTIVE&forAssignment=true"),
+    enabled: canManage && !!employeeId,
   });
+
+  const assignedRoleIds = new Set(
+    assignments
+      .filter((a) => !a.effectiveTo || new Date(a.effectiveTo) >= new Date())
+      .map((a) => a.customRole.id)
+  );
+
+  const assignableOptions = availableRoles.filter(
+    (r) => !r.isSystem && r.status === "ACTIVE" && !assignedRoleIds.has(r.id)
+  );
 
   const assignMutation = useMutation({
     mutationFn: () =>
@@ -114,10 +127,23 @@ export function EmployeeRolesPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Label>Custom Roles</Label>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <Label>Custom Roles</Label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Additional roles (CEO, Delivery Manager, etc.) — separate from the system Role field
+            above.
+          </p>
+        </div>
         {canManage && !readOnly && (
-          <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["roles-assignable"] });
+              setAssignOpen(true);
+            }}
+          >
             <Plus className="h-3 w-3 mr-1" />
             Assign Role
           </Button>
@@ -125,7 +151,10 @@ export function EmployeeRolesPanel({
       </div>
 
       {activeAssignments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No custom roles assigned.</p>
+        <p className="text-sm text-muted-foreground">
+          No custom roles assigned yet. Use Assign Role to add CEO, Delivery Manager, Project
+          Manager, or any role created under Settings → Roles.
+        </p>
       ) : (
         <ul className="space-y-2">
           {assignments.map((a) => (
@@ -176,25 +205,41 @@ export function EmployeeRolesPanel({
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Role</DialogTitle>
+            <DialogTitle>Assign Custom Role</DialogTitle>
+            <DialogDescription>
+              Pick a role created in Settings → Roles & Permissions. System roles (Admin, HR,
+              Manager, Employee) are set via the Role field above.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Role</Label>
               <Select value={roleId} onValueChange={setRoleId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue
+                    placeholder={
+                      rolesLoading
+                        ? "Loading roles..."
+                        : assignableOptions.length
+                          ? "Select role"
+                          : "No roles available — create one in Settings"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableRoles
-                    .filter((r) => !r.code.startsWith("ADMIN") || r.code === "CEO")
-                    .map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                      </SelectItem>
-                    ))}
+                  {assignableOptions.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name} ({r.code})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {!rolesLoading && assignableOptions.length === 0 && (
+                <p className="text-xs text-amber-600">
+                  No custom roles found. Go to Settings → Roles & Permissions to create roles,
+                  then run <code className="text-xs">npm run db:seed</code> if the list is empty.
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -216,7 +261,7 @@ export function EmployeeRolesPanel({
             </div>
             <Button
               className="w-full"
-              disabled={!roleId || assignMutation.isPending}
+              disabled={!roleId || assignMutation.isPending || assignableOptions.length === 0}
               onClick={() => assignMutation.mutate()}
             >
               {assignMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
