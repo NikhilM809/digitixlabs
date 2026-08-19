@@ -111,7 +111,9 @@ model User {
   emergencyContact   String?
   pan                String?
   aadhaarNumber      String?
+  bankName           String?
   bankAccountNumber  String?
+  ifscCode           String?
   baseSalary         Float          @default(0)
   ctc                Float          @default(0)
   incentive          Float          @default(0)

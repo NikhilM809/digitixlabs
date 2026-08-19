@@ -80,7 +80,13 @@ export const employeeSchema = z.object({
     .or(z.literal("")),
   bankAccountNumber: z
     .string()
-    .regex(/^\d{9,18}$/, "Bank account number must be 9–18 digits")
+    .regex(/^\d{6,20}$/, "Bank account number must be 6–20 digits")
+    .optional()
+    .or(z.literal("")),
+  bankName: z.string().max(120, "Bank name is too long").optional().or(z.literal("")),
+  ifscCode: z
+    .string()
+    .regex(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/, "Invalid IFSC format (e.g. SBIN0001234)")
     .optional()
     .or(z.literal("")),
   baseSalary: z.coerce.number().min(0).optional(),
