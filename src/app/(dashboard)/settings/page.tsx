@@ -77,6 +77,7 @@ export default function SettingsPage() {
       orgHierarchyVisibleToManagers: true,
       dependentDetailsEnabled: false,
       topLevelEmployeeId: null,
+      defaultEmployeeProfileEditingEnabled: false,
     },
   });
 
@@ -107,6 +108,8 @@ export default function SettingsPage() {
           settings.orgHierarchyVisibleToManagers ?? true,
         dependentDetailsEnabled: settings.dependentDetailsEnabled ?? false,
         topLevelEmployeeId: settings.topLevelEmployeeId ?? null,
+        defaultEmployeeProfileEditingEnabled:
+          settings.defaultEmployeeProfileEditingEnabled ?? false,
       });
     }
   }, [settings, form]);
@@ -450,6 +453,26 @@ export default function SettingsPage() {
                   checked={form.watch("dependentDetailsEnabled") ?? false}
                   onCheckedChange={(checked) =>
                     form.setValue("dependentDetailsEnabled", checked, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="default-profile-editing" className="font-medium">
+                    Default Profile Editing for New Employees
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    When enabled, newly created employees can edit their profile details
+                    after first login. Admins can override this per employee.
+                  </p>
+                </div>
+                <Switch
+                  id="default-profile-editing"
+                  checked={form.watch("defaultEmployeeProfileEditingEnabled") ?? false}
+                  onCheckedChange={(checked) =>
+                    form.setValue("defaultEmployeeProfileEditingEnabled", checked, {
                       shouldDirty: true,
                     })
                   }

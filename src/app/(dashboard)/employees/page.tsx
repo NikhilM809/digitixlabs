@@ -60,6 +60,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { canManageEmployees, isAdminOrHr } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { employeeSchema, type EmployeeInput } from "@/lib/validations";
@@ -107,6 +108,7 @@ interface Employee {
   ctc?: number;
   incentive?: number;
   reimbursement?: number;
+  profileEditingEnabled?: boolean;
 }
 
 interface EmployeeDependent {
@@ -335,6 +337,7 @@ export default function EmployeesPage() {
       incentive: employee.incentive ?? 0,
       reimbursement: employee.reimbursement ?? 0,
       status: employee.status,
+      profileEditingEnabled: employee.profileEditingEnabled ?? false,
     });
     setDialogOpen(true);
   };
@@ -1092,6 +1095,28 @@ export default function EmployeesPage() {
                         Current CTC: {formatCurrency(editingEmployee.ctc)}
                       </p>
                     )}
+                  </div>
+                )}
+                {editingEmployee && isAdmin && (
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                    <div>
+                      <Label htmlFor="profile-editing-enabled" className="font-medium">
+                        Allow Profile Editing
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        When enabled, this employee can update their profile details
+                        (except name and email) from the Profile page.
+                      </p>
+                    </div>
+                    <Switch
+                      id="profile-editing-enabled"
+                      checked={form.watch("profileEditingEnabled") ?? false}
+                      onCheckedChange={(checked) =>
+                        form.setValue("profileEditingEnabled", checked, {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
                   </div>
                 )}
                 {editingEmployee &&
