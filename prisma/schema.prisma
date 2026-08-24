@@ -71,6 +71,23 @@ enum AuditAction {
   EXPORT
 }
 
+enum CustomRoleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RoleAuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  DUPLICATE
+  ACTIVATE
+  DEACTIVATE
+  PERMISSION_CHANGE
+  ASSIGN
+  REMOVE
+}
+
 enum KraStatus {
   DRAFT
   EMPLOYEE_SUBMITTED
@@ -155,6 +172,9 @@ model User {
   employeeDocuments EmployeeDocument[] @relation("EmployeeDocuments")
   uploadedDocuments EmployeeDocument[] @relation("UploadedDocuments")
   dependents        EmployeeDependent[]
+  customRoles       UserCustomRole[]
+  roleAssignments   UserCustomRole[]   @relation("RoleAssignments")
+  managedCustomRoles CustomRole[]      @relation("CustomRoleManager")
 
   @@index([departmentId])
   @@index([managerId])
@@ -213,6 +233,7 @@ model Department {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   employees   User[]
+  customRoles CustomRole[]
 }
 
 model Designation {
@@ -544,12 +565,14 @@ model EmployeeDocument {
 }
 
 model Permission {
-  id              String           @id @default(cuid())
-  name            String           @unique
-  description     String?
-  module          String
-  createdAt       DateTime         @default(now())
-  rolePermissions RolePermission[]
+  id                    String                 @id @default(cuid())
+  name                  String                 @unique
+  description           String?
+  module                String
+  action                String?
+  createdAt             DateTime               @default(now())
+  rolePermissions       RolePermission[]
+  customRolePermissions CustomRolePermission[]
 }
 
 model RolePermission {
@@ -558,4 +581,79 @@ model RolePermission {
   permissionId String
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   @@unique([role, permissionId])
+}
+
+model CustomRole {
+  id             String             @id @default(cuid())
+  name           String             @unique
+  code           String             @unique
+  description    String?
+  departmentId   String?
+  managerId      String?
+  status         CustomRoleStatus   @default(ACTIVE)
+  isSystem       Boolean            @default(false)
+  systemRoleKey  RoleName?
+  hierarchyLevel Int                @default(0)
+  parentRoleId   String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  department   Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  manager      User?                  @relation("CustomRoleManager", fields: [managerId], references: [id], onDelete: SetNull)
+  parentRole   CustomRole?            @relation("RoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull)
+  childRoles   CustomRole[]           @relation("RoleHierarchy")
+  permissions  CustomRolePermission[]
+  userRoles    UserCustomRole[]
+  auditLogs    RoleAuditLog[]
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([parentRoleId])
+  @@index([isSystem])
+}
+
+model CustomRolePermission {
+  id           String     @id @default(cuid())
+  customRoleId String
+  permissionId String
+  customRole   CustomRole @relation(fields: [customRoleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([customRoleId, permissionId])
+  @@index([permissionId])
+}
+
+model UserCustomRole {
+  id            String    @id @default(cuid())
+  userId        String
+  customRoleId  String
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  assignedById  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customRole CustomRole @relation(fields: [customRoleId], references: [id], onDelete: Cascade)
+  assignedBy User?      @relation("RoleAssignments", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([customRoleId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+model RoleAuditLog {
+  id           String          @id @default(cuid())
+  actorId      String?
+  action       RoleAuditAction
+  customRoleId String?
+  userId       String?
+  details      String?         @db.Text
+  createdAt    DateTime        @default(now())
+
+  customRole CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+
+  @@index([customRoleId])
+  @@index([userId])
+  @@index([createdAt])
 }

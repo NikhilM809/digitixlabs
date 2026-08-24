@@ -480,32 +480,135 @@ async function main() {
     });
   }
 
-  // Permissions
-  const permissions = [
-    { name: "employees.read", module: "employees", description: "View employees" },
-    { name: "employees.write", module: "employees", description: "Manage employees" },
-    { name: "leave.read", module: "leave", description: "View leave requests" },
-    { name: "leave.approve", module: "leave", description: "Approve leave requests" },
-    { name: "attendance.read", module: "attendance", description: "View attendance" },
-    { name: "attendance.write", module: "attendance", description: "Manage attendance" },
-    { name: "reports.read", module: "reports", description: "View reports" },
-    { name: "reports.export", module: "reports", description: "Export reports" },
-    { name: "settings.read", module: "settings", description: "View settings" },
-    { name: "settings.write", module: "settings", description: "Manage settings" },
+  // Permissions & system/custom roles
+  const { ensureSystemRoles, syncPermissionsCatalog } = await import("@/lib/authorization");
+  const { roleNameToCode } = await import("@/lib/permission-definitions");
+
+  await syncPermissionsCatalog();
+  await ensureSystemRoles();
+
+  const sampleCustomRoles = [
+    {
+      name: "CEO",
+      description: "Chief Executive Officer with executive oversight.",
+      hierarchyLevel: 95,
+      permissions: [
+        "employees.view",
+        "reports.view",
+        "reports.export",
+        "admin.manage_settings",
+        "performance.view",
+        "performance.approve",
+      ],
+    },
+    {
+      name: "CTO",
+      description: "Chief Technology Officer responsible for technology strategy.",
+      hierarchyLevel: 85,
+      parentName: "CEO",
+      permissions: [
+        "employees.view",
+        "employees.edit",
+        "attendance.view",
+        "leave.view",
+        "leave.approve",
+        "performance.view",
+        "performance.review",
+        "reports.view",
+      ],
+    },
+    {
+      name: "Delivery Manager",
+      code: "DELIVERY_MANAGER",
+      description: "Responsible for delivery, project execution and team management.",
+      hierarchyLevel: 70,
+      permissions: [
+        "employees.view",
+        "attendance.view",
+        "attendance.approve",
+        "leave.view",
+        "leave.approve",
+        "performance.view",
+        "performance.review",
+        "reports.view",
+      ],
+    },
+    {
+      name: "Project Manager",
+      description: "Manages projects and delivery teams.",
+      hierarchyLevel: 55,
+      parentName: "Delivery Manager",
+      permissions: [
+        "employees.view",
+        "attendance.view",
+        "leave.view",
+        "leave.approve",
+        "performance.view",
+        "performance.review",
+      ],
+    },
+    {
+      name: "Team Lead",
+      description: "Leads a functional or project team.",
+      hierarchyLevel: 40,
+      parentName: "Project Manager",
+      permissions: [
+        "employees.view",
+        "attendance.view",
+        "leave.view",
+        "leave.approve",
+        "performance.view",
+      ],
+    },
   ];
 
-  for (const perm of permissions) {
-    const permission = await prisma.permission.upsert({
-      where: { name: perm.name },
-      update: {},
-      create: perm,
+  const allPermissions = await prisma.permission.findMany();
+  const permByName = new Map(allPermissions.map((p) => [p.name, p.id]));
+
+  for (const sample of sampleCustomRoles) {
+    const code = sample.code ?? roleNameToCode(sample.name);
+    const parent = sample.parentName
+      ? await prisma.customRole.findUnique({ where: { name: sample.parentName } })
+      : null;
+
+    const role = await prisma.customRole.upsert({
+      where: { code },
+      update: {
+        description: sample.description,
+        hierarchyLevel: sample.hierarchyLevel,
+        parentRoleId: parent?.id ?? null,
+        status: "ACTIVE",
+      },
+      create: {
+        name: sample.name,
+        code,
+        description: sample.description,
+        hierarchyLevel: sample.hierarchyLevel,
+        parentRoleId: parent?.id ?? null,
+        status: "ACTIVE",
+      },
     });
 
+    const permissionIds = sample.permissions
+      .map((name) => permByName.get(name))
+      .filter(Boolean) as string[];
+
+    await prisma.customRolePermission.deleteMany({ where: { customRoleId: role.id } });
+    if (permissionIds.length > 0) {
+      await prisma.customRolePermission.createMany({
+        data: permissionIds.map((permissionId) => ({ customRoleId: role.id, permissionId })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  // Legacy enum role-permission links (backward compatibility)
+  for (const perm of allPermissions) {
     for (const role of ["ADMIN", "HR"] as const) {
       await prisma.rolePermission.upsert({
-        where: { role_permissionId: { role, permissionId: permission.id } },
+        where: { role_permissionId: { role, permissionId: perm.id } },
         update: {},
-        create: { role, permissionId: permission.id },
+        create: { role, permissionId: perm.id },
       }).catch(() => {});
     }
   }

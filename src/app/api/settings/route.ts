@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  requireAuth,
+  requirePermission,
   apiSuccess,
   apiError,
   createAuditLog,
@@ -9,7 +9,7 @@ import {
 import { companySettingsSchema } from "@/lib/validations";
 
 export async function GET() {
-  const { error } = await requireAuth(["ADMIN"]);
+  const { error } = await requirePermission("admin.manage_settings", ["ADMIN"]);
   if (error) return error;
 
   let settings = await prisma.companySettings.findFirst();
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requirePermission("admin.manage_settings", ["ADMIN"]);
   if (error) return error;
 
   try {

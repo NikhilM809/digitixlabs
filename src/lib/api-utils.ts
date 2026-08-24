@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { RoleName, UserStatus, AuditAction } from "@prisma/client";
 import { auth, hasRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { userHasAnyPermission, userHasPermission } from "@/lib/authorization";
+import type { PermissionSlug } from "@/lib/permission-definitions";
 
 export async function getSessionUser() {
   const session = await auth();
@@ -30,6 +32,42 @@ export async function requireAuth(allowedRoles?: RoleName[]) {
   }
 
   return { error: null, user: { ...user, role: activeRole } };
+}
+
+export async function requirePermission(
+  permission: PermissionSlug | string,
+  allowedRolesFallback?: RoleName[]
+) {
+  const { error, user } = await requireAuth(allowedRolesFallback);
+  if (error || !user) return { error, user: null };
+
+  const allowed = await userHasPermission(user.id, user.role, permission);
+  if (!allowed) {
+    return {
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      user: null,
+    };
+  }
+
+  return { error: null, user };
+}
+
+export async function requireAnyPermission(
+  permissions: string[],
+  allowedRolesFallback?: RoleName[]
+) {
+  const { error, user } = await requireAuth(allowedRolesFallback);
+  if (error || !user) return { error, user: null };
+
+  const allowed = await userHasAnyPermission(user.id, user.role, permissions);
+  if (!allowed) {
+    return {
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      user: null,
+    };
+  }
+
+  return { error: null, user };
 }
 
 export async function createAuditLog(params: {
