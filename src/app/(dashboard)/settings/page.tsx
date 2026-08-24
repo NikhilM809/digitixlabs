@@ -17,13 +17,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { apiFetch } from "@/lib/client-api";
+import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import {
   companySettingsSchema,
   type CompanySettingsInput,
@@ -31,6 +38,13 @@ import {
 
 interface CompanySettings extends CompanySettingsInput {
   id: string;
+}
+
+interface ActiveEmployeeOption {
+  id: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
 }
 
 export default function SettingsPage() {
@@ -62,7 +76,15 @@ export default function SettingsPage() {
       orgHierarchyVisibleToEmployees: true,
       orgHierarchyVisibleToManagers: true,
       dependentDetailsEnabled: false,
+      topLevelEmployeeId: null,
     },
+  });
+
+  const { data: activeEmployees = [] } = useQuery({
+    queryKey: ["employees", "active", "settings-top-level"],
+    queryFn: () =>
+      apiFetchArray<ActiveEmployeeOption>("/api/employees?activeOnly=true"),
+    enabled: isAdmin,
   });
 
   useEffect(() => {
@@ -84,6 +106,7 @@ export default function SettingsPage() {
         orgHierarchyVisibleToManagers:
           settings.orgHierarchyVisibleToManagers ?? true,
         dependentDetailsEnabled: settings.dependentDetailsEnabled ?? false,
+        topLevelEmployeeId: settings.topLevelEmployeeId ?? null,
       });
     }
   }, [settings, form]);
@@ -97,6 +120,8 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       queryClient.invalidateQueries({ queryKey: ["org-hierarchy-visibility"] });
+      queryClient.invalidateQueries({ queryKey: ["org-hierarchy"] });
+      queryClient.invalidateQueries({ queryKey: ["org-chart"] });
       queryClient.invalidateQueries({ queryKey: ["dependents-settings"] });
       toast.success("Settings saved successfully");
     },
@@ -233,6 +258,35 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">
                 Admin and HR always have access.
               </p>
+              <div className="space-y-2 pt-2 border-t border-border/40">
+                <Label htmlFor="top-level-employee">Top-Level Employee</Label>
+                <Select
+                  value={form.watch("topLevelEmployeeId") ?? "none"}
+                  onValueChange={(value) =>
+                    form.setValue(
+                      "topLevelEmployeeId",
+                      value === "none" ? null : value,
+                      { shouldDirty: true }
+                    )
+                  }
+                >
+                  <SelectTrigger id="top-level-employee">
+                    <SelectValue placeholder="Select top-level employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not set (multiple roots allowed)</SelectItem>
+                    {activeEmployees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.firstName} {employee.lastName} ({employee.employeeId})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Organization View always starts from this employee and shows only their
+                  reporting subtree.
+                </p>
+              </div>
             </CardContent>
           </Card>
 

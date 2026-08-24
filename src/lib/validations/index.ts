@@ -330,6 +330,7 @@ export const companySettingsSchema = z.object({
   orgHierarchyVisibleToEmployees: z.boolean().optional(),
   orgHierarchyVisibleToManagers: z.boolean().optional(),
   dependentDetailsEnabled: z.boolean().optional(),
+  topLevelEmployeeId: z.string().nullable().optional(),
 });
 
 export const employeeDependentSchema = z.object({

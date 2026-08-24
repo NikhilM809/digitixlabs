@@ -58,6 +58,8 @@ interface OrgTreeNode {
   department: { name: string } | null;
   designation: { name: string } | null;
   children: OrgTreeNode[];
+  isAdministrativePlaceholder?: boolean;
+  placeholderId?: string;
 }
 
 interface ManagerOption {
@@ -71,6 +73,18 @@ interface ManagerOption {
 interface HierarchyResponse {
   tree: OrgTreeNode[];
   employees: ManagerOption[];
+  topLevelEmployeeId?: string | null;
+  administrativePosition?: {
+    id: string;
+    code: string;
+    name: string;
+    assignees: Array<{
+      id: string;
+      employeeId: string;
+      firstName: string;
+      lastName: string;
+    }>;
+  } | null;
 }
 
 interface EmployeeDetailResponse {
@@ -158,19 +172,26 @@ function TreeNode({
           <span className="w-5" />
         )}
         <span className="font-medium truncate">
-          {node.firstName} {node.lastName}
+          {node.isAdministrativePlaceholder
+            ? node.firstName
+            : `${node.firstName} ${node.lastName}`}
         </span>
         <span className="text-xs text-muted-foreground truncate">
           ({node.employeeId})
         </span>
-        {node.status !== "ACTIVE" && (
-          <Badge variant="secondary" className="text-[10px]">
-            {node.status}
+        {node.isAdministrativePlaceholder && (
+          <Badge variant="warning" className="text-[10px]">
+            Admin Placeholder
           </Badge>
         )}
-        {node.directReportCount > 0 && (
+        {node.directReportCount > 0 && !node.isAdministrativePlaceholder && (
           <Badge variant="outline" className="ml-auto text-[10px]">
             {node.directReportCount} DR
+          </Badge>
+        )}
+        {node.isAdministrativePlaceholder && node.directReportCount > 0 && (
+          <Badge variant="outline" className="ml-auto text-[10px]">
+            {node.directReportCount} assigned
           </Badge>
         )}
       </button>
@@ -202,6 +223,8 @@ export default function OrgHierarchyPage() {
     new Date().toISOString().slice(0, 10)
   );
 
+  const [drAssignUserId, setDrAssignUserId] = useState<string>("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["org-hierarchy", search],
     queryFn: () =>
@@ -217,7 +240,31 @@ export default function OrgHierarchyPage() {
       apiFetch<EmployeeDetailResponse>(
         `/api/org-hierarchy?userId=${selected!.id}`
       ),
-    enabled: !!selected?.id && isAdmin,
+    enabled: !!selected?.id && isAdmin && !selected?.isAdministrativePlaceholder,
+  });
+
+  const drAssignMutation = useMutation({
+    mutationFn: (payload: { userId: string; assign: boolean }) =>
+      apiFetch("/api/org-hierarchy/administrative-position", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      toast.success("Administrative position updated");
+      setDrAssignUserId("");
+      queryClient.invalidateQueries({ queryKey: ["org-hierarchy"] });
+      queryClient.invalidateQueries({ queryKey: ["org-admin-position"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const { data: adminPosition } = useQuery({
+    queryKey: ["org-admin-position"],
+    queryFn: () =>
+      apiFetch<NonNullable<HierarchyResponse["administrativePosition"]>>(
+        "/api/org-hierarchy/administrative-position"
+      ),
+    enabled: status === "authenticated" && isAdmin,
   });
 
   const assignMutation = useMutation({
@@ -327,6 +374,61 @@ export default function OrgHierarchyPage() {
               <p className="py-12 text-center text-muted-foreground">
                 Select an employee from the tree to manage their reporting relationship.
               </p>
+            ) : selected.isAdministrativePlaceholder ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">{selected.firstName}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Admin-only dummy position. Not visible to employees or managers.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                  <p className="text-sm font-medium">Assign active employees to DR</p>
+                  <Select value={drAssignUserId || undefined} onValueChange={setDrAssignUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {managerOptions.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.firstName} {employee.lastName} ({employee.employeeId})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    disabled={!drAssignUserId || drAssignMutation.isPending}
+                    onClick={() =>
+                      drAssignMutation.mutate({ userId: drAssignUserId, assign: true })
+                    }
+                  >
+                    Assign to DR Placeholder
+                  </Button>
+                </div>
+                {(adminPosition?.assignees ?? selected.children).length > 0 && (
+                  <ul className="space-y-1 text-sm">
+                    {(adminPosition?.assignees ?? []).map((member) => (
+                      <li
+                        key={member.id}
+                        className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2"
+                      >
+                        <span>
+                          {member.firstName} {member.lastName} ({member.employeeId})
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            drAssignMutation.mutate({ userId: member.id, assign: false })
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ) : detailLoading ? (
               <Skeleton className="h-48 w-full" />
             ) : detail ? (
@@ -337,11 +439,6 @@ export default function OrgHierarchyPage() {
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     {detail.employee.employeeId} · {detail.employee.role}
-                    {detail.employee.status !== "ACTIVE" && (
-                      <Badge variant="secondary" className="ml-2">
-                        {detail.employee.status}
-                      </Badge>
-                    )}
                   </p>
                 </div>
 
