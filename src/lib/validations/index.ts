@@ -47,6 +47,48 @@ export const profileSchema = z.object({
   emergencyContact: z.string().optional(),
 });
 
+export const profileFirstLoginSchema = z.object({
+  phone: z.string().optional(),
+  emergencyContact: z.string().optional(),
+  dateOfBirth: z.string().optional().or(z.literal("")),
+  joiningDate: z.string().min(1, "Date of joining is required"),
+  pan: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
+      "Invalid PAN format (e.g. ABCDE1234F) or use 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  aadhaarNumber: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^\d{12}$/.test(v),
+      "Aadhaar must be 12 digits or 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  bankAccountNumber: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^\d{1,20}$/.test(v),
+      "Use digits only, or 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  bankName: z.string().max(120, "Bank name is too long").optional().or(z.literal("")),
+  ifscCode: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(v),
+      "Invalid IFSC format (e.g. SBIN0001234) or use 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+});
+
+export type ProfileFirstLoginInput = z.infer<typeof profileFirstLoginSchema>;
+
 export const employeeSchema = z.object({
   employeeId: z
     .string()

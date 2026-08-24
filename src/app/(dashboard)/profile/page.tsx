@@ -33,8 +33,10 @@ import { DependentDetailsPanel } from "@/components/profile/dependent-details-pa
 import { fetchApi } from "@/lib/api-client";
 import {
   profileSchema,
+  profileFirstLoginSchema,
   changePasswordSchema,
   type ProfileInput,
+  type ProfileFirstLoginInput,
 } from "@/lib/validations";
 import { formatDate } from "@/lib/utils";
 import { z } from "zod";
@@ -59,12 +61,18 @@ interface ProfileData {
   bankName: string | null;
   bankAccountNumber: string | null;
   ifscCode: string | null;
+  profileCompletedAt: string | null;
   department: { id: string; name: string } | null;
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string; email: string } | null;
 }
 
 type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) return "";
+  return value.slice(0, 10);
+}
 
 function ProfileSkeleton() {
   return (
@@ -129,6 +137,30 @@ export default function ProfilePage() {
       : undefined,
   });
 
+  const isEmployeeFirstLogin =
+    profile?.role === "EMPLOYEE" && !profile?.profileCompletedAt;
+
+  const {
+    register: registerFirstLogin,
+    handleSubmit: handleFirstLoginSubmit,
+    formState: { errors: firstLoginErrors, isDirty: isFirstLoginDirty },
+  } = useForm<ProfileFirstLoginInput>({
+    resolver: zodResolver(profileFirstLoginSchema),
+    values: profile
+      ? {
+          phone: profile.phone ?? "",
+          emergencyContact: profile.emergencyContact ?? "",
+          dateOfBirth: toDateInputValue(profile.dateOfBirth),
+          joiningDate: toDateInputValue(profile.joiningDate),
+          pan: profile.pan ?? "",
+          aadhaarNumber: profile.aadhaarNumber ?? "",
+          bankName: profile.bankName ?? "",
+          bankAccountNumber: profile.bankAccountNumber ?? "",
+          ifscCode: profile.ifscCode ?? "",
+        }
+      : undefined,
+  });
+
   const {
     register: registerPassword,
     handleSubmit: handlePasswordSubmit,
@@ -139,13 +171,20 @@ export default function ProfilePage() {
   });
 
   const profileMutation = useMutation({
-    mutationFn: (data: ProfileInput) =>
+    mutationFn: (data: ProfileInput | ProfileFirstLoginInput) =>
       fetchApi<ProfileData>("/api/profile", {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    onSuccess: async () => {
-      toast.success("Profile updated successfully");
+    onSuccess: async (updatedProfile) => {
+      toast.success(
+        isEmployeeFirstLogin
+          ? "Profile saved. Your details are now locked for future edits."
+          : "Profile updated successfully"
+      );
+      if (isEmployeeFirstLogin) {
+        await update({ profileCompletedAt: updatedProfile.profileCompletedAt });
+      }
       queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -199,6 +238,7 @@ export default function ProfilePage() {
                 firstName={profile.firstName}
                 lastName={profile.lastName}
                 uploadUrl="/api/profile/avatar"
+                disabled={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt}
                 onUploaded={async (avatarUrl) => {
                   await update({ avatar: avatarUrl });
                   queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -268,9 +308,150 @@ export default function ProfilePage() {
           <Card glass>
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Update your contact details</CardDescription>
+              <CardDescription>
+                {isEmployeeFirstLogin
+                  ? "Complete your profile on first login. Name and email cannot be changed."
+                  : profile.role === "EMPLOYEE" && profile.profileCompletedAt
+                    ? "Your profile details are locked. Contact Admin or HR for changes."
+                    : "Update your contact details"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
+              {isEmployeeFirstLogin ? (
+                <form
+                  onSubmit={handleFirstLoginSubmit((d) => profileMutation.mutate(d))}
+                  className="space-y-4 max-w-lg"
+                >
+                  <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4 text-sm text-brand-900 dark:border-brand-900/40 dark:bg-brand-950/20 dark:text-brand-100">
+                    Please fill in your profile details now. After saving, these fields
+                    will be locked on future logins (except password change).
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input id="firstName" value={profile.firstName} disabled readOnly />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input id="lastName" value={profile.lastName} disabled readOnly />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input value={profile.email} disabled className="pl-10" />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="joiningDate">Date of Joining *</Label>
+                      <Input
+                        id="joiningDate"
+                        type="date"
+                        {...registerFirstLogin("joiningDate")}
+                      />
+                      {firstLoginErrors.joiningDate && (
+                        <p className="text-sm text-destructive">
+                          {firstLoginErrors.joiningDate.message}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                      <Input
+                        id="dateOfBirth"
+                        type="date"
+                        {...registerFirstLogin("dateOfBirth")}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input id="phone" className="pl-10" {...registerFirstLogin("phone")} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emergencyContact">Emergency Contact</Label>
+                    <Input
+                      id="emergencyContact"
+                      placeholder="Emergency contact number"
+                      {...registerFirstLogin("emergencyContact")}
+                    />
+                  </div>
+
+                  <div className="space-y-3 rounded-xl border border-border/50 p-4">
+                    <p className="text-sm font-medium">Identity &amp; Bank Details</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="pan">PAN Number</Label>
+                        <Input id="pan" placeholder="ABCDE1234F" {...registerFirstLogin("pan")} />
+                        {firstLoginErrors.pan && (
+                          <p className="text-sm text-destructive">{firstLoginErrors.pan.message}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="aadhaarNumber">Aadhaar Number</Label>
+                        <Input
+                          id="aadhaarNumber"
+                          placeholder="12-digit Aadhaar"
+                          {...registerFirstLogin("aadhaarNumber")}
+                        />
+                        {firstLoginErrors.aadhaarNumber && (
+                          <p className="text-sm text-destructive">
+                            {firstLoginErrors.aadhaarNumber.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="bankName">Bank Name</Label>
+                        <Input id="bankName" {...registerFirstLogin("bankName")} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ifscCode">IFSC Code</Label>
+                        <Input id="ifscCode" placeholder="SBIN0001234" {...registerFirstLogin("ifscCode")} />
+                        {firstLoginErrors.ifscCode && (
+                          <p className="text-sm text-destructive">
+                            {firstLoginErrors.ifscCode.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                      <Input
+                        id="bankAccountNumber"
+                        {...registerFirstLogin("bankAccountNumber")}
+                      />
+                      {firstLoginErrors.bankAccountNumber && (
+                        <p className="text-sm text-destructive">
+                          {firstLoginErrors.bankAccountNumber.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button type="submit" disabled={profileMutation.isPending}>
+                    {profileMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Profile"
+                    )}
+                  </Button>
+                </form>
+              ) : (
               <form
                 onSubmit={handleProfileSubmit((d) => profileMutation.mutate(d))}
                 className="space-y-4 max-w-lg"
@@ -301,7 +482,7 @@ export default function ProfilePage() {
                   <Label htmlFor="phone">Phone</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="phone" className="pl-10" {...registerProfile("phone")} />
+                    <Input id="phone" className="pl-10" {...registerProfile("phone")} disabled={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt} readOnly={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt} />
                   </div>
                 </div>
 
@@ -311,13 +492,28 @@ export default function ProfilePage() {
                     id="emergencyContact"
                     placeholder="Emergency contact number"
                     {...registerProfile("emergencyContact")}
+                    disabled={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt}
+                    readOnly={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="joiningDateView">Date of Joining</Label>
+                  <Input
+                    id="joiningDateView"
+                    type="date"
+                    value={toDateInputValue(profile.joiningDate)}
+                    disabled
+                    readOnly
                   />
                 </div>
 
                 <div className="space-y-3 rounded-xl border border-border/50 p-4">
                   <p className="text-sm font-medium">Identity &amp; Bank Details</p>
                   <p className="text-xs text-muted-foreground">
-                    These details are managed by Admin/HR and cannot be edited here.
+                    {profile.role === "EMPLOYEE" && profile.profileCompletedAt
+                      ? "These details were submitted during your first login."
+                      : "These details are managed by Admin/HR and cannot be edited here."}
                   </p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
@@ -370,17 +566,27 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                <Button type="submit" disabled={!isDirty || profileMutation.isPending}>
+                <Button
+                  type="submit"
+                  disabled={
+                    profile.role === "EMPLOYEE" && profile.profileCompletedAt
+                      ? true
+                      : !isDirty || profileMutation.isPending
+                  }
+                >
                   {profileMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Saving...
                     </>
+                  ) : profile.role === "EMPLOYEE" && profile.profileCompletedAt ? (
+                    "Profile Locked"
                   ) : (
                     "Save Changes"
                   )}
                 </Button>
               </form>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

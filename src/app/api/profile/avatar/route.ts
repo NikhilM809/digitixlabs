@@ -14,6 +14,21 @@ export async function POST(request: Request) {
   if (error || !user) return error;
 
   try {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, profileCompletedAt: true },
+    });
+
+    if (
+      currentUser?.role === "EMPLOYEE" &&
+      currentUser.profileCompletedAt
+    ) {
+      return apiError(
+        "Your profile has already been submitted. Contact Admin or HR to change your photo.",
+        403
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 

@@ -1,30 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiSuccess, apiError } from "@/lib/api-utils";
 import { getWorkScheduleForUserOnDate } from "@/lib/work-schedule";
-
-function startOfDay(date = new Date()) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function parseTimeToDate(timeStr: string, baseDate: Date): Date {
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  const d = new Date(baseDate);
-  d.setHours(hours, minutes, 0, 0);
-  return d;
-}
+import {
+  getCompanyTimezone,
+  isLateForSchedule,
+  startOfDayInZone,
+} from "@/lib/company-timezone";
 
 export async function GET() {
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
-  const today = startOfDay();
   const now = new Date();
+  const timeZone = await getCompanyTimezone();
+  const today = startOfDayInZone(now, timeZone);
   const schedule = await getWorkScheduleForUserOnDate(user.id, today);
-  const workStart = parseTimeToDate(schedule.workStartTime, today);
-  const lateCutoff = new Date(workStart.getTime() + schedule.lateThreshold * 60 * 1000);
-  const isLateNow = now > lateCutoff;
+  const isLateNow = isLateForSchedule(
+    now,
+    schedule.workStartTime,
+    schedule.lateThreshold,
+    timeZone
+  );
 
   const existing = await prisma.attendance.findUnique({
     where: {
@@ -38,5 +34,6 @@ export async function GET() {
     lateThreshold: schedule.lateThreshold,
     isLateNow,
     alreadyCheckedIn: !!existing?.checkIn,
+    timezone: timeZone,
   });
 }

@@ -96,7 +96,7 @@ export default function AttendancePage() {
   const [lateReason, setLateReason] = useState("");
   const monthRange = formatMonthRange(selectedYear, selectedMonth);
 
-  const { data: checkInPreview } = useQuery({
+  const { data: checkInPreview, refetch: refetchCheckInPreview, isFetching: previewLoading } = useQuery({
     queryKey: ["attendance-check-in-preview", todayStr, userId],
     queryFn: () =>
       fetchApi<{
@@ -104,8 +104,11 @@ export default function AttendancePage() {
         lateThreshold: number;
         isLateNow: boolean;
         alreadyCheckedIn: boolean;
+        timezone: string;
       }>("/api/attendance/check-in-preview"),
-    enabled: !!userId && checkInOpen,
+    enabled: !!userId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: todayData, isLoading: todayLoading, isError: todayError } = useQuery({
@@ -171,13 +174,30 @@ export default function AttendancePage() {
 
   const isProcessing = checkInMutation.isPending || checkOutMutation.isPending;
 
-  function handleCheckInClick() {
-    setLateReason("");
-    setCheckInOpen(true);
+  async function handleCheckInClick() {
+    const previewResult = await refetchCheckInPreview();
+    const preview = previewResult.data;
+
+    if (preview?.alreadyCheckedIn) {
+      toast.error("You have already checked in today.");
+      return;
+    }
+
+    if (preview?.isLateNow) {
+      setLateReason("");
+      setCheckInOpen(true);
+      return;
+    }
+
+    checkInMutation.mutate(undefined);
   }
 
   function submitCheckIn() {
-    if (checkInPreview?.isLateNow && lateReason.trim().length < 5) {
+    if (!checkInPreview?.isLateNow) {
+      toast.error("Unable to verify late status. Please try again.");
+      return;
+    }
+    if (lateReason.trim().length < 5) {
       toast.error("Please provide a reason for your late arrival (minimum 5 characters).");
       return;
     }
@@ -468,31 +488,38 @@ export default function AttendancePage() {
       <Dialog open={checkInOpen} onOpenChange={setCheckInOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Check In</DialogTitle>
+            <DialogTitle>Late Check In</DialogTitle>
             <DialogDescription>
-              {checkInPreview?.isLateNow
-                ? "You are checking in late. Please provide a reason before continuing."
-                : "Confirm your check-in for today."}
+              You are checking in after your scheduled start time
+              {checkInPreview?.workStartTime ? ` (${checkInPreview.workStartTime})` : ""}.
+              Please provide a reason before continuing.
             </DialogDescription>
           </DialogHeader>
-          {checkInPreview?.isLateNow && (
-            <div className="space-y-2">
-              <Label htmlFor="lateReason">Reason for Late *</Label>
-              <Textarea
-                id="lateReason"
-                placeholder="Briefly explain why you are late today..."
-                value={lateReason}
-                onChange={(e) => setLateReason(e.target.value)}
-                rows={3}
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="lateReason">Reason for Late *</Label>
+            <Textarea
+              id="lateReason"
+              placeholder="Briefly explain why you are late today..."
+              value={lateReason}
+              onChange={(e) => setLateReason(e.target.value)}
+              rows={3}
+              disabled={previewLoading}
+            />
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setCheckInOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={submitCheckIn} disabled={checkInMutation.isPending}>
-              {checkInMutation.isPending ? "Checking in..." : "Confirm Check In"}
+            <Button
+              onClick={submitCheckIn}
+              disabled={
+                checkInMutation.isPending ||
+                previewLoading ||
+                !checkInPreview?.isLateNow ||
+                lateReason.trim().length < 5
+              }
+            >
+              {checkInMutation.isPending ? "Checking in..." : "Check In"}
             </Button>
           </div>
         </DialogContent>

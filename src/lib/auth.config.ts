@@ -25,6 +25,7 @@ export const authConfig: NextAuthConfig = {
         token.avatar = user.avatar;
         token.departmentId = user.departmentId;
         token.mustChangePassword = user.mustChangePassword;
+        token.profileCompletedAt = user.profileCompletedAt ?? null;
       }
 
       if (trigger === "update" && session) {
@@ -33,6 +34,8 @@ export const authConfig: NextAuthConfig = {
         token.avatar = session.avatar ?? token.avatar;
         token.mustChangePassword =
           session.mustChangePassword ?? token.mustChangePassword;
+        token.profileCompletedAt =
+          session.profileCompletedAt ?? token.profileCompletedAt;
       }
 
       return token;
@@ -48,6 +51,7 @@ export const authConfig: NextAuthConfig = {
         avatar: token.avatar as string | null | undefined,
         departmentId: token.departmentId as string | null | undefined,
         mustChangePassword: token.mustChangePassword as boolean,
+        profileCompletedAt: (token.profileCompletedAt as string | null | undefined) ?? null,
       } as typeof session.user;
       return session;
     },

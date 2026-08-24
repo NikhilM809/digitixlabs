@@ -14,6 +14,7 @@ interface ProfileAvatarUploadProps {
   uploadUrl: string;
   size?: "md" | "lg";
   onUploaded?: (avatarUrl: string) => void;
+  disabled?: boolean;
 }
 
 export function ProfileAvatarUpload({
@@ -23,6 +24,7 @@ export function ProfileAvatarUpload({
   uploadUrl,
   size = "lg",
   onUploaded,
+  disabled = false,
 }: ProfileAvatarUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -89,7 +91,7 @@ export function ProfileAvatarUpload({
         type="button"
         variant="outline"
         size="sm"
-        disabled={uploading}
+        disabled={uploading || disabled}
         onClick={() => inputRef.current?.click()}
       >
         {uploading ? (

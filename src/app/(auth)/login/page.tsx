@@ -44,7 +44,14 @@ export default function LoginPage() {
       toast.success("Welcome back!");
       const session = await getSession();
       const role = session?.user?.role;
-      router.push(role === "EMPLOYEE" ? "/leave" : "/dashboard");
+      const needsProfileSetup =
+        role === "EMPLOYEE" && !session?.user?.profileCompletedAt;
+
+      if (needsProfileSetup) {
+        router.push("/profile?setup=1");
+      } else {
+        router.push(role === "EMPLOYEE" ? "/leave" : "/dashboard");
+      }
       router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
