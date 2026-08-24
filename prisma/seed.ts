@@ -1,4 +1,8 @@
-import "dotenv/config";
+import "../scripts/load-env";
+import { requireDatabaseUrl } from "../scripts/load-env";
+
+requireDatabaseUrl();
+
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";

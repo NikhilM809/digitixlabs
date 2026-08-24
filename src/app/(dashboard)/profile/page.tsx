@@ -56,7 +56,9 @@ interface ProfileData {
   emergencyContact: string | null;
   pan: string | null;
   aadhaarNumber: string | null;
+  bankName: string | null;
   bankAccountNumber: string | null;
+  ifscCode: string | null;
   department: { id: string; name: string } | null;
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string; email: string } | null;
@@ -335,6 +337,16 @@ export default function ProfilePage() {
                         disabled
                         readOnly
                       />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="bankName">Bank Name</Label>
+                      <Input id="bankName" value={profile.bankName ?? "—"} disabled readOnly />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ifscCode">IFSC Code</Label>
+                      <Input id="ifscCode" value={profile.ifscCode ?? "—"} disabled readOnly />
                     </div>
                   </div>
                   <div className="space-y-2">

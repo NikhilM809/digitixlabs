@@ -24,7 +24,9 @@ const profileSelect = {
   emergencyContact: true,
   pan: true,
   aadhaarNumber: true,
+  bankName: true,
   bankAccountNumber: true,
+  ifscCode: true,
   mustChangePassword: true,
   lastLoginAt: true,
   createdAt: true,
@@ -78,7 +80,9 @@ export async function PATCH(request: Request) {
         "lastName" in body ||
         "pan" in body ||
         "aadhaarNumber" in body ||
-        "bankAccountNumber" in body)
+        "bankName" in body ||
+        "bankAccountNumber" in body ||
+        "ifscCode" in body)
     ) {
       return apiError(
         "You cannot update restricted fields. Please contact Admin or HR.",

@@ -94,7 +94,9 @@ interface Employee {
   emergencyContact: string | null;
   pan?: string | null;
   aadhaarNumber?: string | null;
+  bankName?: string | null;
   bankAccountNumber?: string | null;
+  ifscCode?: string | null;
   departmentId: string | null;
   designationId: string | null;
   managerId: string | null;
@@ -231,7 +233,9 @@ export default function EmployeesPage() {
       joiningDate: format(new Date(), "yyyy-MM-dd"),
       pan: "",
       aadhaarNumber: "",
+      bankName: "",
       bankAccountNumber: "",
+      ifscCode: "",
       baseSalary: 0,
       ctc: 0,
       incentive: 0,
@@ -293,7 +297,9 @@ export default function EmployeesPage() {
       managerId: undefined,
       pan: "",
       aadhaarNumber: "",
+      bankName: "",
       bankAccountNumber: "",
+      ifscCode: "",
       baseSalary: 0,
       incentive: 0,
       reimbursement: 0,
@@ -321,7 +327,9 @@ export default function EmployeesPage() {
       emergencyContact: employee.emergencyContact ?? "",
       pan: employee.pan ?? "",
       aadhaarNumber: employee.aadhaarNumber ?? "",
+      bankName: employee.bankName ?? "",
       bankAccountNumber: employee.bankAccountNumber ?? "",
+      ifscCode: employee.ifscCode ?? "",
       baseSalary: employee.baseSalary ?? 0,
       ctc: employee.ctc ?? 0,
       incentive: employee.incentive ?? 0,
@@ -961,11 +969,43 @@ export default function EmployeesPage() {
                   )}
                 </div>
               </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Input
+                    id="bankName"
+                    placeholder="e.g. State Bank of India"
+                    {...form.register("bankName")}
+                  />
+                  {form.formState.errors.bankName && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.bankName.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ifscCode">IFSC Code</Label>
+                  <Input
+                    id="ifscCode"
+                    placeholder="SBIN0001234"
+                    maxLength={11}
+                    className="uppercase"
+                    {...form.register("ifscCode", {
+                      setValueAs: (v: string) => v?.toUpperCase() ?? "",
+                    })}
+                  />
+                  {form.formState.errors.ifscCode && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.ifscCode.message}
+                    </p>
+                  )}
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
                 <Input
                   id="bankAccountNumber"
-                  placeholder="9–18 digit account number"
+                  placeholder="6–20 digit account number"
                   inputMode="numeric"
                   {...form.register("bankAccountNumber")}
                 />
