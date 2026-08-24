@@ -47,7 +47,7 @@ export const profileSchema = z.object({
   emergencyContact: z.string().optional(),
 });
 
-export const profileFirstLoginSchema = z.object({
+export const profileDetailsSchema = z.object({
   phone: z.string().optional(),
   emergencyContact: z.string().optional(),
   dateOfBirth: z.string().optional().or(z.literal("")),
@@ -87,7 +87,11 @@ export const profileFirstLoginSchema = z.object({
     .or(z.literal("")),
 });
 
-export type ProfileFirstLoginInput = z.infer<typeof profileFirstLoginSchema>;
+/** @deprecated Use profileDetailsSchema */
+export const profileFirstLoginSchema = profileDetailsSchema;
+
+export type ProfileDetailsInput = z.infer<typeof profileDetailsSchema>;
+export type ProfileFirstLoginInput = ProfileDetailsInput;
 
 export const employeeSchema = z.object({
   employeeId: z
@@ -142,6 +146,7 @@ export const employeeSchema = z.object({
   incentive: z.coerce.number().min(0).optional(),
   reimbursement: z.coerce.number().min(0).optional(),
   status: z.enum(["ACTIVE", "LEFT", "TERMINATED"]).optional(),
+  profileEditingEnabled: z.boolean().optional(),
 });
 
 export const leaveApplicationSchema = z
@@ -373,6 +378,7 @@ export const companySettingsSchema = z.object({
   orgHierarchyVisibleToManagers: z.boolean().optional(),
   dependentDetailsEnabled: z.boolean().optional(),
   topLevelEmployeeId: z.string().nullable().optional(),
+  defaultEmployeeProfileEditingEnabled: z.boolean().optional(),
 });
 
 export const employeeDependentSchema = z.object({

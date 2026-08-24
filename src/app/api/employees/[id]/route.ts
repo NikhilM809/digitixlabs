@@ -41,6 +41,7 @@ const employeeSelect = {
   department: { select: { id: true, name: true } },
   designation: { select: { id: true, name: true } },
   manager: { select: { id: true, firstName: true, lastName: true } },
+  profileEditingEnabled: true,
 } as const;
 
 export async function GET(_req: NextRequest, context: RouteContext) {
@@ -107,6 +108,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       reimbursement: parsed.reimbursement ?? 0,
       ...(parsed.status ? { status: parsed.status } : {}),
     };
+
+    if (user!.role === "ADMIN" && parsed.profileEditingEnabled !== undefined) {
+      updateData.profileEditingEnabled = parsed.profileEditingEnabled;
+    }
 
     if (user!.role === "ADMIN" && parsed.employeeId?.trim()) {
       const employeeId = parsed.employeeId.trim();

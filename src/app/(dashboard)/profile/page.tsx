@@ -62,6 +62,8 @@ interface ProfileData {
   bankAccountNumber: string | null;
   ifscCode: string | null;
   profileCompletedAt: string | null;
+  profileEditingEnabled: boolean;
+  canEditProfile?: boolean;
   department: { id: string; name: string } | null;
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string; email: string } | null;
@@ -139,6 +141,12 @@ export default function ProfilePage() {
 
   const isEmployeeFirstLogin =
     profile?.role === "EMPLOYEE" && !profile?.profileCompletedAt;
+
+  const canEditEmployeeDetails =
+    profile?.role === "EMPLOYEE" && (profile?.canEditProfile ?? false);
+
+  const isEmployeeProfileReadOnly =
+    profile?.role === "EMPLOYEE" && !canEditEmployeeDetails;
 
   const {
     register: registerFirstLogin,
@@ -238,7 +246,7 @@ export default function ProfilePage() {
                 firstName={profile.firstName}
                 lastName={profile.lastName}
                 uploadUrl="/api/profile/avatar"
-                disabled={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt}
+                disabled={isEmployeeProfileReadOnly}
                 onUploaded={async (avatarUrl) => {
                   await update({ avatar: avatarUrl });
                   queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -311,20 +319,23 @@ export default function ProfilePage() {
               <CardDescription>
                 {isEmployeeFirstLogin
                   ? "Complete your profile on first login. Name and email cannot be changed."
-                  : profile.role === "EMPLOYEE" && profile.profileCompletedAt
-                    ? "Your profile details are locked. Contact Admin or HR for changes."
-                    : "Update your contact details"}
+                  : canEditEmployeeDetails
+                    ? "You can update your profile details. Name and email cannot be changed."
+                    : isEmployeeProfileReadOnly
+                      ? "Your profile is read-only. Contact Admin to enable profile editing."
+                      : "Update your contact details"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isEmployeeFirstLogin ? (
+              {canEditEmployeeDetails ? (
                 <form
                   onSubmit={handleFirstLoginSubmit((d) => profileMutation.mutate(d))}
                   className="space-y-4 max-w-lg"
                 >
                   <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4 text-sm text-brand-900 dark:border-brand-900/40 dark:bg-brand-950/20 dark:text-brand-100">
-                    Please fill in your profile details now. After saving, these fields
-                    will be locked on future logins (except password change).
+                    {isEmployeeFirstLogin
+                      ? "Please fill in your profile details now. After saving, editing depends on Admin settings."
+                      : "Profile editing is enabled by your Admin. You can update your details below."}
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -447,22 +458,16 @@ export default function ProfilePage() {
                         Saving...
                       </>
                     ) : (
-                      "Save Profile"
+                      "Save Changes"
                     )}
                   </Button>
                 </form>
-              ) : (
-              <form
-                onSubmit={handleProfileSubmit((d) => profileMutation.mutate(d))}
-                className="space-y-4 max-w-lg"
-              >
+              ) : isEmployeeProfileReadOnly ? (
+              <form className="space-y-4 max-w-lg">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
                     <Input id="firstName" value={profile.firstName} disabled readOnly />
-                    <p className="text-xs text-muted-foreground">
-                      Contact HR/Admin to update your name.
-                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
@@ -478,31 +483,39 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="joiningDateView">Date of Joining</Label>
+                    <Input
+                      id="joiningDateView"
+                      type="date"
+                      value={toDateInputValue(profile.joiningDate)}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dateOfBirthView">Date of Birth</Label>
+                    <Input
+                      id="dateOfBirthView"
+                      type="date"
+                      value={toDateInputValue(profile.dateOfBirth)}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="phone" className="pl-10" {...registerProfile("phone")} disabled={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt} readOnly={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt} />
-                  </div>
+                  <Input id="phone" value={profile.phone ?? "—"} disabled readOnly />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="emergencyContact">Emergency Contact</Label>
                   <Input
                     id="emergencyContact"
-                    placeholder="Emergency contact number"
-                    {...registerProfile("emergencyContact")}
-                    disabled={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt}
-                    readOnly={profile.role === "EMPLOYEE" && !!profile.profileCompletedAt}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="joiningDateView">Date of Joining</Label>
-                  <Input
-                    id="joiningDateView"
-                    type="date"
-                    value={toDateInputValue(profile.joiningDate)}
+                    value={profile.emergencyContact ?? "—"}
                     disabled
                     readOnly
                   />
@@ -510,20 +523,10 @@ export default function ProfilePage() {
 
                 <div className="space-y-3 rounded-xl border border-border/50 p-4">
                   <p className="text-sm font-medium">Identity &amp; Bank Details</p>
-                  <p className="text-xs text-muted-foreground">
-                    {profile.role === "EMPLOYEE" && profile.profileCompletedAt
-                      ? "These details were submitted during your first login."
-                      : "These details are managed by Admin/HR and cannot be edited here."}
-                  </p>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="pan">PAN Number</Label>
-                      <Input
-                        id="pan"
-                        value={profile.pan ?? "—"}
-                        disabled
-                        readOnly
-                      />
+                      <Input id="pan" value={profile.pan ?? "—"} disabled readOnly />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="aadhaarNumber">Aadhaar Number</Label>
@@ -556,6 +559,54 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
+                <Button type="button" disabled>
+                  Profile Locked
+                </Button>
+              </form>
+              ) : (
+              <form
+                onSubmit={handleProfileSubmit((d) => profileMutation.mutate(d))}
+                className="space-y-4 max-w-lg"
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input id="firstName" value={profile.firstName} disabled readOnly />
+                    <p className="text-xs text-muted-foreground">
+                      Contact HR/Admin to update your name.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input id="lastName" value={profile.lastName} disabled readOnly />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input value={profile.email} disabled className="pl-10" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="phone" className="pl-10" {...registerProfile("phone")} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContact">Emergency Contact</Label>
+                  <Input
+                    id="emergencyContact"
+                    placeholder="Emergency contact number"
+                    {...registerProfile("emergencyContact")}
+                  />
+                </div>
+
                 {profile.manager && (
                   <div className="rounded-xl bg-muted/50 p-4">
                     <p className="text-sm text-muted-foreground">Reporting Manager</p>
@@ -566,21 +617,12 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                <Button
-                  type="submit"
-                  disabled={
-                    profile.role === "EMPLOYEE" && profile.profileCompletedAt
-                      ? true
-                      : !isDirty || profileMutation.isPending
-                  }
-                >
+                <Button type="submit" disabled={!isDirty || profileMutation.isPending}>
                   {profileMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Saving...
                     </>
-                  ) : profile.role === "EMPLOYEE" && profile.profileCompletedAt ? (
-                    "Profile Locked"
                   ) : (
                     "Save Changes"
                   )}

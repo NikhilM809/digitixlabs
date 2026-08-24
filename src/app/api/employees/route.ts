@@ -39,6 +39,7 @@ const employeeSelect = {
   ctc: true,
   incentive: true,
   reimbursement: true,
+  profileEditingEnabled: true,
   departmentId: true,
   designationId: true,
   managerId: true,
@@ -124,6 +125,9 @@ export async function POST(req: NextRequest) {
     }
 
     const defaultPassword = await bcrypt.hash("Digitix@123", 12);
+    const companySettings = await prisma.companySettings.findFirst({
+      select: { defaultEmployeeProfileEditingEnabled: true },
+    });
 
     const employee = await prisma.user.create({
       data: {
@@ -152,6 +156,8 @@ export async function POST(req: NextRequest) {
         incentive: parsed.incentive ?? 0,
         reimbursement: parsed.reimbursement ?? 0,
         mustChangePassword: true,
+        profileEditingEnabled:
+          companySettings?.defaultEmployeeProfileEditingEnabled ?? false,
       },
       select: employeeSelect,
     });

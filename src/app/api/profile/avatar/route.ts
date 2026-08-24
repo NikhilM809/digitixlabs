@@ -7,6 +7,7 @@ import {
   apiError,
   createAuditLog,
 } from "@/lib/api-utils";
+import { canEmployeeEditOwnProfile } from "@/lib/profile-editing";
 import { saveAvatarFile } from "@/lib/avatar-upload";
 
 export async function POST(request: Request) {
@@ -16,15 +17,19 @@ export async function POST(request: Request) {
   try {
     const currentUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { role: true, profileCompletedAt: true },
+      select: {
+        role: true,
+        profileCompletedAt: true,
+        profileEditingEnabled: true,
+      },
     });
 
     if (
-      currentUser?.role === "EMPLOYEE" &&
-      currentUser.profileCompletedAt
+      currentUser &&
+      !canEmployeeEditOwnProfile(currentUser)
     ) {
       return apiError(
-        "Your profile has already been submitted. Contact Admin or HR to change your photo.",
+        "Your profile is read-only. Contact Admin to enable profile editing.",
         403
       );
     }
