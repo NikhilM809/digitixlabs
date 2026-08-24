@@ -11,9 +11,9 @@ import { canManageOrgHierarchy } from "@/lib/permissions";
 import {
   assignEmployeeManager,
   buildOrgTree,
-  fetchOrgEmployees,
   filterOrgTree,
   getReportingHistory,
+  prepareOrgHierarchyDataset,
 } from "@/lib/org-hierarchy";
 
 export async function GET(request: NextRequest) {
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           role: true,
           status: true,
           managerId: true,
+          administrativePositionId: true,
           department: { select: { name: true } },
           designation: { select: { name: true } },
           manager: {
@@ -71,13 +72,27 @@ export async function GET(request: NextRequest) {
         return apiError("Employee not found", 404);
       }
 
+      if (employee.status !== "ACTIVE") {
+        return apiError("Inactive employees are not available in Manage Hierarchy", 404);
+      }
+
       const history = await getReportingHistory(userId);
 
       return apiSuccess({ employee, history });
     }
 
-    const employees = await fetchOrgEmployees(true);
-    const tree = buildOrgTree(employees);
+    const { employees, topLevelEmployeeId, administrativePosition } =
+      await prepareOrgHierarchyDataset({
+        includeInactive: false,
+        viewerIsAdmin: true,
+      });
+
+    const tree = buildOrgTree(employees, {
+      activeDirectReportsOnly: true,
+      topLevelEmployeeId,
+      includeAdministrativePlaceholder: true,
+      administrativePosition,
+    });
     const filtered = filterOrgTree(tree, search);
 
     const managerOptions = employees
@@ -90,7 +105,12 @@ export async function GET(request: NextRequest) {
         role: e.role,
       }));
 
-    return apiSuccess({ tree: filtered, employees: managerOptions });
+    return apiSuccess({
+      tree: filtered,
+      employees: managerOptions,
+      topLevelEmployeeId,
+      administrativePosition,
+    });
   } catch (err) {
     console.error("Org hierarchy GET error:", err);
     return apiError("Failed to load organization hierarchy", 500);

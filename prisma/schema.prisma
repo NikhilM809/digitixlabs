@@ -122,6 +122,7 @@ model User {
   designationId      String?
   managerId          String?
   orgRoleId          String?
+  administrativePositionId String?
   workStartTime      String?
   workEndTime        String?
   lateThreshold      Int?
@@ -134,6 +135,7 @@ model User {
   designation    Designation?            @relation(fields: [designationId], references: [id])
   manager        User?                   @relation("ManagerTeam", fields: [managerId], references: [id])
   orgRole        EmployeeRoleDefinition? @relation(fields: [orgRoleId], references: [id], onDelete: SetNull)
+  administrativePosition OrgAdministrativePosition? @relation(fields: [administrativePositionId], references: [id], onDelete: SetNull)
   teamMembers    User[]                  @relation("ManagerTeam")
   leaveRequests  LeaveRequest[] @relation("EmployeeLeaves")
   approvedLeaves LeaveRequest[] @relation("ApprovedLeaves")
@@ -159,10 +161,12 @@ model User {
   employeeDocuments EmployeeDocument[] @relation("EmployeeDocuments")
   uploadedDocuments EmployeeDocument[] @relation("UploadedDocuments")
   dependents        EmployeeDependent[]
+  topLevelCompanySettings CompanySettings[] @relation("CompanyTopLevelEmployee")
 
   @@index([departmentId])
   @@index([managerId])
   @@index([orgRoleId])
+  @@index([administrativePositionId])
   @@index([role])
   @@index([status])
 }
@@ -409,8 +413,23 @@ model CompanySettings {
   orgHierarchyVisibleToEmployees Boolean @default(true)
   orgHierarchyVisibleToManagers  Boolean @default(true)
   dependentDetailsEnabled        Boolean @default(false)
+  topLevelEmployeeId             String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  topLevelEmployee User? @relation("CompanyTopLevelEmployee", fields: [topLevelEmployeeId], references: [id], onDelete: SetNull)
+}
+
+model OrgAdministrativePosition {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignees User[]
 }
 
 model CompanyPolicy {
