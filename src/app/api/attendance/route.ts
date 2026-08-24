@@ -9,6 +9,11 @@ import {
 import { attendanceCheckInSchema } from "@/lib/validations";
 import { getWorkScheduleForUserOnDate } from "@/lib/work-schedule";
 import { canViewLateAttendance } from "@/lib/permissions";
+import {
+  getCompanyTimezone,
+  isLateForSchedule,
+  startOfDayInZone,
+} from "@/lib/company-timezone";
 
 function startOfDay(date = new Date()) {
   const d = new Date(date);
@@ -141,8 +146,9 @@ export async function POST(request: Request) {
     }
 
     const { action, notes, lateReason } = parsed.data;
-    const today = startOfDay();
     const now = new Date();
+    const timeZone = await getCompanyTimezone();
+    const today = startOfDayInZone(now, timeZone);
 
     const onLeave = await prisma.leaveRequest.findFirst({
       where: {
@@ -172,9 +178,12 @@ export async function POST(request: Request) {
         return apiError("Already checked in today", 400);
       }
 
-      const workStart = parseTimeToDate(workStartTime, today);
-      const lateCutoff = new Date(workStart.getTime() + lateThreshold * 60 * 1000);
-      const isLate = now > lateCutoff;
+      const isLate = isLateForSchedule(
+        now,
+        workStartTime,
+        lateThreshold,
+        timeZone
+      );
 
       if (isLate && (!lateReason || lateReason.trim().length < 5)) {
         return apiError("Reason for late arrival is required (minimum 5 characters)", 400);

@@ -22,6 +22,7 @@ declare module "next-auth" {
       avatar?: string | null;
       departmentId?: string | null;
       mustChangePassword: boolean;
+      profileCompletedAt?: string | null;
     };
   }
 
@@ -35,6 +36,7 @@ declare module "next-auth" {
     avatar?: string | null;
     departmentId?: string | null;
     mustChangePassword: boolean;
+    profileCompletedAt?: string | null;
   }
 }
 
@@ -48,6 +50,7 @@ declare module "@auth/core/jwt" {
     avatar?: string | null;
     departmentId?: string | null;
     mustChangePassword: boolean;
+    profileCompletedAt?: string | null;
   }
 }
 
@@ -98,6 +101,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           avatar: user.avatar,
           departmentId: user.departmentId,
           mustChangePassword: user.mustChangePassword,
+          profileCompletedAt: user.profileCompletedAt
+            ? user.profileCompletedAt.toISOString()
+            : null,
         };
       },
     }),
