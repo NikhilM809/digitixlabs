@@ -116,14 +116,10 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="text"
-                inputMode="email"
                 placeholder="you@digitixlabs.com"
-                autoComplete="email"
+                autoComplete="username"
                 {...register("email")}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
             </div>
 
             <div className="space-y-2">
