@@ -50,7 +50,7 @@ export default function LoginPage() {
       if (needsProfileSetup) {
         router.push("/profile?setup=1");
       } else {
-        router.push(role === "EMPLOYEE" ? "/leave" : "/dashboard");
+        router.push(role === "EMPLOYEE" ? "/attendance" : "/dashboard");
       }
       router.refresh();
     } catch {
@@ -115,7 +115,8 @@ export default function LoginPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
+                inputMode="email"
                 placeholder="you@digitixlabs.com"
                 autoComplete="email"
                 {...register("email")}
