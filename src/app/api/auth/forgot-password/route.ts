@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateResetToken } from "@/lib/jwt";
 import { forgotPasswordSchema } from "@/lib/validations";
+import { normalizeEmail } from "@/lib/email-utils";
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: parsed.data.email },
+      where: { email: normalizeEmail(parsed.data.email) },
     });
 
     // Always return success to prevent email enumeration

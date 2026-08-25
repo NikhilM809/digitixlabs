@@ -9,6 +9,7 @@ import {
   canApproveLeave,
   isAdmin as checkIsAdmin,
 } from "@/lib/permissions";
+import { normalizeEmail } from "@/lib/email-utils";
 
 declare module "next-auth" {
   interface Session {
@@ -69,7 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const email = (credentials.email as string).trim();
+        const email = normalizeEmail(credentials.email as string);
         if (!email) {
           return null;
         }
