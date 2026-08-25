@@ -10,6 +10,7 @@ import {
 import { employeeSchema } from "@/lib/validations";
 import { resolveOrgRole } from "@/lib/employee-roles";
 import type { Prisma } from "@prisma/client";
+import { normalizeEmail } from "@/lib/email-utils";
 
 function generateEmployeeId() {
   return `EMP${Date.now().toString().slice(-8)}`;
@@ -106,9 +107,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = employeeSchema.parse(body);
+    const email = normalizeEmail(parsed.email);
 
     const existing = await prisma.user.findUnique({
-      where: { email: parsed.email },
+      where: { email },
     });
     if (existing) {
       return apiError("An employee with this email already exists", 409);
@@ -132,7 +134,7 @@ export async function POST(req: NextRequest) {
     const employee = await prisma.user.create({
       data: {
         employeeId,
-        email: parsed.email,
+        email,
         password: defaultPassword,
         firstName: parsed.firstName,
         lastName: parsed.lastName,
