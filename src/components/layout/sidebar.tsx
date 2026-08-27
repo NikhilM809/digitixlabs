@@ -28,6 +28,7 @@ import {
   FolderOpen,
   FolderArchive,
   Briefcase,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { title: "Employees", href: "/employees", icon: Users, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Employee Documents", href: "/employee-documents", icon: FolderArchive, roles: ["ADMIN", "HR"] },
   { title: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["HR", "MANAGER", "EMPLOYEE"] },
+  { title: "Manage Attendance", href: "/attendance/manage", icon: UserCheck, roles: ["ADMIN", "HR", "MANAGER"] },
   { title: "Leave Management", href: "/leave", icon: CalendarDays, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "Payslips", href: "/payslips", icon: FileText, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "KRA", href: "/kra", icon: Target, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },

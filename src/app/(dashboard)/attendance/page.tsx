@@ -29,7 +29,12 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/dashboard/activity-feed";
 import { fetchApi } from "@/lib/api-client";
-import { formatDate, formatDateTime, formatLocalDate, cn } from "@/lib/utils";
+import { formatDate, formatDateTime, cn } from "@/lib/utils";
+import {
+  DEFAULT_COMPANY_TIMEZONE,
+  getDateStringInZone,
+  formatTimeInZone,
+} from "@/lib/timezone-utils";
 import { canViewLateAttendance } from "@/lib/permissions";
 import type { RoleName } from "@prisma/client";
 
@@ -66,27 +71,23 @@ const statusConfig: Record<string, { variant: "success" | "warning" | "destructi
   WORK_FROM_HOME: { variant: "info", icon: CheckCircle2 },
 };
 
-function formatMonthRange(year: number, month: number) {
+function formatMonthRange(year: number, month: number, timeZone: string) {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month, 0);
   return {
-    fromDate: formatLocalDate(start),
-    toDate: formatLocalDate(end),
+    fromDate: getDateStringInZone(start, timeZone),
+    toDate: getDateStringInZone(end, timeZone),
   };
 }
 
-function formatTimeFromISO(iso: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
+function formatTimeFromISO(iso: string, timeZone: string) {
+  return formatTimeInZone(iso, timeZone);
 }
 
 export default function AttendancePage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const now = new Date();
-  const todayStr = formatLocalDate(now);
   const userId = session?.user?.id;
   const role = session?.user?.role as RoleName | undefined;
   const canViewLate = role ? canViewLateAttendance(role) : false;
@@ -94,10 +95,9 @@ export default function AttendancePage() {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [lateReason, setLateReason] = useState("");
-  const monthRange = formatMonthRange(selectedYear, selectedMonth);
 
   const { data: checkInPreview, refetch: refetchCheckInPreview, isFetching: previewLoading } = useQuery({
-    queryKey: ["attendance-check-in-preview", todayStr, userId],
+    queryKey: ["attendance-check-in-preview", userId],
     queryFn: () =>
       fetchApi<{
         workStartTime: string;
@@ -110,6 +110,10 @@ export default function AttendancePage() {
     staleTime: 0,
     refetchOnMount: "always",
   });
+
+  const companyTimezone = checkInPreview?.timezone ?? DEFAULT_COMPANY_TIMEZONE;
+  const todayStr = getDateStringInZone(now, companyTimezone);
+  const monthRange = formatMonthRange(selectedYear, selectedMonth, companyTimezone);
 
   const { data: todayData, isLoading: todayLoading, isError: todayError } = useQuery({
     queryKey: ["attendance-today", todayStr, userId],
@@ -393,10 +397,10 @@ export default function AttendancePage() {
                       <tr key={record.id} className="border-b border-border/30 hover:bg-muted/30">
                         <td className="py-3 px-2 font-medium">{formatDate(record.date)}</td>
                         <td className="py-3 px-2 text-muted-foreground">
-                          {record.checkIn ? formatTimeFromISO(record.checkIn) : "—"}
+                          {record.checkIn ? formatTimeFromISO(record.checkIn, companyTimezone) : "—"}
                         </td>
                         <td className="py-3 px-2 text-muted-foreground">
-                          {record.checkOut ? formatTimeFromISO(record.checkOut) : "—"}
+                          {record.checkOut ? formatTimeFromISO(record.checkOut, companyTimezone) : "—"}
                         </td>
                         <td className="py-3 px-2">
                           {record.workingHours != null ? `${record.workingHours.toFixed(1)}h` : "—"}
@@ -464,7 +468,7 @@ export default function AttendancePage() {
                         </td>
                         <td className="py-3 px-2">{formatDate(record.date)}</td>
                         <td className="py-3 px-2">
-                          {record.checkIn ? formatTimeFromISO(record.checkIn) : "—"}
+                          {record.checkIn ? formatTimeFromISO(record.checkIn, companyTimezone) : "—"}
                         </td>
                         <td className="py-3 px-2 text-muted-foreground">
                           {record.lateReason || "—"}

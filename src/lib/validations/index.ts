@@ -395,6 +395,38 @@ export const attendanceCheckInSchema = z.object({
   lateReason: z.string().optional(),
 });
 
+export const manualAttendanceSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  action: z.enum(["check-in", "check-out"]),
+  timestamp: z.string().min(1, "Timestamp is required"),
+  notes: z.string().optional(),
+  lateReason: z.string().optional(),
+  mode: z.enum(["record", "update"]).optional().default("record"),
+});
+
+export const manualAttendanceUpdateSchema = z
+  .object({
+    userId: z.string().min(1, "Employee is required"),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+    checkIn: z.string().optional(),
+    checkOut: z.string().optional(),
+    notes: z.string().optional(),
+    lateReason: z.string().optional(),
+  })
+  .refine((data) => data.checkIn || data.checkOut, {
+    message: "Provide check-in and/or check-out time to update",
+  });
+
+export const adminResetPasswordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Must contain uppercase letter")
+    .regex(/[a-z]/, "Must contain lowercase letter")
+    .regex(/[0-9]/, "Must contain a number")
+    .optional(),
+});
+
 export const assignManagerSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   managerId: z.string().nullable().optional(),

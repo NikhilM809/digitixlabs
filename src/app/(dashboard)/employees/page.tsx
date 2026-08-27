@@ -30,6 +30,7 @@ import {
   ArrowUpDown,
   Loader2,
   Users,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -279,6 +280,22 @@ export default function EmployeesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       toast.success("Employee marked as left");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ message: string; usedDefaultPassword: boolean }>(
+        `/api/employees/${id}/reset-password`,
+        { method: "POST", body: JSON.stringify({}) }
+      ),
+    onSuccess: (data) => {
+      toast.success(
+        data.usedDefaultPassword
+          ? "Password reset to default (Digitix@123). Employee must change it on next login."
+          : "Password reset successfully. Employee must change it on next login."
+      );
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -1095,6 +1112,39 @@ export default function EmployeesPage() {
                         Current CTC: {formatCurrency(editingEmployee.ctc)}
                       </p>
                     )}
+                  </div>
+                )}
+                {editingEmployee && isAdmin && (
+                  <div className="rounded-xl border border-border/50 p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium">Reset Password</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Reset this employee&apos;s password to the default temporary password.
+                        They will be required to change it on next login.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={resetPasswordMutation.isPending}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Reset password for ${editingEmployee.firstName} ${editingEmployee.lastName}?`
+                          )
+                        ) {
+                          return;
+                        }
+                        resetPasswordMutation.mutate(editingEmployee.id);
+                      }}
+                    >
+                      {resetPasswordMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <KeyRound className="h-4 w-4" />
+                      )}
+                      Reset to Default Password
+                    </Button>
                   </div>
                 )}
                 {editingEmployee && isAdmin && (

@@ -7,7 +7,8 @@ export const authConfig: NextAuthConfig = {
   trustHost: true,
   session: {
     strategy: "jwt",
-    maxAge: 30 * 60,
+    /** Upper bound; actual JWT expiry is set on sign-in from company sessionTimeout. */
+    maxAge: 480 * 60,
   },
   pages: {
     signIn: "/login",
