@@ -10,6 +10,7 @@ import {
   isAdmin as checkIsAdmin,
 } from "@/lib/permissions";
 import { normalizeEmail } from "@/lib/email-utils";
+import { getSessionMaxAgeSeconds } from "@/lib/session-config";
 
 declare module "next-auth" {
   interface Session {
@@ -23,6 +24,7 @@ declare module "next-auth" {
       avatar?: string | null;
       departmentId?: string | null;
       mustChangePassword: boolean;
+      profileCompletedAt?: string | null;
     };
   }
 
@@ -36,6 +38,7 @@ declare module "next-auth" {
     avatar?: string | null;
     departmentId?: string | null;
     mustChangePassword: boolean;
+    profileCompletedAt?: string | null;
   }
 }
 
@@ -49,12 +52,32 @@ declare module "@auth/core/jwt" {
     avatar?: string | null;
     departmentId?: string | null;
     mustChangePassword: boolean;
+    profileCompletedAt?: string | null;
   }
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   secret: AUTH_SECRET,
+  callbacks: {
+    ...authConfig.callbacks,
+    async jwt({ token, user, trigger, session }) {
+      const updated =
+        (await authConfig.callbacks!.jwt!({
+          token,
+          user,
+          trigger,
+          session,
+        })) ?? token;
+
+      if (user) {
+        const maxAge = await getSessionMaxAgeSeconds();
+        updated.exp = Math.floor(Date.now() / 1000) + maxAge;
+      }
+
+      return updated;
+    },
+  },
   providers: [
     Credentials({
       name: "credentials",
@@ -104,6 +127,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           avatar: user.avatar,
           departmentId: user.departmentId,
           mustChangePassword: user.mustChangePassword,
+          profileCompletedAt: user.profileCompletedAt
+            ? user.profileCompletedAt.toISOString()
+            : null,
         };
       },
     }),

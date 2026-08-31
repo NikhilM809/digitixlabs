@@ -10,7 +10,7 @@ const { auth } = NextAuth({
 });
 
 function homePathForRole(role?: RoleName) {
-  return role === "EMPLOYEE" ? "/leave" : "/dashboard";
+  return role === "EMPLOYEE" ? "/attendance" : "/dashboard";
 }
 
 export default auth((req) => {
@@ -59,7 +59,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/leave", req.url));
   }
 
-  if (role === "ADMIN" && pathname.startsWith("/attendance")) {
+  if (role === "ADMIN" && pathname.startsWith("/attendance") && !pathname.startsWith("/attendance/manage")) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 

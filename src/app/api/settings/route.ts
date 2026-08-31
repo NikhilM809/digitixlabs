@@ -29,6 +29,16 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const parsed = companySettingsSchema.parse(body);
 
+    if (parsed.topLevelEmployeeId) {
+      const topLevel = await prisma.user.findUnique({
+        where: { id: parsed.topLevelEmployeeId },
+        select: { id: true, status: true },
+      });
+      if (!topLevel || topLevel.status !== "ACTIVE") {
+        return apiError("Top-level employee must be an active employee", 400);
+      }
+    }
+
     const existing = await prisma.companySettings.findFirst();
 
     const settings = existing

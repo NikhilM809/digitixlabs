@@ -134,6 +134,14 @@ export function canReopenKra(role: RoleName) {
   return role === "ADMIN" || role === "HR";
 }
 
+export function canManageManualAttendance(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER";
+}
+
+export function canResetEmployeePassword(role: RoleName) {
+  return role === "ADMIN";
+}
+
 export function canConfigureKra(role: RoleName) {
   return role === "ADMIN" || role === "HR" || role === "MANAGER";
 }

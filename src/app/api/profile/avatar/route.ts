@@ -1,5 +1,3 @@
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import {
   requireAuth,
@@ -7,8 +5,8 @@ import {
   apiError,
   createAuditLog,
 } from "@/lib/api-utils";
-import { saveAvatarFile } from "@/lib/avatar-upload";
 import { canEmployeeEditOwnProfile } from "@/lib/profile-editing";
+import { saveAvatarFile } from "@/lib/avatar-upload";
 
 export async function POST(request: Request) {
   const { error, user } = await requireAuth();

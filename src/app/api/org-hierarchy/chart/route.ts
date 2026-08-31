@@ -4,10 +4,10 @@ import { assertCanViewOrgStructure } from "@/lib/org-hierarchy-settings";
 import {
   buildOrgTree,
   enrichOrgChartTree,
-  fetchOrgEmployees,
   filterOrgTree,
   findAncestorIds,
   getDirectReports,
+  prepareOrgHierarchyDataset,
 } from "@/lib/org-hierarchy";
 
 export async function GET(request: NextRequest) {
@@ -25,8 +25,16 @@ export async function GET(request: NextRequest) {
 
   try {
     const search = request.nextUrl.searchParams.get("search") ?? "";
-    const employees = await fetchOrgEmployees(false);
-    const tree = buildOrgTree(employees, { activeDirectReportsOnly: true });
+    const { employees, topLevelEmployeeId } = await prepareOrgHierarchyDataset({
+      includeInactive: false,
+      viewerIsAdmin: false,
+    });
+
+    const tree = buildOrgTree(employees, {
+      activeDirectReportsOnly: true,
+      topLevelEmployeeId,
+      includeAdministrativePlaceholder: false,
+    });
     const filtered = filterOrgTree(tree, search);
     const chart = enrichOrgChartTree(filtered, employees);
 
@@ -42,6 +50,7 @@ export async function GET(request: NextRequest) {
       tree: chart,
       currentUserId: user.id,
       expandPath: [...ancestorIds, user.id],
+      topLevelEmployeeId,
       self: self
         ? {
             ...self,

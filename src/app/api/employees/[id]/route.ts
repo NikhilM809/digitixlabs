@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-utils";
 import { employeeSchema } from "@/lib/validations";
 import { resolveOrgRole } from "@/lib/employee-roles";
+import { normalizeEmail } from "@/lib/email-utils";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -77,9 +78,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   try {
     const body = await req.json();
     const parsed = employeeSchema.parse(body);
+    const email = normalizeEmail(parsed.email);
 
     const existing = await prisma.user.findFirst({
-      where: { email: parsed.email, NOT: { id } },
+      where: { email, NOT: { id } },
     });
     if (existing) {
       return apiError("An employee with this email already exists", 409);
@@ -88,7 +90,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const orgRole = await resolveOrgRole(parsed.orgRoleId);
 
     const updateData: Parameters<typeof prisma.user.update>[0]["data"] = {
-      email: parsed.email,
+      email,
       firstName: parsed.firstName,
       lastName: parsed.lastName,
       phone: parsed.phone,

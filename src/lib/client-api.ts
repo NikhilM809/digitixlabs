@@ -33,10 +33,11 @@ export async function apiFetch<T>(
     : {};
 
   if (!res.ok) {
-    throw new ApiError(
-      json.error ?? "Request failed",
-      res.status
-    );
+    const message =
+      res.status === 401
+        ? "Your session has expired. Please sign in again."
+        : json.error ?? "Request failed";
+    throw new ApiError(message, res.status);
   }
 
   if (json.success === false) {
