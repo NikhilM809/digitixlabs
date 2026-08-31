@@ -46,7 +46,7 @@ import {
   canApplyLeaveOnBehalf,
   canApproveLeave,
   canEditLeaveBalance,
-  canBulkImportLeave,
+  canBulkManageLeaveBalances,
 } from "@/lib/permissions";
 import { apiFetchArray } from "@/lib/client-api";
 import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
@@ -479,11 +479,12 @@ export default function LeavePage() {
   const isMgr = role ? canApproveLeave(role) : false;
   const canApplyForOthers = role ? canApplyLeaveOnBehalf(role) : false;
   const canEditBalance = role ? canEditLeaveBalance(role) : false;
-  const canBulkImport = role ? canBulkImportLeave(role) : false;
+  const canBulkManage = role ? canBulkManageLeaveBalances(role) : false;
   const userId = session?.user?.id;
 
   const [balanceEmployeeId, setBalanceEmployeeId] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [bulkBalanceYear, setBulkBalanceYear] = useState(new Date().getFullYear());
   const [editingBalance, setEditingBalance] = useState<{
     leaveTypeId: string;
     totalDays: number;
@@ -676,6 +677,61 @@ export default function LeavePage() {
         </TabsContent>
 
         <TabsContent value="balance">
+          {canBulkManage && (
+            <Card glass className="mb-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Bulk Leave Balance Import / Export</CardTitle>
+                <CardDescription>
+                  Export all employee leave balances, edit Total Days and Used Days in Excel, then
+                  import back. Remaining is calculated automatically as Total minus Used minus Pending.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="space-y-2">
+                  <Label htmlFor="bulk-balance-year">Year</Label>
+                  <Input
+                    id="bulk-balance-year"
+                    type="number"
+                    min={2020}
+                    max={2100}
+                    className="w-32"
+                    value={bulkBalanceYear}
+                    onChange={(e) => setBulkBalanceYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(
+                        `/api/leave/balance/bulk?template=true&year=${bulkBalanceYear}`,
+                        "_blank"
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Template
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(`/api/leave/balance/bulk?year=${bulkBalanceYear}`, "_blank")
+                    }
+                  >
+                    <Download className="h-4 w-4" />
+                    Export All Balances
+                  </Button>
+                  <Button size="sm" onClick={() => setImportOpen(true)}>
+                    <Upload className="h-4 w-4" />
+                    Import Excel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {canEditBalance && (
             <Card glass className="mb-4">
               <CardHeader className="pb-2">
@@ -698,40 +754,6 @@ export default function LeavePage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {canBulkImport && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        window.open(
-                          `/api/leave/balance/bulk?template=true&year=${balanceData?.year ?? new Date().getFullYear()}`,
-                          "_blank"
-                        )
-                      }
-                    >
-                      <Download className="h-4 w-4" />
-                      Download Template
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        window.open(
-                          `/api/leave/balance/bulk?year=${balanceData?.year ?? new Date().getFullYear()}`,
-                          "_blank"
-                        )
-                      }
-                    >
-                      <Download className="h-4 w-4" />
-                      Export Balances
-                    </Button>
-                    <Button size="sm" onClick={() => setImportOpen(true)}>
-                      <Upload className="h-4 w-4" />
-                      Import Excel
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
@@ -942,12 +964,12 @@ export default function LeavePage() {
         )}
       </Tabs>
 
-      {canBulkImport && (
+      {canBulkManage && (
         <ExcelImportDialog
           open={importOpen}
           onOpenChange={setImportOpen}
           title="Import Leave Balances"
-          description="Upload Excel with Employee ID, Leave Type Code, Year, Total Days, and optional Used Days."
+          description="Upload Excel with Employee ID, Leave Type Code, Year, Total Days, and Used Days. Remaining is calculated automatically."
           uploadUrl="/api/leave/balance/bulk"
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["leave-balance"] });

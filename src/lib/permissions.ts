@@ -101,6 +101,11 @@ export function canBulkImportLeave(role: RoleName) {
   return role === "ADMIN";
 }
 
+/** Admin bulk export/import of leave balances via Excel */
+export function canBulkManageLeaveBalances(role: RoleName) {
+  return role === "ADMIN";
+}
+
 export function canBulkImportEmployees(role: RoleName) {
   return role === "ADMIN";
 }

@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiError, createAuditLog } from "@/lib/api-utils";
-import { isAdmin, canBulkImportLeave } from "@/lib/permissions";
+import { canBulkManageLeaveBalances } from "@/lib/permissions";
 import { buildExcelBuffer, getRowValue, parseOptionalNumber } from "@/lib/excel-utils";
 import { computeLeaveBalancesForUser } from "@/lib/leave-balance";
 
 export async function GET(request: NextRequest) {
-  const { error, user } = await requireAuth();
+  const { error, user } = await requireAuth(["ADMIN"]);
   if (error || !user) return error;
 
-  if (!isAdmin(user.role)) {
+  if (!canBulkManageLeaveBalances(user.role)) {
     return apiError("Forbidden", 403);
   }
 
@@ -40,44 +40,41 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const employees = await prisma.user.findMany({
-    where: { status: "ACTIVE", role: { not: "ADMIN" } },
-    select: { id: true, employeeId: true, firstName: true, lastName: true },
-    orderBy: { employeeId: "asc" },
-  });
-
-  const leaveTypes = await prisma.leaveType.findMany({
-    where: { isActive: true },
-    select: { code: true },
-  });
+  const [employees, leaveTypes] = await Promise.all([
+    prisma.user.findMany({
+      where: { status: "ACTIVE", role: { not: "ADMIN" } },
+      select: { id: true, employeeId: true, firstName: true, lastName: true },
+      orderBy: { employeeId: "asc" },
+    }),
+    prisma.leaveType.findMany({
+      where: { isActive: true },
+      select: { id: true, code: true, defaultDays: true },
+      orderBy: { code: "asc" },
+    }),
+  ]);
 
   const rows: Record<string, string | number>[] = [];
 
   for (const emp of employees) {
     const balances = await computeLeaveBalancesForUser(emp.id, year);
-    for (const b of balances) {
-      if (b.leaveType.defaultDays <= 0 && b.totalDays <= 0) continue;
+    const balanceByType = new Map(balances.map((b) => [b.leaveType.id, b]));
+
+    for (const lt of leaveTypes) {
+      const b = balanceByType.get(lt.id);
+      const totalDays = b?.totalDays ?? lt.defaultDays;
+      const usedDays = b?.usedDays ?? 0;
+      const pendingDays = b?.pendingDays ?? 0;
+      const remaining = totalDays - usedDays - pendingDays;
+
       rows.push({
         "Employee ID": emp.employeeId,
         "Employee Name": `${emp.firstName} ${emp.lastName}`,
-        "Leave Type Code": b.leaveType.code,
-        Year: year,
-        "Total Days": b.totalDays,
-        "Used Days": b.usedDays,
-        Pending: b.pendingDays,
-        Remaining: b.availableDays,
-      });
-    }
-  }
-
-  if (rows.length === 0) {
-    for (const lt of leaveTypes) {
-      rows.push({
-        "Employee ID": "",
         "Leave Type Code": lt.code,
         Year: year,
-        "Total Days": "",
-        "Used Days": "",
+        "Total Days": totalDays,
+        "Used Days": usedDays,
+        Pending: pendingDays,
+        Remaining: remaining,
       });
     }
   }
@@ -96,7 +93,7 @@ interface ImportRow {
   leaveTypeCode: string;
   year: number;
   totalDays: number;
-  usedDays?: number;
+  usedDays: number;
 }
 
 interface RowError {
@@ -106,10 +103,20 @@ interface RowError {
 
 async function validateImportRows(rows: ImportRow[]): Promise<{
   errors: RowError[];
-  validRows: (ImportRow & { userId: string; leaveTypeId: string })[];
+  validRows: (ImportRow & {
+    userId: string;
+    leaveTypeId: string;
+    pendingDays: number;
+    remaining: number;
+  })[];
 }> {
   const errors: RowError[] = [];
-  const validRows: (ImportRow & { userId: string; leaveTypeId: string })[] = [];
+  const validRows: (ImportRow & {
+    userId: string;
+    leaveTypeId: string;
+    pendingDays: number;
+    remaining: number;
+  })[] = [];
   const seen = new Set<string>();
 
   const [employees, leaveTypes] = await Promise.all([
@@ -126,52 +133,68 @@ async function validateImportRows(rows: ImportRow[]): Promise<{
   const empMap = new Map(employees.map((e) => [e.employeeId.toUpperCase(), e]));
   const ltMap = new Map(leaveTypes.map((lt) => [lt.code.toUpperCase(), lt]));
 
-  rows.forEach((row, index) => {
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
     const rowNum = index + 2;
     const key = `${row.employeeId}:${row.leaveTypeCode}:${row.year}`;
     if (seen.has(key)) {
       errors.push({ row: rowNum, message: `Duplicate entry for ${row.employeeId} / ${row.leaveTypeCode}` });
-      return;
+      continue;
     }
     seen.add(key);
 
     const emp = empMap.get(row.employeeId.toUpperCase());
     if (!emp) {
       errors.push({ row: rowNum, message: `Employee ID ${row.employeeId} does not exist` });
-      return;
+      continue;
     }
 
     const lt = ltMap.get(row.leaveTypeCode.toUpperCase());
     if (!lt) {
       errors.push({ row: rowNum, message: `Leave type code ${row.leaveTypeCode} is invalid` });
-      return;
+      continue;
     }
 
     if (row.totalDays < 0) {
       errors.push({ row: rowNum, message: "Total days cannot be negative" });
-      return;
+      continue;
     }
 
-    if (row.usedDays !== undefined && row.usedDays < 0) {
+    if (row.usedDays < 0) {
       errors.push({ row: rowNum, message: "Used days cannot be negative" });
-      return;
+      continue;
+    }
+
+    const computed = await computeLeaveBalancesForUser(emp.id, row.year);
+    const current = computed.find((b) => b.leaveType.id === lt.id);
+    const pendingDays = current?.pendingDays ?? 0;
+    const remaining = row.totalDays - row.usedDays - pendingDays;
+
+    if (remaining < 0) {
+      errors.push({
+        row: rowNum,
+        message: `Total days (${row.totalDays}) must be at least used (${row.usedDays}) + pending (${pendingDays})`,
+      });
+      continue;
     }
 
     validRows.push({
       ...row,
       userId: emp.id,
       leaveTypeId: lt.id,
+      pendingDays,
+      remaining,
     });
-  });
+  }
 
   return { errors, validRows };
 }
 
 export async function POST(request: NextRequest) {
-  const { error, user } = await requireAuth();
+  const { error, user } = await requireAuth(["ADMIN"]);
   if (error || !user) return error;
 
-  if (!canBulkImportLeave(user.role)) {
+  if (!canBulkManageLeaveBalances(user.role)) {
     return apiError("Forbidden", 403);
   }
 
@@ -198,21 +221,21 @@ export async function POST(request: NextRequest) {
 
         if (!employeeId && !leaveTypeCode) return null;
 
+        if (!employeeId || !leaveTypeCode) return null;
+
         const year = parseOptionalNumber(yearStr) ?? new Date().getFullYear();
         const totalDays = parseOptionalNumber(totalStr);
         if (totalDays === null) return null;
 
-        const usedParsed = parseOptionalNumber(usedStr);
-        const rowData: ImportRow = {
+        const usedDays = parseOptionalNumber(usedStr) ?? 0;
+
+        return {
           employeeId,
           leaveTypeCode,
           year,
           totalDays,
+          usedDays,
         };
-        if (usedParsed !== null) {
-          rowData.usedDays = usedParsed;
-        }
-        return rowData;
       })
       .filter((r): r is ImportRow => r !== null);
 
@@ -238,24 +261,15 @@ export async function POST(request: NextRequest) {
           year: r.year,
           totalDays: r.totalDays,
           usedDays: r.usedDays,
+          pendingDays: r.pendingDays,
+          remaining: r.remaining,
         })),
-        message: "Validation passed. Set confirm=true to apply changes.",
+        message:
+          "Validation passed. Remaining is calculated as Total Days minus Used Days minus Pending. Set confirm=true to apply.",
       });
     }
 
     for (const row of validRows) {
-      const computed = await computeLeaveBalancesForUser(row.userId, row.year);
-      const current = computed.find((b) => b.leaveType.id === row.leaveTypeId);
-      const pendingDays = current?.pendingDays ?? 0;
-      const usedDays = row.usedDays ?? current?.usedDays ?? 0;
-
-      if (row.totalDays < usedDays + pendingDays) {
-        return apiError(
-          `Row ${row.employeeId}/${row.leaveTypeCode}: total days cannot be less than used + pending`,
-          400
-        );
-      }
-
       await prisma.leaveBalance.upsert({
         where: {
           userId_leaveTypeId_year: {
@@ -269,15 +283,15 @@ export async function POST(request: NextRequest) {
           leaveTypeId: row.leaveTypeId,
           year: row.year,
           totalDays: row.totalDays,
-          usedDays,
-          pendingDays,
-          usedDaysManual: row.usedDays !== undefined,
+          usedDays: row.usedDays,
+          pendingDays: row.pendingDays,
+          usedDaysManual: true,
         },
         update: {
           totalDays: row.totalDays,
-          ...(row.usedDays !== undefined
-            ? { usedDays: row.usedDays, usedDaysManual: true }
-            : {}),
+          usedDays: row.usedDays,
+          pendingDays: row.pendingDays,
+          usedDaysManual: true,
         },
       });
     }
