@@ -17,7 +17,7 @@ const FLOATER_LEAVE = {
 } as const;
 
 const PARENTAL_LEAVE = {
-  name: "Parental Leave",
+  name: "Maternity/Parental Leave",
   code: PARENTAL_LEAVE_CODE,
   description:
     "Parental leave (maternity/paternity). Days are assigned per employee as required.",

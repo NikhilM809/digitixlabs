@@ -1,4 +1,4 @@
--- Merge Maternity (ML) and Paternity (PL) into Parental Leave (PRL)
+-- Merge Maternity (ML) and Paternity (PL) into Maternity/Parental Leave (PRL)
 
 INSERT INTO "LeaveType" (
   "id",
@@ -14,7 +14,7 @@ INSERT INTO "LeaveType" (
 )
 VALUES (
   gen_random_uuid()::text,
-  'Parental Leave',
+  'Maternity/Parental Leave',
   'PRL',
   'Parental leave (maternity/paternity). Days are assigned per employee as required.',
   0,
@@ -35,7 +35,7 @@ UPDATE "LeaveType"
 SET "isActive" = false, "updatedAt" = NOW()
 WHERE "code" IN ('ML', 'PL');
 
--- Point existing leave requests at Parental Leave
+-- Point existing leave requests at Maternity/Parental Leave
 UPDATE "LeaveRequest" lr
 SET "leaveTypeId" = prl."id", "updatedAt" = NOW()
 FROM "LeaveType" prl

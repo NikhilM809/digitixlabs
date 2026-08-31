@@ -202,7 +202,7 @@ async function main() {
       where: { code: "PRL" },
       update: {},
       create: {
-        name: "Parental Leave",
+        name: "Maternity/Parental Leave",
         code: "PRL",
         defaultDays: 0,
         description: "Parental leave (maternity/paternity). Days are assigned per employee as required.",
