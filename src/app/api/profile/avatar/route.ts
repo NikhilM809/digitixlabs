@@ -8,12 +8,29 @@ import {
   createAuditLog,
 } from "@/lib/api-utils";
 import { saveAvatarFile } from "@/lib/avatar-upload";
+import { canEmployeeEditOwnProfile } from "@/lib/profile-editing";
 
 export async function POST(request: Request) {
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
   try {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        role: true,
+        profileCompletedAt: true,
+        profileEditingEnabled: true,
+      },
+    });
+
+    if (currentUser && !canEmployeeEditOwnProfile(currentUser)) {
+      return apiError(
+        "Your profile is read-only. Contact Admin to enable profile editing.",
+        403
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 

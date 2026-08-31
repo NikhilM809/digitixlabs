@@ -31,9 +31,14 @@ const employeeSelect = {
   bankAccountNumber: true,
   ifscCode: true,
   baseSalary: true,
+  hra: true,
+  specialAllowance: true,
+  internetAllowance: true,
+  performanceBonus: true,
   ctc: true,
   incentive: true,
   reimbursement: true,
+  profileEditingEnabled: true,
   departmentId: true,
   designationId: true,
   managerId: true,
@@ -102,11 +107,19 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       bankAccountNumber: parsed.bankAccountNumber || null,
       ifscCode: parsed.ifscCode?.toUpperCase() || null,
       baseSalary: parsed.baseSalary ?? 0,
+      hra: parsed.hra ?? 0,
+      specialAllowance: parsed.specialAllowance ?? 0,
+      internetAllowance: parsed.internetAllowance ?? 0,
+      performanceBonus: parsed.performanceBonus ?? 0,
       ctc: parsed.ctc ?? 0,
       incentive: parsed.incentive ?? 0,
       reimbursement: parsed.reimbursement ?? 0,
       ...(parsed.status ? { status: parsed.status } : {}),
     };
+
+    if (user!.role === "ADMIN" && parsed.profileEditingEnabled !== undefined) {
+      updateData.profileEditingEnabled = parsed.profileEditingEnabled;
+    }
 
     if (user!.role === "ADMIN" && parsed.employeeId?.trim()) {
       const employeeId = parsed.employeeId.trim();

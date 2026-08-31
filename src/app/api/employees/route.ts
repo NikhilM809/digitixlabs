@@ -36,9 +36,14 @@ const employeeSelect = {
   bankAccountNumber: true,
   ifscCode: true,
   baseSalary: true,
+  hra: true,
+  specialAllowance: true,
+  internetAllowance: true,
+  performanceBonus: true,
   ctc: true,
   incentive: true,
   reimbursement: true,
+  profileEditingEnabled: true,
   departmentId: true,
   designationId: true,
   managerId: true,
@@ -125,6 +130,10 @@ export async function POST(req: NextRequest) {
 
     const defaultPassword = await bcrypt.hash("Digitix@123", 12);
 
+    const companySettings = await prisma.companySettings.findFirst({
+      select: { defaultEmployeeProfileEditingEnabled: true },
+    });
+
     const employee = await prisma.user.create({
       data: {
         employeeId,
@@ -148,9 +157,15 @@ export async function POST(req: NextRequest) {
         bankAccountNumber: parsed.bankAccountNumber || null,
         ifscCode: parsed.ifscCode?.toUpperCase() || null,
         baseSalary: parsed.baseSalary ?? 0,
+        hra: parsed.hra ?? 0,
+        specialAllowance: parsed.specialAllowance ?? 0,
+        internetAllowance: parsed.internetAllowance ?? 0,
+        performanceBonus: parsed.performanceBonus ?? 0,
         ctc: parsed.ctc ?? 0,
         incentive: parsed.incentive ?? 0,
         reimbursement: parsed.reimbursement ?? 0,
+        profileEditingEnabled:
+          companySettings?.defaultEmployeeProfileEditingEnabled ?? false,
         mustChangePassword: true,
       },
       select: employeeSelect,

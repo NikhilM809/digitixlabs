@@ -39,6 +39,7 @@ import type { EmploymentType, RoleName, UserStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -107,9 +108,12 @@ interface Employee {
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   baseSalary?: number;
+  hra?: number;
+  specialAllowance?: number;
+  internetAllowance?: number;
+  performanceBonus?: number;
   ctc?: number;
-  incentive?: number;
-  reimbursement?: number;
+  profileEditingEnabled?: boolean;
 }
 
 interface EmployeeDependent {
@@ -243,9 +247,11 @@ export default function EmployeesPage() {
       bankAccountNumber: "",
       ifscCode: "",
       baseSalary: 0,
+      hra: 0,
+      specialAllowance: 0,
+      internetAllowance: 0,
+      performanceBonus: 0,
       ctc: 0,
-      incentive: 0,
-      reimbursement: 0,
     },
   });
 
@@ -307,8 +313,11 @@ export default function EmployeesPage() {
       bankAccountNumber: "",
       ifscCode: "",
       baseSalary: 0,
-      incentive: 0,
-      reimbursement: 0,
+      hra: 0,
+      specialAllowance: 0,
+      internetAllowance: 0,
+      performanceBonus: 0,
+      ctc: 0,
     });
     setDialogOpen(true);
   };
@@ -337,9 +346,12 @@ export default function EmployeesPage() {
       bankAccountNumber: employee.bankAccountNumber ?? "",
       ifscCode: employee.ifscCode ?? "",
       baseSalary: employee.baseSalary ?? 0,
+      hra: employee.hra ?? 0,
+      specialAllowance: employee.specialAllowance ?? 0,
+      internetAllowance: employee.internetAllowance ?? 0,
+      performanceBonus: employee.performanceBonus ?? 0,
       ctc: employee.ctc ?? 0,
-      incentive: employee.incentive ?? 0,
-      reimbursement: employee.reimbursement ?? 0,
+      profileEditingEnabled: employee.profileEditingEnabled ?? false,
       status: employee.status,
     });
     setDialogOpen(true);
@@ -1080,23 +1092,45 @@ export default function EmployeesPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="incentive">Incentive</Label>
+                    <Label htmlFor="hra">HRA</Label>
                     <Input
-                      id="incentive"
+                      id="hra"
                       type="number"
                       min={0}
                       step={0.01}
-                      {...form.register("incentive", { valueAsNumber: true })}
+                      {...form.register("hra", { valueAsNumber: true })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reimbursement">Reimbursement</Label>
+                    <Label htmlFor="specialAllowance">Special Allowance</Label>
                     <Input
-                      id="reimbursement"
+                      id="specialAllowance"
                       type="number"
                       min={0}
                       step={0.01}
-                      {...form.register("reimbursement", { valueAsNumber: true })}
+                      {...form.register("specialAllowance", { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="internetAllowance">Internet Allowance</Label>
+                    <Input
+                      id="internetAllowance"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("internetAllowance", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="performanceBonus">Performance Bonus</Label>
+                    <Input
+                      id="performanceBonus"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("performanceBonus", { valueAsNumber: true })}
                     />
                   </div>
                 </div>
@@ -1123,6 +1157,28 @@ export default function EmployeesPage() {
                         Current CTC: {formatCurrency(editingEmployee.ctc)}
                       </p>
                     )}
+                  </div>
+                )}
+                {editingEmployee && isAdmin && (
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                    <div>
+                      <Label htmlFor="profile-editing-enabled" className="font-medium">
+                        Allow Profile Editing
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        When enabled, this employee can update profile details (except name and
+                        email) from the Profile page.
+                      </p>
+                    </div>
+                    <Switch
+                      id="profile-editing-enabled"
+                      checked={form.watch("profileEditingEnabled") ?? false}
+                      onCheckedChange={(checked) =>
+                        form.setValue("profileEditingEnabled", checked, {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
                   </div>
                 )}
                 {editingEmployee &&

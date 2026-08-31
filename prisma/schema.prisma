@@ -115,9 +115,15 @@ model User {
   bankAccountNumber  String?
   ifscCode           String?
   baseSalary         Float          @default(0)
+  hra                Float          @default(0)
+  specialAllowance   Float          @default(0)
+  internetAllowance  Float          @default(0)
+  performanceBonus   Float          @default(0)
   ctc                Float          @default(0)
   incentive          Float          @default(0)
   reimbursement      Float          @default(0)
+  profileCompletedAt DateTime?
+  profileEditingEnabled Boolean     @default(false)
   departmentId       String?
   designationId      String?
   managerId          String?
@@ -328,11 +334,15 @@ model Payslip {
   userId     String
   month      Int
   year       Int
-  salary         Float
-  bonus          Float    @default(0)
-  incentive      Float    @default(0)
-  reimbursement  Float    @default(0)
-  deductions     Float    @default(0)
+  salary            Float
+  hra               Float    @default(0)
+  specialAllowance  Float    @default(0)
+  internetAllowance Float    @default(0)
+  performanceBonus  Float    @default(0)
+  bonus             Float    @default(0)
+  incentive         Float    @default(0)
+  reimbursement     Float    @default(0)
+  deductions        Float    @default(0)
   netSalary  Float
   fileUrl    String?
   uploadedBy String?
@@ -408,7 +418,8 @@ model CompanySettings {
   lateThreshold   Int      @default(15)
   orgHierarchyVisibleToEmployees Boolean @default(true)
   orgHierarchyVisibleToManagers  Boolean @default(true)
-  dependentDetailsEnabled        Boolean @default(false)
+  dependentDetailsEnabled                 Boolean @default(false)
+  defaultEmployeeProfileEditingEnabled    Boolean @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

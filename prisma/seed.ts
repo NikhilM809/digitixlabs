@@ -436,11 +436,12 @@ async function main() {
   // Sample Payslips
   for (const user of allUsers) {
     const salary = user.role === "ADMIN" ? 150000 : user.role === "MANAGER" ? 120000 : 80000;
-    const bonus = user.role === "EMPLOYEE" ? 5000 : 10000;
-    const incentive = user.role === "EMPLOYEE" ? 3000 : 5000;
-    const reimbursement = user.role === "EMPLOYEE" ? 2000 : 3000;
+    const hra = salary * 0.4;
+    const specialAllowance = user.role === "EMPLOYEE" ? 3000 : 5000;
+    const internetAllowance = user.role === "EMPLOYEE" ? 2000 : 3000;
+    const performanceBonus = user.role === "EMPLOYEE" ? 5000 : 10000;
     const deductions = salary * 0.1;
-    const netSalary = salary + bonus + incentive + reimbursement - deductions;
+    const netSalary = salary + hra + specialAllowance + internetAllowance + performanceBonus - deductions;
     await prisma.payslip.upsert({
       where: { userId_month_year: { userId: user.id, month: 7, year: 2026 } },
       update: {},
@@ -449,9 +450,10 @@ async function main() {
         month: 7,
         year: 2026,
         salary,
-        bonus,
-        incentive,
-        reimbursement,
+        hra,
+        specialAllowance,
+        internetAllowance,
+        performanceBonus,
         deductions,
         netSalary,
         uploadedBy: admin.id,

@@ -13,6 +13,7 @@ interface ProfileAvatarUploadProps {
   lastName: string;
   uploadUrl: string;
   size?: "md" | "lg";
+  disabled?: boolean;
   onUploaded?: (avatarUrl: string) => void;
 }
 
@@ -22,6 +23,7 @@ export function ProfileAvatarUpload({
   lastName,
   uploadUrl,
   size = "lg",
+  disabled = false,
   onUploaded,
 }: ProfileAvatarUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -89,7 +91,7 @@ export function ProfileAvatarUpload({
         type="button"
         variant="outline"
         size="sm"
-        disabled={uploading}
+        disabled={uploading || disabled}
         onClick={() => inputRef.current?.click()}
       >
         {uploading ? (

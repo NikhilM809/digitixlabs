@@ -29,6 +29,10 @@ const employeeExportSelect = {
   bankAccountNumber: true,
   ifscCode: true,
   baseSalary: true,
+  hra: true,
+  specialAllowance: true,
+  internetAllowance: true,
+  performanceBonus: true,
   ctc: true,
   incentive: true,
   reimbursement: true,
@@ -62,9 +66,11 @@ function formatExportRow(e: ExportedEmployee) {
     "Bank Account": e.bankAccountNumber ?? "",
     IFSC: e.ifscCode ?? "",
     "Base Salary": e.baseSalary ?? 0,
+    HRA: e.hra ?? 0,
+    "Special Allowance": e.specialAllowance ?? 0,
+    "Internet Allowance": e.internetAllowance ?? 0,
+    "Performance Bonus": e.performanceBonus ?? 0,
     CTC: e.ctc ?? 0,
-    Incentive: e.incentive ?? 0,
-    Reimbursement: e.reimbursement ?? 0,
   };
 }
 
@@ -100,9 +106,11 @@ export async function GET(request: NextRequest) {
           "Bank Account": "0",
           IFSC: "0",
           "Base Salary": 0,
+          HRA: 0,
+          "Special Allowance": 0,
+          "Internet Allowance": 0,
+          "Performance Bonus": 0,
           CTC: 0,
-          Incentive: 0,
-          Reimbursement: 0,
         },
       ],
       "EmployeeTemplate"
@@ -150,9 +158,11 @@ interface ValidImportRow {
   bankAccountNumber?: string | null;
   ifscCode?: string | null;
   baseSalary: number;
+  hra: number;
+  specialAllowance: number;
+  internetAllowance: number;
+  performanceBonus: number;
   ctc: number;
-  incentive: number;
-  reimbursement: number;
   isUpdate: boolean;
   userId?: string;
 }
@@ -327,10 +337,24 @@ export async function POST(request: NextRequest) {
           getRowValue(row, "Bank Account", "bank_account", "bankAccountNumber") || null,
         ifscCode: getRowValue(row, "IFSC", "ifsc")?.toUpperCase() || null,
         baseSalary: parseOptionalNumber(getRowValue(row, "Base Salary", "base_salary")) ?? 0,
+        hra: parseOptionalNumber(getRowValue(row, "HRA", "hra")) ?? 0,
+        specialAllowance:
+          parseOptionalNumber(
+            getRowValue(row, "Special Allowance", "special_allowance", "specialAllowance")
+          ) ??
+          parseOptionalNumber(getRowValue(row, "Incentive", "incentive")) ??
+          0,
+        internetAllowance:
+          parseOptionalNumber(
+            getRowValue(row, "Internet Allowance", "internet_allowance", "internetAllowance")
+          ) ??
+          parseOptionalNumber(getRowValue(row, "Reimbursement", "reimbursement")) ??
+          0,
+        performanceBonus:
+          parseOptionalNumber(
+            getRowValue(row, "Performance Bonus", "performance_bonus", "performanceBonus")
+          ) ?? 0,
         ctc: parseOptionalNumber(getRowValue(row, "CTC", "ctc")) ?? 0,
-        incentive: parseOptionalNumber(getRowValue(row, "Incentive", "incentive")) ?? 0,
-        reimbursement:
-          parseOptionalNumber(getRowValue(row, "Reimbursement", "reimbursement")) ?? 0,
         isUpdate: !!existingById,
         userId: existingById?.id,
       });
@@ -387,9 +411,11 @@ export async function POST(request: NextRequest) {
             bankAccountNumber: row.bankAccountNumber,
             ifscCode: row.ifscCode,
             baseSalary: row.baseSalary,
+            hra: row.hra,
+            specialAllowance: row.specialAllowance,
+            internetAllowance: row.internetAllowance,
+            performanceBonus: row.performanceBonus,
             ctc: row.ctc,
-            incentive: row.incentive,
-            reimbursement: row.reimbursement,
           },
         });
         updated++;
@@ -416,9 +442,11 @@ export async function POST(request: NextRequest) {
             bankAccountNumber: row.bankAccountNumber,
             ifscCode: row.ifscCode,
             baseSalary: row.baseSalary,
+            hra: row.hra,
+            specialAllowance: row.specialAllowance,
+            internetAllowance: row.internetAllowance,
+            performanceBonus: row.performanceBonus,
             ctc: row.ctc,
-            incentive: row.incentive,
-            reimbursement: row.reimbursement,
             mustChangePassword: true,
           },
         });

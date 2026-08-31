@@ -47,6 +47,48 @@ export const profileSchema = z.object({
   emergencyContact: z.string().optional(),
 });
 
+export const profileDetailsSchema = z.object({
+  phone: z.string().optional(),
+  emergencyContact: z.string().optional(),
+  dateOfBirth: z.string().optional().or(z.literal("")),
+  joiningDate: z.string().min(1, "Date of joining is required"),
+  pan: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
+      "Invalid PAN format (e.g. ABCDE1234F) or use 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  aadhaarNumber: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^\d{12}$/.test(v),
+      "Aadhaar must be 12 digits or 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  bankAccountNumber: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^\d{1,20}$/.test(v),
+      "Use digits only, or 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  bankName: z.string().max(120, "Bank name is too long").optional().or(z.literal("")),
+  ifscCode: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(v),
+      "Invalid IFSC format (e.g. SBIN0001234) or use 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+});
+
+export const profileFirstLoginSchema = profileDetailsSchema;
+
 export const employeeSchema = z.object({
   employeeId: z
     .string()
@@ -96,9 +138,14 @@ export const employeeSchema = z.object({
     .optional()
     .or(z.literal("")),
   baseSalary: z.coerce.number().min(0).optional(),
+  hra: z.coerce.number().min(0).optional(),
+  specialAllowance: z.coerce.number().min(0).optional(),
+  internetAllowance: z.coerce.number().min(0).optional(),
+  performanceBonus: z.coerce.number().min(0).optional(),
   ctc: z.coerce.number().min(0, "CTC must be a positive amount").optional(),
   incentive: z.coerce.number().min(0).optional(),
   reimbursement: z.coerce.number().min(0).optional(),
+  profileEditingEnabled: z.boolean().optional(),
   status: z.enum(["ACTIVE", "LEFT", "TERMINATED"]).optional(),
 });
 
@@ -262,15 +309,20 @@ export const kraReviewSubmitSchema = z.object({
   ).min(1),
 });
 
+const payslipComponentsSchema = {
+  salary: z.number().positive("Basic salary must be greater than 0"),
+  hra: z.number().min(0).default(0),
+  specialAllowance: z.number().min(0).default(0),
+  internetAllowance: z.number().min(0).default(0),
+  performanceBonus: z.number().min(0).default(0),
+  deductions: z.number().min(0).default(0),
+};
+
 export const payslipGenerateSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2020),
-  salary: z.number().positive("Basic salary must be greater than 0"),
-  bonus: z.number().min(0).default(0),
-  incentive: z.number().min(0).default(0),
-  reimbursement: z.number().min(0).default(0),
-  deductions: z.number().min(0).default(0),
+  ...payslipComponentsSchema,
 });
 
 export const companyPolicySchema = z.object({
@@ -302,11 +354,7 @@ export const payslipSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   month: z.number().min(1).max(12),
   year: z.number().min(2020),
-  salary: z.number().positive("Basic salary must be greater than 0"),
-  bonus: z.number().min(0).default(0),
-  incentive: z.number().min(0).default(0),
-  reimbursement: z.number().min(0).default(0),
-  deductions: z.number().min(0).default(0),
+  ...payslipComponentsSchema,
   fileUrl: z.string().optional(),
 });
 
@@ -330,6 +378,7 @@ export const companySettingsSchema = z.object({
   orgHierarchyVisibleToEmployees: z.boolean().optional(),
   orgHierarchyVisibleToManagers: z.boolean().optional(),
   dependentDetailsEnabled: z.boolean().optional(),
+  defaultEmployeeProfileEditingEnabled: z.boolean().optional(),
 });
 
 export const employeeDependentSchema = z.object({
@@ -368,6 +417,8 @@ export const employeeDocumentUploadSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;
+export type ProfileDetailsInput = z.infer<typeof profileDetailsSchema>;
+export type ProfileFirstLoginInput = ProfileDetailsInput;
 export type EmployeeInput = z.infer<typeof employeeSchema>;
 export type LeaveApplicationInput = z.infer<typeof leaveApplicationSchema>;
 export type AdminLeaveApplicationInput = z.infer<typeof adminLeaveApplicationSchema>;
