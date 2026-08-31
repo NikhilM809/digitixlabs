@@ -6,11 +6,12 @@ import { canExportEmployees, canBulkImportEmployees } from "@/lib/permissions";
 import {
   buildExcelBuffer,
   getRowValue,
+  getRowDateValue,
+  hasRowValue,
   parseExcelBuffer,
   parseOptionalNumber,
 } from "@/lib/excel-utils";
-import { resolveOrgRole } from "@/lib/employee-roles";
-import type { EmploymentType, UserStatus } from "@prisma/client";
+import type { EmploymentType, Prisma, UserStatus } from "@prisma/client";
 
 const DEFAULT_PASSWORD = "Digitix@123";
 
@@ -34,8 +35,6 @@ const employeeExportSelect = {
   internetAllowance: true,
   performanceBonus: true,
   ctc: true,
-  incentive: true,
-  reimbursement: true,
   orgRole: { select: { code: true } },
   department: { select: { name: true } },
   designation: { select: { name: true } },
@@ -141,30 +140,196 @@ export async function GET(request: NextRequest) {
 
 interface ValidImportRow {
   employeeId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  orgRoleId: string;
-  employmentType: EmploymentType;
-  departmentId?: string | null;
-  designationId?: string | null;
-  managerId?: string | null;
-  joiningDate: Date;
-  status: UserStatus;
-  pan?: string | null;
-  aadhaarNumber?: string | null;
-  bankName?: string | null;
-  bankAccountNumber?: string | null;
-  ifscCode?: string | null;
-  baseSalary: number;
-  hra: number;
-  specialAllowance: number;
-  internetAllowance: number;
-  performanceBonus: number;
-  ctc: number;
   isUpdate: boolean;
   userId?: string;
+  changedFields: string[];
+  data: Prisma.UserUpdateInput;
+}
+
+function parseOptionalRowNumber(
+  row: Record<string, string | number | boolean | null | undefined>,
+  label: string,
+  ...keys: string[]
+): { value?: number; error?: string } {
+  if (!hasRowValue(row, ...keys)) return {};
+  const raw = getRowValue(row, ...keys);
+  const num = parseOptionalNumber(raw);
+  if (num === null) {
+    return { error: `Invalid ${label}` };
+  }
+  return { value: num };
+}
+
+function buildPartialUpdate(
+  row: Record<string, string | number | boolean | null | undefined>,
+  maps: {
+    deptMap: Map<string, string>;
+    desigMap: Map<string, string>;
+    roleMap: Map<string, string>;
+    empById: Map<string, { id: string; employeeId: string; email: string }>;
+  }
+): { data: Prisma.UserUpdateInput; changedFields: string[]; errors: string[] } {
+  const data: Prisma.UserUpdateInput = {};
+  const changedFields: string[] = [];
+  const errors: string[] = [];
+
+  const assign = <K extends keyof Prisma.UserUpdateInput>(
+    field: K,
+    label: string,
+    value: Prisma.UserUpdateInput[K]
+  ) => {
+    data[field] = value;
+    changedFields.push(label);
+  };
+
+  if (hasRowValue(row, "First Name", "first_name", "firstName")) {
+    assign("firstName", "First Name", getRowValue(row, "First Name", "first_name", "firstName"));
+  }
+  if (hasRowValue(row, "Last Name", "last_name", "lastName")) {
+    assign("lastName", "Last Name", getRowValue(row, "Last Name", "last_name", "lastName"));
+  }
+  if (hasRowValue(row, "Email", "email")) {
+    assign("email", "Email", getRowValue(row, "Email", "email").toLowerCase());
+  }
+  if (hasRowValue(row, "Phone", "phone")) {
+    assign("phone", "Phone", getRowValue(row, "Phone", "phone"));
+  }
+
+  if (hasRowValue(row, "Role Code", "role_code", "roleCode")) {
+    const roleCode = getRowValue(row, "Role Code", "role_code", "roleCode");
+    const orgRoleId = maps.roleMap.get(roleCode.toUpperCase());
+    if (!orgRoleId) {
+      errors.push(`Unknown role code ${roleCode}`);
+    } else {
+      changedFields.push("Role Code");
+      data.orgRole = { connect: { id: orgRoleId } };
+    }
+  }
+
+  if (hasRowValue(row, "Employment Type", "employment_type", "employmentType")) {
+    const employmentType = getRowValue(
+      row,
+      "Employment Type",
+      "employment_type",
+      "employmentType"
+    ) as EmploymentType;
+    if (!["FULL_TIME", "PART_TIME", "CONTRACT", "INTERN"].includes(employmentType)) {
+      errors.push("Invalid employment type");
+    } else {
+      assign("employmentType", "Employment Type", employmentType);
+    }
+  }
+
+  if (hasRowValue(row, "Status", "status")) {
+    const status = getRowValue(row, "Status", "status") as UserStatus;
+    if (!["ACTIVE", "LEFT", "TERMINATED"].includes(status)) {
+      errors.push("Invalid status");
+    } else {
+      assign("status", "Status", status);
+    }
+  }
+
+  if (hasRowValue(row, "Joining Date", "joining_date", "joiningDate")) {
+    const joiningDate = getRowDateValue(row, "Joining Date", "joining_date", "joiningDate");
+    if (!joiningDate) {
+      errors.push(
+        "Invalid joining date (use YYYY-MM-DD, DD/MM/YYYY, or a valid Excel date cell)"
+      );
+    } else {
+      assign("joiningDate", "Joining Date", joiningDate);
+    }
+  }
+
+  if (hasRowValue(row, "Department", "department")) {
+    const deptName = getRowValue(row, "Department", "department");
+    const departmentId = maps.deptMap.get(deptName.toLowerCase()) ?? null;
+    changedFields.push("Department");
+    data.department = departmentId
+      ? { connect: { id: departmentId } }
+      : { disconnect: true };
+  }
+
+  if (hasRowValue(row, "Designation", "designation")) {
+    const desigName = getRowValue(row, "Designation", "designation");
+    const designationId = maps.desigMap.get(desigName.toLowerCase()) ?? null;
+    changedFields.push("Designation");
+    data.designation = designationId
+      ? { connect: { id: designationId } }
+      : { disconnect: true };
+  }
+
+  if (hasRowValue(row, "Manager Employee ID", "manager_employee_id", "managerEmployeeId")) {
+    const managerEmployeeId = getRowValue(
+      row,
+      "Manager Employee ID",
+      "manager_employee_id",
+      "managerEmployeeId"
+    );
+    if (!managerEmployeeId || managerEmployeeId === "0") {
+      changedFields.push("Manager Employee ID");
+      data.manager = { disconnect: true };
+    } else {
+      const manager = maps.empById.get(managerEmployeeId.toUpperCase());
+      if (!manager) {
+        errors.push(`Manager Employee ID ${managerEmployeeId} not found`);
+      } else {
+        changedFields.push("Manager Employee ID");
+        data.manager = { connect: { id: manager.id } };
+      }
+    }
+  }
+
+  if (hasRowValue(row, "PAN", "pan")) {
+    assign("pan", "PAN", getRowValue(row, "PAN", "pan") || null);
+  }
+  if (hasRowValue(row, "Aadhaar", "aadhaar")) {
+    assign("aadhaarNumber", "Aadhaar", getRowValue(row, "Aadhaar", "aadhaar") || null);
+  }
+  if (hasRowValue(row, "Bank Name", "bank_name", "bankName")) {
+    assign("bankName", "Bank Name", getRowValue(row, "Bank Name", "bank_name", "bankName") || null);
+  }
+  if (hasRowValue(row, "Bank Account", "bank_account", "bankAccountNumber")) {
+    assign(
+      "bankAccountNumber",
+      "Bank Account",
+      getRowValue(row, "Bank Account", "bank_account", "bankAccountNumber") || null
+    );
+  }
+  if (hasRowValue(row, "IFSC", "ifsc")) {
+    assign("ifscCode", "IFSC", getRowValue(row, "IFSC", "ifsc")?.toUpperCase() || null);
+  }
+
+  const numericFields: Array<[string, keyof Prisma.UserUpdateInput, ...string[]]> = [
+    ["Base Salary", "baseSalary", "Base Salary", "base_salary"],
+    ["HRA", "hra", "HRA", "hra"],
+    ["Special Allowance", "specialAllowance", "Special Allowance", "special_allowance", "specialAllowance"],
+    ["Internet Allowance", "internetAllowance", "Internet Allowance", "internet_allowance", "internetAllowance"],
+    ["Performance Bonus", "performanceBonus", "Performance Bonus", "performance_bonus", "performanceBonus"],
+    ["CTC", "ctc", "CTC", "ctc"],
+  ];
+
+  for (const [label, field, ...keys] of numericFields) {
+    const parsed = parseOptionalRowNumber(row, label, ...keys);
+    if (parsed.error) {
+      errors.push(parsed.error);
+    } else if (parsed.value !== undefined) {
+      assign(field, label, parsed.value);
+    }
+  }
+
+  // Legacy column names map to new salary fields when updating
+  if (hasRowValue(row, "Incentive", "incentive") && !hasRowValue(row, "Special Allowance", "special_allowance", "specialAllowance")) {
+    const parsed = parseOptionalRowNumber(row, "Incentive", "Incentive", "incentive");
+    if (parsed.error) errors.push(parsed.error);
+    else if (parsed.value !== undefined) assign("specialAllowance", "Incentive", parsed.value);
+  }
+  if (hasRowValue(row, "Reimbursement", "reimbursement") && !hasRowValue(row, "Internet Allowance", "internet_allowance", "internetAllowance")) {
+    const parsed = parseOptionalRowNumber(row, "Reimbursement", "Reimbursement", "reimbursement");
+    if (parsed.error) errors.push(parsed.error);
+    else if (parsed.value !== undefined) assign("internetAllowance", "Reimbursement", parsed.value);
+  }
+
+  return { data, changedFields, errors };
 }
 
 export async function POST(request: NextRequest) {
@@ -188,14 +353,13 @@ export async function POST(request: NextRequest) {
     const errors: { row: number; message: string }[] = [];
     const validRows: ValidImportRow[] = [];
     const seenIds = new Set<string>();
-    const seenEmails = new Set<string>();
 
     const [departments, designations, roles, employees] = await Promise.all([
       prisma.department.findMany({ select: { id: true, name: true } }),
       prisma.designation.findMany({ select: { id: true, name: true } }),
       prisma.employeeRoleDefinition.findMany({
         where: { isActive: true },
-        select: { id: true, code: true },
+        select: { id: true, code: true, accessLevel: true },
       }),
       prisma.user.findMany({
         select: { id: true, employeeId: true, email: true },
@@ -209,8 +373,11 @@ export async function POST(request: NextRequest) {
       designations.map((d) => [d.name.trim().toLowerCase(), d.id])
     );
     const roleMap = new Map(roles.map((r) => [r.code.toUpperCase(), r.id]));
+    const roleAccessMap = new Map(roles.map((r) => [r.id, r.accessLevel]));
     const empById = new Map(employees.map((e) => [e.employeeId.toUpperCase(), e]));
     const empByEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e]));
+
+    const maps = { deptMap, desigMap, roleMap, empById };
 
     rawRows.forEach((row, index) => {
       const rowNum = index + 2;
@@ -225,26 +392,65 @@ export async function POST(request: NextRequest) {
         errors.push({ row: rowNum, message: "Employee ID is required" });
         return;
       }
-      if (!firstName || !lastName) {
-        errors.push({ row: rowNum, message: "First name and last name are required" });
-        return;
-      }
-      if (!email) {
-        errors.push({ row: rowNum, message: "Email is required" });
-        return;
-      }
 
       const idKey = employeeId.toUpperCase();
       if (seenIds.has(idKey)) {
         errors.push({ row: rowNum, message: `Duplicate Employee ID ${employeeId}` });
         return;
       }
-      if (seenEmails.has(email)) {
-        errors.push({ row: rowNum, message: `Duplicate email ${email}` });
+      seenIds.add(idKey);
+
+      const existingById = empById.get(idKey);
+
+      if (existingById) {
+        const { data, changedFields, errors: rowErrors } = buildPartialUpdate(row, maps);
+
+        for (const message of rowErrors) {
+          errors.push({ row: rowNum, message });
+        }
+        if (rowErrors.length > 0) return;
+
+        if (changedFields.length === 0) {
+          errors.push({
+            row: rowNum,
+            message:
+              "No fields to update. Include at least one column besides Employee ID.",
+          });
+          return;
+        }
+
+        if (typeof data.email === "string") {
+          const patchEmail = data.email.toLowerCase();
+          const existingByEmail = empByEmail.get(patchEmail);
+          if (existingByEmail && existingByEmail.id !== existingById.id) {
+            errors.push({ row: rowNum, message: "Email already used by another employee" });
+            return;
+          }
+        }
+
+        validRows.push({
+          employeeId,
+          isUpdate: true,
+          userId: existingById.id,
+          changedFields,
+          data,
+        });
         return;
       }
-      seenIds.add(idKey);
-      seenEmails.add(email);
+
+      // Create new employee — require core fields
+      if (!firstName || !lastName) {
+        errors.push({ row: rowNum, message: "First name and last name are required for new employees" });
+        return;
+      }
+      if (!email) {
+        errors.push({ row: rowNum, message: "Email is required for new employees" });
+        return;
+      }
+      if (empByEmail.has(email)) {
+        errors.push({ row: rowNum, message: "Email already used by another employee" });
+        return;
+      }
 
       const roleCode = getRowValue(row, "Role Code", "role_code", "roleCode") || "EMPLOYEE";
       const orgRoleId = roleMap.get(roleCode.toUpperCase());
@@ -270,19 +476,16 @@ export async function POST(request: NextRequest) {
         return;
       }
 
-      const joiningDateStr = getRowValue(row, "Joining Date", "joining_date", "joiningDate");
-      if (!joiningDateStr) {
-        errors.push({ row: rowNum, message: "Joining date is required (YYYY-MM-DD)" });
-        return;
-      }
-      const joiningDate = new Date(`${joiningDateStr}T00:00:00.000Z`);
-      if (Number.isNaN(joiningDate.getTime())) {
-        errors.push({ row: rowNum, message: "Invalid joining date" });
+      const joiningDate = getRowDateValue(row, "Joining Date", "joining_date", "joiningDate");
+      if (!joiningDate) {
+        errors.push({
+          row: rowNum,
+          message:
+            "Joining date is required for new employees (YYYY-MM-DD, DD/MM/YYYY, or Excel date)",
+        });
         return;
       }
 
-      const deptName = getRowValue(row, "Department", "department");
-      const desigName = getRowValue(row, "Designation", "designation");
       const managerEmployeeId = getRowValue(
         row,
         "Manager Employee ID",
@@ -303,60 +506,99 @@ export async function POST(request: NextRequest) {
         managerId = manager.id;
       }
 
-      const existingById = empById.get(idKey);
-      const existingByEmail = empByEmail.get(email);
-      if (existingByEmail && existingById && existingByEmail.id !== existingById.id) {
-        errors.push({ row: rowNum, message: "Email belongs to a different employee" });
-        return;
+      const deptName = getRowValue(row, "Department", "department");
+      const desigName = getRowValue(row, "Designation", "designation");
+      const departmentId = deptName ? deptMap.get(deptName.toLowerCase()) ?? null : null;
+      const designationId = desigName ? desigMap.get(desigName.toLowerCase()) ?? null : null;
+
+      const baseSalaryResult = parseOptionalRowNumber(row, "Base Salary", "Base Salary", "base_salary");
+      const hraResult = parseOptionalRowNumber(row, "HRA", "HRA", "hra");
+      const specialAllowanceResult = parseOptionalRowNumber(
+        row,
+        "Special Allowance",
+        "Special Allowance",
+        "special_allowance",
+        "specialAllowance"
+      );
+      const incentiveResult = parseOptionalRowNumber(row, "Incentive", "Incentive", "incentive");
+      const internetAllowanceResult = parseOptionalRowNumber(
+        row,
+        "Internet Allowance",
+        "Internet Allowance",
+        "internet_allowance",
+        "internetAllowance"
+      );
+      const reimbursementResult = parseOptionalRowNumber(
+        row,
+        "Reimbursement",
+        "Reimbursement",
+        "reimbursement"
+      );
+      const performanceBonusResult = parseOptionalRowNumber(
+        row,
+        "Performance Bonus",
+        "Performance Bonus",
+        "performance_bonus",
+        "performanceBonus"
+      );
+      const ctcResult = parseOptionalRowNumber(row, "CTC", "CTC", "ctc");
+
+      for (const result of [
+        baseSalaryResult,
+        hraResult,
+        specialAllowanceResult,
+        incentiveResult,
+        internetAllowanceResult,
+        reimbursementResult,
+        performanceBonusResult,
+        ctcResult,
+      ]) {
+        if (result.error) {
+          errors.push({ row: rowNum, message: result.error });
+          return;
+        }
       }
-      if (existingByEmail && !existingById) {
-        errors.push({
-          row: rowNum,
-          message: "Email already used by another employee ID",
-        });
-        return;
-      }
+
+      const baseSalary = baseSalaryResult.value ?? 0;
+      const hra = hraResult.value ?? 0;
+      const specialAllowance =
+        specialAllowanceResult.value ?? incentiveResult.value ?? 0;
+      const internetAllowance =
+        internetAllowanceResult.value ?? reimbursementResult.value ?? 0;
+      const performanceBonus = performanceBonusResult.value ?? 0;
+      const ctc = ctcResult.value ?? 0;
 
       validRows.push({
         employeeId,
-        firstName,
-        lastName,
-        email,
-        phone: getRowValue(row, "Phone", "phone") || undefined,
-        orgRoleId,
-        employmentType,
-        departmentId: deptName ? deptMap.get(deptName.toLowerCase()) ?? null : null,
-        designationId: desigName ? desigMap.get(desigName.toLowerCase()) ?? null : null,
-        managerId,
-        joiningDate,
-        status,
-        pan: getRowValue(row, "PAN", "pan") || null,
-        aadhaarNumber: getRowValue(row, "Aadhaar", "aadhaar") || null,
-        bankName: getRowValue(row, "Bank Name", "bank_name", "bankName") || null,
-        bankAccountNumber:
-          getRowValue(row, "Bank Account", "bank_account", "bankAccountNumber") || null,
-        ifscCode: getRowValue(row, "IFSC", "ifsc")?.toUpperCase() || null,
-        baseSalary: parseOptionalNumber(getRowValue(row, "Base Salary", "base_salary")) ?? 0,
-        hra: parseOptionalNumber(getRowValue(row, "HRA", "hra")) ?? 0,
-        specialAllowance:
-          parseOptionalNumber(
-            getRowValue(row, "Special Allowance", "special_allowance", "specialAllowance")
-          ) ??
-          parseOptionalNumber(getRowValue(row, "Incentive", "incentive")) ??
-          0,
-        internetAllowance:
-          parseOptionalNumber(
-            getRowValue(row, "Internet Allowance", "internet_allowance", "internetAllowance")
-          ) ??
-          parseOptionalNumber(getRowValue(row, "Reimbursement", "reimbursement")) ??
-          0,
-        performanceBonus:
-          parseOptionalNumber(
-            getRowValue(row, "Performance Bonus", "performance_bonus", "performanceBonus")
-          ) ?? 0,
-        ctc: parseOptionalNumber(getRowValue(row, "CTC", "ctc")) ?? 0,
-        isUpdate: !!existingById,
-        userId: existingById?.id,
+        isUpdate: false,
+        changedFields: ["new employee"],
+        data: {
+          employeeId,
+          email,
+          firstName,
+          lastName,
+          phone: getRowValue(row, "Phone", "phone") || null,
+          role: roleAccessMap.get(orgRoleId)!,
+          orgRole: { connect: { id: orgRoleId } },
+          employmentType,
+          department: departmentId ? { connect: { id: departmentId } } : undefined,
+          designation: designationId ? { connect: { id: designationId } } : undefined,
+          manager: managerId ? { connect: { id: managerId } } : undefined,
+          joiningDate,
+          status,
+          pan: getRowValue(row, "PAN", "pan") || null,
+          aadhaarNumber: getRowValue(row, "Aadhaar", "aadhaar") || null,
+          bankName: getRowValue(row, "Bank Name", "bank_name", "bankName") || null,
+          bankAccountNumber:
+            getRowValue(row, "Bank Account", "bank_account", "bankAccountNumber") || null,
+          ifscCode: getRowValue(row, "IFSC", "ifsc")?.toUpperCase() || null,
+          baseSalary,
+          hra,
+          specialAllowance,
+          internetAllowance,
+          performanceBonus,
+          ctc,
+        },
       });
     });
 
@@ -373,9 +615,8 @@ export async function POST(request: NextRequest) {
         success: true,
         preview: validRows.map((r) => ({
           employeeId: r.employeeId,
-          name: `${r.firstName} ${r.lastName}`,
-          email: r.email,
           action: r.isUpdate ? "update" : "create",
+          fields: r.changedFields,
         })),
         message: "Validation passed. Set confirm=true to apply changes.",
       });
@@ -386,67 +627,25 @@ export async function POST(request: NextRequest) {
     let updated = 0;
 
     for (const row of validRows) {
-      const orgRole = await resolveOrgRole(row.orgRoleId);
-
       if (row.isUpdate && row.userId) {
+        const updateData = { ...row.data };
+        if (updateData.orgRole && "connect" in updateData.orgRole && updateData.orgRole.connect?.id) {
+          const orgRoleId = updateData.orgRole.connect.id;
+          const accessLevel = roleAccessMap.get(orgRoleId);
+          if (accessLevel) {
+            updateData.role = accessLevel;
+          }
+        }
         await prisma.user.update({
           where: { id: row.userId },
-          data: {
-            employeeId: row.employeeId,
-            email: row.email,
-            firstName: row.firstName,
-            lastName: row.lastName,
-            phone: row.phone,
-            role: orgRole.accessLevel,
-            orgRoleId: orgRole.id,
-            employmentType: row.employmentType,
-            departmentId: row.departmentId,
-            designationId: row.designationId,
-            managerId: row.managerId,
-            joiningDate: row.joiningDate,
-            status: row.status,
-            pan: row.pan,
-            aadhaarNumber: row.aadhaarNumber,
-            bankName: row.bankName,
-            bankAccountNumber: row.bankAccountNumber,
-            ifscCode: row.ifscCode,
-            baseSalary: row.baseSalary,
-            hra: row.hra,
-            specialAllowance: row.specialAllowance,
-            internetAllowance: row.internetAllowance,
-            performanceBonus: row.performanceBonus,
-            ctc: row.ctc,
-          },
+          data: updateData,
         });
         updated++;
       } else {
         await prisma.user.create({
           data: {
-            employeeId: row.employeeId,
-            email: row.email,
+            ...(row.data as Prisma.UserCreateInput),
             password: hashedPassword,
-            firstName: row.firstName,
-            lastName: row.lastName,
-            phone: row.phone,
-            role: orgRole.accessLevel,
-            orgRoleId: orgRole.id,
-            employmentType: row.employmentType,
-            departmentId: row.departmentId,
-            designationId: row.designationId,
-            managerId: row.managerId,
-            joiningDate: row.joiningDate,
-            status: row.status,
-            pan: row.pan,
-            aadhaarNumber: row.aadhaarNumber,
-            bankName: row.bankName,
-            bankAccountNumber: row.bankAccountNumber,
-            ifscCode: row.ifscCode,
-            baseSalary: row.baseSalary,
-            hra: row.hra,
-            specialAllowance: row.specialAllowance,
-            internetAllowance: row.internetAllowance,
-            performanceBonus: row.performanceBonus,
-            ctc: row.ctc,
             mustChangePassword: true,
           },
         });
@@ -465,6 +664,7 @@ export async function POST(request: NextRequest) {
       success: true,
       created,
       updated,
+      message: `Import complete (${created} created, ${updated} updated)`,
     });
   } catch (err) {
     console.error("Employee bulk import error:", err);

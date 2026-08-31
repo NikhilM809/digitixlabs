@@ -1228,7 +1228,7 @@ export default function EmployeesPage() {
           open={importOpen}
           onOpenChange={setImportOpen}
           title="Import Employees"
-          description="Upload an Excel file to create or update employees. Download the template for the required columns."
+          description="Upload Excel to create or update employees. For updates, only Employee ID is required — include just the columns you want to change (e.g. Employee ID + Joining Date). Dates accept YYYY-MM-DD, DD/MM/YYYY, or Excel date cells."
           uploadUrl="/api/employees/bulk"
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ["employees"] })}
         />
