@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
     roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
     requiresOrgVisibility: true,
   },
-  { title: "Work Schedules", href: "/work-schedules", icon: Clock, roles: ["ADMIN"] },
+  { title: "Work Schedules", href: "/work-schedules", icon: Clock, roles: ["ADMIN", "MANAGER"] },
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
   { title: "Designations", href: "/designations", icon: Briefcase, roles: ["ADMIN"] },
   { title: "Manage Hierarchy", href: "/org-hierarchy", icon: GitBranch, roles: ["ADMIN"] },

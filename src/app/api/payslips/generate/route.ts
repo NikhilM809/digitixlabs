@@ -19,7 +19,7 @@ function daysInMonth(month: number, year: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
 
   if (!canGeneratePayslip(user!.role)) {

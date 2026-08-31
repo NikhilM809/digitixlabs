@@ -90,7 +90,7 @@ export function canAccessReports(role: RoleName) {
 }
 
 export function canGeneratePayslip(role: RoleName) {
-  return role === "ADMIN";
+  return isAdminOrHr(role);
 }
 
 export function canManageWorkSchedules(role: RoleName) {
@@ -99,6 +99,22 @@ export function canManageWorkSchedules(role: RoleName) {
 
 export function canBulkImportLeave(role: RoleName) {
   return role === "ADMIN";
+}
+
+export function canBulkImportEmployees(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canExportEmployees(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canAccessWorkSchedules(role: RoleName) {
+  return canManageWorkSchedules(role) || isManagerRole(role);
+}
+
+export function canBulkManageWorkSchedules(role: RoleName) {
+  return canManageWorkSchedules(role);
 }
 
 export function canAccessKra(role: RoleName) {

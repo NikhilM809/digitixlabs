@@ -116,11 +116,13 @@ export function buildOrgTree(
     (e) => !e.managerId || !byId.has(e.managerId)
   );
 
-  return roots
-    .map(toNode)
-    .sort((a, b) =>
-      `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
-    );
+  const explicitTopLevel = roots.filter((e) => e.managerId === null);
+  const orphanRoots = roots.filter((e) => e.managerId !== null);
+
+  const sortByName = (a: OrgEmployee, b: OrgEmployee) =>
+    `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+
+  return [...explicitTopLevel.sort(sortByName), ...orphanRoots.sort(sortByName)].map(toNode);
 }
 
 export function filterOrgTree(nodes: OrgTreeNode[], query: string): OrgTreeNode[] {

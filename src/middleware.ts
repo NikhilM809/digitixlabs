@@ -63,7 +63,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  if (role !== "ADMIN" && pathname.startsWith("/work-schedules")) {
+  if (role !== "ADMIN" && role !== "MANAGER" && pathname.startsWith("/work-schedules")) {
     return NextResponse.redirect(new URL(homePathForRole(role), req.url));
   }
 

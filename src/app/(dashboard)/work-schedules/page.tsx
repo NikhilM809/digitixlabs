@@ -26,7 +26,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { canManageWorkSchedules } from "@/lib/permissions";
+import {
+  canManageWorkSchedules,
+  canAccessWorkSchedules,
+  canBulkManageWorkSchedules,
+} from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
 import { formatScheduleRange, formatScheduleTime12h } from "@/lib/work-schedule-client";
@@ -61,7 +65,9 @@ interface CompanySettings {
 export default function WorkSchedulesPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const canManage = role ? canManageWorkSchedules(role) : false;
+  const canManage = role ? canAccessWorkSchedules(role) : false;
+  const canBulkManage = role ? canBulkManageWorkSchedules(role) : false;
+  const isAdminUser = role ? canManageWorkSchedules(role) : false;
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -78,7 +84,7 @@ export default function WorkSchedulesPage() {
   const { data: settings } = useQuery({
     queryKey: ["company-settings"],
     queryFn: () => apiFetch<CompanySettings>("/api/settings"),
-    enabled: canManage,
+    enabled: isAdminUser,
   });
 
   const { data: employees = [], isLoading } = useQuery({
@@ -167,9 +173,12 @@ export default function WorkSchedulesPage() {
             Work Schedules
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage employee schedules with effective dates and history
+            {isAdminUser
+              ? "Manage employee schedules with effective dates and history"
+              : "Update work schedules for your direct reports"}
           </p>
         </div>
+        {canBulkManage && (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => download(true)}>
             <Download className="h-4 w-4" />
@@ -184,9 +193,10 @@ export default function WorkSchedulesPage() {
             Import Excel
           </Button>
         </div>
+        )}
       </div>
 
-      {settings && (
+      {isAdminUser && settings && (
         <Card glass>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Company Default Schedule</CardTitle>
@@ -425,6 +435,7 @@ export default function WorkSchedulesPage() {
         </DialogContent>
       </Dialog>
 
+      {canBulkManage && (
       <ExcelImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
@@ -435,6 +446,7 @@ export default function WorkSchedulesPage() {
           queryClient.invalidateQueries({ queryKey: ["employees-schedules"] })
         }
       />
+      )}
     </motion.div>
   );
 }

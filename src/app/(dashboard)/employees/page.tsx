@@ -30,6 +30,8 @@ import {
   ArrowUpDown,
   Loader2,
   Users,
+  Download,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -60,11 +62,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { canManageEmployees, isAdminOrHr } from "@/lib/permissions";
+import { canManageEmployees, isAdminOrHr, canExportEmployees, canBulkImportEmployees } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { employeeSchema, type EmployeeInput } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
+import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
 
 const EMPTY_EMPLOYEES: Employee[] = [];
 
@@ -165,6 +168,8 @@ export default function EmployeesPage() {
     ? isAdminOrHr(session.user.role)
     : false;
   const isAdmin = session?.user?.role === "ADMIN";
+  const canExport = isAdmin && canExportEmployees("ADMIN");
+  const canImport = isAdmin && canBulkImportEmployees("ADMIN");
   const canEditSalary = canCreateEmployee;
   const canManage = session?.user?.role
     ? canManageEmployees(session.user.role)
@@ -177,6 +182,7 @@ export default function EmployeesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [employmentFilter, setEmploymentFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
@@ -345,6 +351,11 @@ export default function EmployeesPage() {
     form.reset();
   };
 
+  const downloadEmployees = (template: boolean) => {
+    const url = template ? "/api/employees/bulk?template=true" : "/api/employees/bulk";
+    window.open(url, "_blank");
+  };
+
   const columnHelper = useMemo(
     () => createColumnHelper<typeof tableFeatureSet, Employee>(),
     []
@@ -486,12 +497,32 @@ export default function EmployeesPage() {
             Manage your workforce directory
           </p>
         </div>
-        {canCreateEmployee && (
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Add Employee
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canExport && (
+            <>
+              <Button variant="outline" onClick={() => downloadEmployees(true)}>
+                <Download className="h-4 w-4" />
+                Template
+              </Button>
+              <Button variant="outline" onClick={() => downloadEmployees(false)}>
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </>
+          )}
+          {canImport && (
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import Excel
+            </Button>
+          )}
+          {canCreateEmployee && (
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Add Employee
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card glass>
@@ -1135,6 +1166,17 @@ export default function EmployeesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {canImport && (
+        <ExcelImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          title="Import Employees"
+          description="Upload an Excel file to create or update employees. Download the template for the required columns."
+          uploadUrl="/api/employees/bulk"
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["employees"] })}
+        />
+      )}
     </motion.div>
   );
 }
