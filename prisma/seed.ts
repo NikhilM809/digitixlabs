@@ -190,13 +190,23 @@ async function main() {
     }),
     prisma.leaveType.upsert({
       where: { code: "ML" },
-      update: {},
-      create: { name: "Maternity Leave", code: "ML", defaultDays: 180, description: "Maternity leave" },
+      update: { isActive: false },
+      create: { name: "Maternity Leave", code: "ML", defaultDays: 180, description: "Maternity leave", isActive: false },
     }),
     prisma.leaveType.upsert({
       where: { code: "PL" },
+      update: { isActive: false },
+      create: { name: "Paternity Leave", code: "PL", defaultDays: 15, description: "Paternity leave", isActive: false },
+    }),
+    prisma.leaveType.upsert({
+      where: { code: "PRL" },
       update: {},
-      create: { name: "Paternity Leave", code: "PL", defaultDays: 15, description: "Paternity leave" },
+      create: {
+        name: "Parental Leave",
+        code: "PRL",
+        defaultDays: 0,
+        description: "Parental leave (maternity/paternity). Days are assigned per employee as required.",
+      },
     }),
     prisma.leaveType.upsert({
       where: { code: "UL" },

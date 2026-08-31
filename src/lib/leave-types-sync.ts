@@ -1,13 +1,27 @@
 import { prisma } from "@/lib/prisma";
+import {
+  DEPRECATED_LEAVE_TYPE_CODES,
+  PARENTAL_LEAVE_CODE,
+} from "@/lib/leave-type-codes";
 
-/** Leave types removed from the application — kept in DB for historical records only */
-export const DEPRECATED_LEAVE_TYPE_CODES = ["WFH", "HD"] as const;
+export { DEPRECATED_LEAVE_TYPE_CODES, isDeprecatedLeaveTypeCode } from "@/lib/leave-type-codes";
 
 const FLOATER_LEAVE = {
   name: "Floater Leave",
   code: "FL",
   description: "Optional floater leave for special occasions",
   defaultDays: 2,
+  isPaid: true,
+  requiresAttachment: false,
+  isActive: true,
+} as const;
+
+const PARENTAL_LEAVE = {
+  name: "Parental Leave",
+  code: PARENTAL_LEAVE_CODE,
+  description:
+    "Parental leave (maternity/paternity). Days are assigned per employee as required.",
+  defaultDays: 0,
   isPaid: true,
   requiresAttachment: false,
   isActive: true,
@@ -35,10 +49,17 @@ export async function syncLeaveTypes() {
     },
     create: { ...FLOATER_LEAVE },
   });
-}
 
-export function isDeprecatedLeaveTypeCode(code: string) {
-  return DEPRECATED_LEAVE_TYPE_CODES.includes(
-    code as (typeof DEPRECATED_LEAVE_TYPE_CODES)[number]
-  );
+  await prisma.leaveType.upsert({
+    where: { code: PARENTAL_LEAVE.code },
+    update: {
+      name: PARENTAL_LEAVE.name,
+      description: PARENTAL_LEAVE.description,
+      defaultDays: PARENTAL_LEAVE.defaultDays,
+      isPaid: PARENTAL_LEAVE.isPaid,
+      requiresAttachment: PARENTAL_LEAVE.requiresAttachment,
+      isActive: true,
+    },
+    create: { ...PARENTAL_LEAVE },
+  });
 }

@@ -4,6 +4,7 @@ import { requireAuth, apiError, createAuditLog } from "@/lib/api-utils";
 import { canBulkManageLeaveBalances } from "@/lib/permissions";
 import { buildExcelBuffer, getRowValue, parseOptionalNumber } from "@/lib/excel-utils";
 import { computeLeaveBalancesForUser } from "@/lib/leave-balance";
+import { DEPRECATED_LEAVE_TYPE_CODES } from "@/lib/leave-type-codes";
 
 export async function GET(request: NextRequest) {
   const { error, user } = await requireAuth(["ADMIN"]);
@@ -47,7 +48,10 @@ export async function GET(request: NextRequest) {
       orderBy: { employeeId: "asc" },
     }),
     prisma.leaveType.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        code: { notIn: [...DEPRECATED_LEAVE_TYPE_CODES] },
+      },
       select: { id: true, code: true, defaultDays: true },
       orderBy: { code: "asc" },
     }),
@@ -125,7 +129,10 @@ async function validateImportRows(rows: ImportRow[]): Promise<{
       select: { id: true, employeeId: true },
     }),
     prisma.leaveType.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        code: { notIn: [...DEPRECATED_LEAVE_TYPE_CODES] },
+      },
       select: { id: true, code: true },
     }),
   ]);

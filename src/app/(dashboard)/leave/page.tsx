@@ -97,10 +97,10 @@ interface LeaveBalanceItem {
   availableDays: number;
 }
 
-const DEPRECATED_LEAVE_CODES = ["WFH", "HD"];
+import { isDeprecatedLeaveTypeCode } from "@/lib/leave-type-codes";
 
 function filterLeaveTypes(types: LeaveType[] | undefined) {
-  return (types ?? []).filter((t) => !DEPRECATED_LEAVE_CODES.includes(t.code));
+  return (types ?? []).filter((t) => !isDeprecatedLeaveTypeCode(t.code));
 }
 
 const statusVariant: Record<string, "warning" | "success" | "destructive" | "secondary"> = {

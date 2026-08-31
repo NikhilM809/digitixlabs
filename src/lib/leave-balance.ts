@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { DEPRECATED_LEAVE_TYPE_CODES } from "@/lib/leave-types-sync";
+import { DEPRECATED_LEAVE_TYPE_CODES } from "@/lib/leave-type-codes";
 
 export async function computeLeaveBalancesForUser(userId: string, year: number) {
   const yearStart = new Date(`${year}-01-01T00:00:00.000Z`);
