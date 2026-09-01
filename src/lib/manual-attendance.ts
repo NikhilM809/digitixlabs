@@ -20,23 +20,41 @@ export async function computeAttendanceMetrics(params: {
   checkOut: Date | null;
   timeZone: string;
   lateReason?: string | null;
+  /** When set, overrides schedule-based late detection. */
+  isLateOverride?: boolean;
 }) {
-  const { userId, attendanceDate, checkIn, checkOut, timeZone, lateReason } = params;
+  const { userId, attendanceDate, checkIn, checkOut, timeZone, lateReason, isLateOverride } =
+    params;
 
   let status: AttendanceStatus = "PRESENT";
   let isLate = false;
   let resolvedLateReason: string | null = null;
 
   if (checkIn) {
-    const schedule = await getWorkScheduleForUserOnDate(userId, attendanceDate);
-    isLate = isLateForSchedule(
-      checkIn,
-      schedule.workStartTime,
-      schedule.lateThreshold,
-      timeZone
-    );
+    if (isLateOverride !== undefined) {
+      isLate = isLateOverride;
+    } else {
+      const schedule = await getWorkScheduleForUserOnDate(userId, attendanceDate);
+      isLate = isLateForSchedule(
+        checkIn,
+        schedule.workStartTime,
+        schedule.lateThreshold,
+        timeZone
+      );
+    }
     status = isLate ? "LATE" : "PRESENT";
 
+    if (isLate) {
+      if (!lateReason || lateReason.trim().length < 5) {
+        return {
+          error: "Reason for late arrival is required (minimum 5 characters)",
+        } as const;
+      }
+      resolvedLateReason = lateReason.trim();
+    }
+  } else if (isLateOverride !== undefined) {
+    isLate = isLateOverride;
+    status = isLate ? "LATE" : "PRESENT";
     if (isLate) {
       if (!lateReason || lateReason.trim().length < 5) {
         return {

@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    const { userId, action, timestamp, notes, lateReason, mode } = parsed.data;
+    const { userId, action, timestamp, notes, lateReason, isLate, mode } = parsed.data;
     const eventTimeResult = parseTimestamp(timestamp, "event");
     if ("error" in eventTimeResult) return eventTimeResult.error;
     const eventTime = eventTimeResult.value;
@@ -132,6 +132,7 @@ export async function POST(request: Request) {
         checkOut: existing?.checkOut ? new Date(existing.checkOut) : null,
         timeZone,
         lateReason,
+        isLateOverride: isLate,
       });
 
       if ("error" in metrics) {
@@ -203,6 +204,7 @@ export async function POST(request: Request) {
       checkOut: eventTime,
       timeZone,
       lateReason: existing?.lateReason ?? lateReason,
+      isLateOverride: isLate,
     });
 
     if ("error" in metrics) {
@@ -273,7 +275,7 @@ export async function PUT(request: Request) {
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    const { userId, date, checkIn, checkOut, notes, lateReason } = parsed.data;
+    const { userId, date, checkIn, checkOut, notes, lateReason, isLate } = parsed.data;
 
     const allowed = await canManageEmployeeAttendance(user.role, user.id, userId);
     if (!allowed) {
@@ -314,6 +316,16 @@ export async function PUT(request: Request) {
     }
 
     const timeZone = await getCompanyTimezone();
+    const checkInUpdated = !!checkIn;
+    let isLateOverride: boolean | undefined;
+    if (isLate !== undefined) {
+      isLateOverride = isLate;
+    } else if (checkInUpdated) {
+      isLateOverride = undefined;
+    } else if (existing) {
+      isLateOverride = existing.isLate;
+    }
+
     const metrics = await computeAttendanceMetrics({
       userId,
       attendanceDate,
@@ -321,6 +333,7 @@ export async function PUT(request: Request) {
       checkOut: nextCheckOut,
       timeZone,
       lateReason: lateReason ?? existing?.lateReason,
+      isLateOverride,
     });
 
     if ("error" in metrics) {

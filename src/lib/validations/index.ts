@@ -406,6 +406,7 @@ export const manualAttendanceSchema = z.object({
   timestamp: z.string().min(1, "Timestamp is required"),
   notes: z.string().optional(),
   lateReason: z.string().optional(),
+  isLate: z.boolean().optional(),
   mode: z.enum(["record", "update"]).optional().default("record"),
 });
 
@@ -417,9 +418,10 @@ export const manualAttendanceUpdateSchema = z
     checkOut: z.string().optional(),
     notes: z.string().optional(),
     lateReason: z.string().optional(),
+    isLate: z.boolean().optional(),
   })
-  .refine((data) => data.checkIn || data.checkOut, {
-    message: "Provide check-in and/or check-out time to update",
+  .refine((data) => data.checkIn || data.checkOut || data.isLate !== undefined, {
+    message: "Provide check-in/check-out time or late flag to update",
   });
 
 export const adminResetPasswordSchema = z.object({

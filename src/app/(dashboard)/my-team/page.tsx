@@ -3,7 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { UsersRound, ShieldAlert } from "lucide-react";
+import { UsersRound, ShieldAlert, Clock } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { apiFetch } from "@/lib/client-api";
-import { canViewTeam } from "@/lib/permissions";
+import { canViewTeam, canAccessWorkSchedules, isManagerRole } from "@/lib/permissions";
 import type { UserStatus } from "@prisma/client";
 
 interface TeamMember {
@@ -149,6 +150,11 @@ export default function MyTeamPage() {
                     <th className="h-11 px-3 text-left font-medium text-muted-foreground">
                       Status
                     </th>
+                    {role && isManagerRole(role) && canAccessWorkSchedules(role) && (
+                      <th className="h-11 px-3 text-right font-medium text-muted-foreground">
+                        Actions
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -178,6 +184,18 @@ export default function MyTeamPage() {
                           {member.status}
                         </Badge>
                       </td>
+                      {role && isManagerRole(role) && canAccessWorkSchedules(role) && (
+                        <td className="px-3 py-3 text-right">
+                          {member.status === "ACTIVE" && (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/work-schedules?employeeId=${member.id}`}>
+                                <Clock className="h-4 w-4" />
+                                Work Schedule
+                              </Link>
+                            </Button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

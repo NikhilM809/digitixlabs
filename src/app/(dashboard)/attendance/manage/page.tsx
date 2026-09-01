@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { fetchApi } from "@/lib/api-client";
 import { canManageManualAttendance } from "@/lib/permissions";
 import { DEFAULT_COMPANY_TIMEZONE, formatTimeInZone } from "@/lib/timezone-utils";
@@ -83,6 +84,7 @@ export default function ManageAttendancePage() {
   const [timestamp, setTimestamp] = useState(toDateTimeLocalValue(new Date()));
   const [notes, setNotes] = useState("");
   const [lateReason, setLateReason] = useState("");
+  const [isLateOverride, setIsLateOverride] = useState<boolean | undefined>(undefined);
   const [updateMode, setUpdateMode] = useState(false);
 
   const [backdateUserId, setBackdateUserId] = useState("");
@@ -91,6 +93,7 @@ export default function ManageAttendancePage() {
   const [backdateCheckOut, setBackdateCheckOut] = useState("");
   const [backdateNotes, setBackdateNotes] = useState("");
   const [backdateLateReason, setBackdateLateReason] = useState("");
+  const [backdateIsLate, setBackdateIsLate] = useState(false);
 
   const { data: employees = [], isLoading: employeesLoading } = useQuery({
     queryKey: ["employees-manual-attendance"],
@@ -113,7 +116,14 @@ export default function ManageAttendancePage() {
     setBackdateCheckIn(isoToDateTimeLocal(existingRecord?.checkIn));
     setBackdateCheckOut(isoToDateTimeLocal(existingRecord?.checkOut));
     setBackdateLateReason(existingRecord?.lateReason ?? "");
-  }, [existingRecord?.id, existingRecord?.checkIn, existingRecord?.checkOut, existingRecord?.lateReason]);
+    setBackdateIsLate(existingRecord?.isLate ?? false);
+  }, [
+    existingRecord?.id,
+    existingRecord?.checkIn,
+    existingRecord?.checkOut,
+    existingRecord?.lateReason,
+    existingRecord?.isLate,
+  ]);
 
   useEffect(() => {
     if (!backdateDate) return;
@@ -151,6 +161,7 @@ export default function ManageAttendancePage() {
           timestamp: eventTime.toISOString(),
           notes: notes.trim() || undefined,
           lateReason: lateReason.trim() || undefined,
+          ...(isLateOverride !== undefined ? { isLate: isLateOverride } : {}),
           mode: updateMode ? "update" : "record",
         }),
       });
@@ -165,6 +176,7 @@ export default function ManageAttendancePage() {
       );
       setNotes("");
       setLateReason("");
+      setIsLateOverride(undefined);
       setTimestamp(toDateTimeLocalValue(new Date()));
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
     },
@@ -173,9 +185,10 @@ export default function ManageAttendancePage() {
 
   const backdateMutation = useMutation({
     mutationFn: () => {
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | boolean> = {
         userId: backdateUserId,
         date: backdateDate,
+        isLate: backdateIsLate,
       };
 
       if (backdateCheckIn) {
@@ -330,11 +343,53 @@ export default function ManageAttendancePage() {
               </div>
 
               {action === "check-in" && (
+                <>
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                    <div>
+                      <p className="text-sm font-medium">Late arrival</p>
+                      <p className="text-sm text-muted-foreground">
+                        Toggle to override auto-detection from the scheduled start time
+                      </p>
+                    </div>
+                    <Switch
+                      checked={isLateOverride ?? false}
+                      onCheckedChange={(checked) => setIsLateOverride(checked)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lateReason">Late Reason (if applicable)</Label>
+                    <Textarea
+                      id="lateReason"
+                      placeholder="Required when marked as late (minimum 5 characters)"
+                      value={lateReason}
+                      onChange={(e) => setLateReason(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
+
+              {action === "check-out" && (
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                  <div>
+                    <p className="text-sm font-medium">Late arrival</p>
+                    <p className="text-sm text-muted-foreground">
+                      Override the late flag for this day&apos;s check-in
+                    </p>
+                  </div>
+                  <Switch
+                    checked={isLateOverride ?? false}
+                    onCheckedChange={(checked) => setIsLateOverride(checked)}
+                  />
+                </div>
+              )}
+
+              {action === "check-out" && isLateOverride && (
                 <div className="space-y-2">
-                  <Label htmlFor="lateReason">Late Reason (if applicable)</Label>
+                  <Label htmlFor="lateReason">Late Reason</Label>
                   <Textarea
                     id="lateReason"
-                    placeholder="Required if the check-in is after the scheduled start time"
+                    placeholder="Required when marked as late (minimum 5 characters)"
                     value={lateReason}
                     onChange={(e) => setLateReason(e.target.value)}
                     rows={3}
@@ -418,6 +473,9 @@ export default function ManageAttendancePage() {
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium">Current record</p>
                         <Badge variant="secondary">{existingRecord.status.replace("_", " ")}</Badge>
+                        {existingRecord.isLate && (
+                          <Badge variant="destructive">Late</Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Check-in:{" "}
@@ -460,11 +518,24 @@ export default function ManageAttendancePage() {
                 </div>
               </div>
 
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <p className="text-sm font-medium">Late arrival</p>
+                  <p className="text-sm text-muted-foreground">
+                    Mark or clear the late flag for this attendance record
+                  </p>
+                </div>
+                <Switch
+                  checked={backdateIsLate}
+                  onCheckedChange={setBackdateIsLate}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="backdate-late-reason">Late Reason (if applicable)</Label>
                 <Textarea
                   id="backdate-late-reason"
-                  placeholder="Required if the updated check-in is after the scheduled start time"
+                  placeholder="Required when marked as late (minimum 5 characters)"
                   value={backdateLateReason}
                   onChange={(e) => setBackdateLateReason(e.target.value)}
                   rows={2}
@@ -488,7 +559,7 @@ export default function ManageAttendancePage() {
                   disabled={
                     !backdateUserId ||
                     !backdateDate ||
-                    (!backdateCheckIn && !backdateCheckOut) ||
+                    (!backdateCheckIn && !backdateCheckOut && existingRecord === null) ||
                     backdateMutation.isPending
                   }
                 >

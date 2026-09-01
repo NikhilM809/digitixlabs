@@ -25,7 +25,16 @@ export async function GET(request: NextRequest) {
 
   const templateOnly = request.nextUrl.searchParams.get("template") === "true";
   const listOnly = request.nextUrl.searchParams.get("list") === "true";
+  const defaultsOnly = request.nextUrl.searchParams.get("defaults") === "true";
   const settings = await prisma.companySettings.findFirst();
+
+  if (defaultsOnly) {
+    return apiSuccess({
+      workStartTime: settings?.workStartTime ?? "09:00",
+      workEndTime: settings?.workEndTime ?? "18:00",
+      lateThreshold: settings?.lateThreshold ?? 15,
+    });
+  }
 
   const employeeWhere =
     user.role === "MANAGER"
