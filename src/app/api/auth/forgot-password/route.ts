@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateResetToken } from "@/lib/jwt";
 import { forgotPasswordSchema } from "@/lib/validations";
 import { normalizeEmail } from "@/lib/email-utils";
+import { buildPasswordResetUrl, sendPasswordResetEmail } from "@/lib/mail";
 
 export async function POST(request: Request) {
   try {
@@ -14,12 +14,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
 
+    const email = normalizeEmail(parsed.data.email);
     const user = await prisma.user.findUnique({
-      where: { email: normalizeEmail(parsed.data.email) },
+      where: { email },
+      select: { email: true, firstName: true, status: true },
     });
 
     // Always return success to prevent email enumeration
-    if (!user) {
+    if (!user || user.status !== "ACTIVE") {
       return NextResponse.json({ success: true });
     }
 
@@ -31,13 +33,16 @@ export async function POST(request: Request) {
       data: { email: user.email, token, expires },
     });
 
-    // In production, send email with reset link
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
-    console.log(`Password reset link for ${user.email}: ${resetUrl}`);
+    const resetUrl = buildPasswordResetUrl(token);
+    await sendPasswordResetEmail({
+      to: user.email,
+      resetUrl,
+      firstName: user.firstName,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Forgot password error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to send reset email" }, { status: 500 });
   }
 }
