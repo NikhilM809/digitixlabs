@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { remapLayoutSiblingOrdersForCompanyRoot } from "@/lib/org-company-root";
 
 export const orgChartLayoutSchema = z.object({
   direction: z.enum(["vertical", "horizontal"]).default("vertical"),
@@ -28,13 +29,16 @@ export function parseOrgChartLayout(raw: string | null | undefined): OrgChartLay
 type LayoutNode = { id: string; children: LayoutNode[] };
 
 function compareByName(
-  a: LayoutNode & { firstName?: string; lastName?: string },
-  b: LayoutNode & { firstName?: string; lastName?: string }
+  a: LayoutNode & { firstName?: string; lastName?: string; isCompanyRoot?: boolean },
+  b: LayoutNode & { firstName?: string; lastName?: string; isCompanyRoot?: boolean }
 ) {
-  if (a.firstName && a.lastName && b.firstName && b.lastName) {
-    return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-  }
-  return 0;
+  const labelA = a.isCompanyRoot || !a.lastName
+    ? (a.firstName ?? "")
+    : `${a.firstName} ${a.lastName}`;
+  const labelB = b.isCompanyRoot || !b.lastName
+    ? (b.firstName ?? "")
+    : `${b.firstName} ${b.lastName}`;
+  return labelA.localeCompare(labelB);
 }
 
 function sortNodesWithLayout<T extends LayoutNode>(
@@ -76,13 +80,17 @@ function sortNodesWithLayout<T extends LayoutNode>(
 /** Reorder displayed siblings only — does not change managerId / reporting. */
 export function applyOrgChartLayoutToTree<T extends LayoutNode & { isAdministrativePlaceholder?: boolean }>(
   nodes: T[],
-  layout: OrgChartLayoutSettings
+  layout: OrgChartLayoutSettings,
+  topLevelEmployeeId?: string | null
 ): T[] {
+  const siblingOrders = topLevelEmployeeId
+    ? remapLayoutSiblingOrdersForCompanyRoot(layout.siblingOrders, topLevelEmployeeId)
+    : layout.siblingOrders;
   const { systemRoots, administrativeRoots } = splitOrgChartRoots(nodes);
-  const sortedSystem = sortNodesWithLayout(systemRoots, "root", layout.siblingOrders);
+  const sortedSystem = sortNodesWithLayout(systemRoots, "root", siblingOrders);
   const sortedAdmin = administrativeRoots.map((root) => ({
     ...root,
-    children: sortNodesWithLayout(root.children as T[], root.id, layout.siblingOrders),
+    children: sortNodesWithLayout(root.children as T[], root.id, siblingOrders),
   }));
   return [...sortedSystem, ...sortedAdmin];
 }

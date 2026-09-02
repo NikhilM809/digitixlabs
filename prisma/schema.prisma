@@ -409,7 +409,7 @@ model LoginHistory {
 
 model CompanySettings {
   id              String   @id @default(cuid())
-  companyName     String   @default("Digitix Labs")
+  companyName     String   @default("DigitixLabs")
   companyLogo     String?
   companyEmail    String?
   companyTan      String?

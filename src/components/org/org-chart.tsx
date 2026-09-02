@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { GripVertical, Search, ZoomIn, ZoomOut, Users } from "lucide-react";
+import { Building2, GripVertical, Search, ZoomIn, ZoomOut, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,8 @@ export interface OrgChartNodeData {
   designation: { name: string } | null;
   children: OrgChartNodeData[];
   isAdministrativePlaceholder?: boolean;
+  isCompanyRoot?: boolean;
+  topLevelEmployeeId?: string;
 }
 
 interface OrgChartProps {
@@ -96,7 +98,12 @@ function OrgChartNodeCard({
   onDrop?: (event: React.DragEvent) => void;
   onDragEnd?: () => void;
 }) {
-  const isSelf = node.id === currentUserId;
+  const isSelf =
+    node.id === currentUserId ||
+    (node.isCompanyRoot && node.topLevelEmployeeId === currentUserId);
+  const displayName = node.isCompanyRoot
+    ? node.firstName
+    : `${node.firstName} ${node.lastName}`.trim();
 
   return (
     <div
@@ -114,6 +121,7 @@ function OrgChartNodeCard({
           ? "border-brand-500 ring-2 ring-brand-500/30"
           : "border-border/60",
         node.isAdministrativePlaceholder && "border-amber-500/40 bg-amber-500/5",
+        node.isCompanyRoot && "border-brand-500/50 bg-brand-500/5",
         isDraggable && "cursor-grab active:cursor-grabbing hover:shadow-md",
         dragOver?.id === node.id &&
           dragOver.position === "before" &&
@@ -132,22 +140,31 @@ function OrgChartNodeCard({
         </Badge>
       )}
       <div className="flex flex-col items-center text-center gap-1.5">
-        {!node.isAdministrativePlaceholder && (
+        {node.isCompanyRoot ? (
+          <div
+            className={cn(
+              "flex items-center justify-center rounded-full border border-brand-500/30 bg-brand-500/10",
+              densityClass.avatar
+            )}
+          >
+            <Building2 className="h-5 w-5 text-brand-600" />
+          </div>
+        ) : !node.isAdministrativePlaceholder ? (
           <Avatar className={cn("border border-background", densityClass.avatar)}>
             <AvatarImage src={node.avatar ?? undefined} alt={node.firstName} />
             <AvatarFallback className="bg-brand-500/15 text-brand-700 dark:text-brand-300 text-xs font-semibold">
               {getInitials(node.firstName, node.lastName)}
             </AvatarFallback>
           </Avatar>
-        )}
+        ) : null}
         <div className="min-w-0 w-full">
-          <p className="font-semibold text-xs truncate leading-tight">
-            {node.firstName} {node.lastName}
-          </p>
+          <p className="font-semibold text-xs truncate leading-tight">{displayName}</p>
           <p className="text-[10px] text-muted-foreground truncate">
-            {node.isAdministrativePlaceholder
-              ? "Admin placeholder"
-              : (node.designation?.name ?? node.role)}
+            {node.isCompanyRoot
+              ? "Organization"
+              : node.isAdministrativePlaceholder
+                ? "Admin placeholder"
+                : (node.designation?.name ?? node.role)}
           </p>
         </div>
         {node.directReportCount > 0 && (
@@ -172,7 +189,7 @@ function OrgChartNode({
 }) {
   const hasChildren = node.children.length > 0;
   const isHorizontal = ctx.layout.direction === "horizontal";
-  const isDraggable = !!ctx.editable && !node.isAdministrativePlaceholder;
+  const isDraggable = !!ctx.editable && !node.isAdministrativePlaceholder && !node.isCompanyRoot;
   const [dragOver, setDragOver] = useState<{ id: string; position: DropPosition } | null>(null);
 
   const readDragPayload = (event: React.DragEvent) => {

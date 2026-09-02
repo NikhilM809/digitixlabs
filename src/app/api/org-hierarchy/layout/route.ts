@@ -16,6 +16,7 @@ import {
 } from "@/lib/org-chart-layout";
 import { getOrgChartLayout, saveOrgChartLayout } from "@/lib/org-chart-layout-server";
 import { orgChartLayoutSchema } from "@/lib/org-chart-layout";
+import { wrapOrgTreeWithCompanyRoot } from "@/lib/org-company-root";
 
 export async function GET() {
   const { error, user } = await requireAuth(["ADMIN"]);
@@ -27,23 +28,27 @@ export async function GET() {
 
   try {
     const layout = await getOrgChartLayout();
-    const { employees, topLevelEmployeeId, administrativePosition } =
+    const { employees, topLevelEmployeeId, companyName, administrativePosition } =
       await prepareOrgHierarchyDataset({
         includeInactive: false,
         viewerIsAdmin: true,
       });
 
-    const tree = buildOrgTree(employees, {
-      activeDirectReportsOnly: true,
-      topLevelEmployeeId,
-      includeAdministrativePlaceholder: true,
-      administrativePosition,
-    });
+    const tree = wrapOrgTreeWithCompanyRoot(
+      buildOrgTree(employees, {
+        activeDirectReportsOnly: true,
+        topLevelEmployeeId,
+        includeAdministrativePlaceholder: true,
+        administrativePosition,
+      }),
+      companyName,
+      topLevelEmployeeId
+    );
 
     const chart = enrichOrgChartTree(tree, employees);
-    const previewTree = applyOrgChartLayoutToTree(chart, layout);
+    const previewTree = applyOrgChartLayoutToTree(chart, layout, topLevelEmployeeId);
 
-    return apiSuccess({ layout, tree: chart, previewTree });
+    return apiSuccess({ layout, tree: chart, previewTree, topLevelEmployeeId, companyName });
   } catch (err) {
     console.error("Org chart layout GET error:", err);
     return apiError("Failed to load org chart layout", 500);

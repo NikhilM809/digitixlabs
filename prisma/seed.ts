@@ -25,7 +25,7 @@ async function main() {
     update: {},
     create: {
       id: "default",
-      companyName: "Digitix Labs",
+      companyName: "DigitixLabs",
       companyLogo: "/digitix-logo.png",
       companyEmail: "info@digitixlabs.com",
       companyTan: "DELD12345A",

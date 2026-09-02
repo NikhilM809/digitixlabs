@@ -25,11 +25,14 @@ import { OrgChart, type OrgChartNodeData } from "@/components/org/org-chart";
 import { apiFetch } from "@/lib/client-api";
 import type { OrgChartLayoutSettings } from "@/lib/org-chart-layout";
 import { applyOrgChartLayoutToTree, splitOrgChartRoots } from "@/lib/org-chart-layout";
+import { COMPANY_ROOT_NODE_ID } from "@/lib/org-company-root";
 
 interface LayoutResponse {
   layout: OrgChartLayoutSettings;
   tree: OrgChartNodeData[];
   previewTree?: OrgChartNodeData[];
+  topLevelEmployeeId?: string | null;
+  companyName?: string;
 }
 
 function collectReorderGroups(
@@ -76,8 +79,8 @@ export function OrgChartLayoutEditor({ currentUserId }: { currentUserId: string 
 
   const previewTree = useMemo(() => {
     if (!layout || !baseTree.length) return [];
-    return applyOrgChartLayoutToTree(baseTree, layout);
-  }, [baseTree, layout]);
+    return applyOrgChartLayoutToTree(baseTree, layout, data?.topLevelEmployeeId);
+  }, [baseTree, layout, data?.topLevelEmployeeId]);
 
   const { systemRoots } = splitOrgChartRoots(previewTree);
   const reorderGroups = useMemo(() => collectReorderGroups(systemRoots), [systemRoots]);
@@ -105,10 +108,14 @@ export function OrgChartLayoutEditor({ currentUserId }: { currentUserId: string 
 
   const handleSiblingReorder = (parentKey: string, childIds: string[]) => {
     if (!layout) return;
+    const normalizedKey =
+      parentKey === "root" && previewTree[0]?.isCompanyRoot
+        ? COMPANY_ROOT_NODE_ID
+        : parentKey;
     updateLayout({
       siblingOrders: {
         ...layout.siblingOrders,
-        [parentKey]: childIds,
+        [normalizedKey]: childIds,
       },
     });
   };
@@ -126,8 +133,8 @@ export function OrgChartLayoutEditor({ currentUserId }: { currentUserId: string 
             Chart Layout Settings
           </CardTitle>
           <CardDescription>
-            Organization structure is on the left; DR (Administrative Placeholder) stays separate
-            on the right at top level. Drag cards in the preview to reorder siblings. This does not
+            {data?.companyName ?? "Company"} is shown at the top; DR (Administrative Placeholder)
+            stays separate on the right. Drag cards in the preview to reorder siblings. This does not
             change reporting relationships.
           </CardDescription>
         </CardHeader>
