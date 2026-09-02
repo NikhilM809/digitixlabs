@@ -325,7 +325,7 @@ async function main() {
       where: { email: "sneha.gupta@digitixlabs.com" },
       update: {},
       create: {
-        employeeId: "DXL0005",
+        employeeId: "DXL0007",
         email: "sneha.gupta@digitixlabs.com",
         password: employeePassword,
         firstName: "Sneha",
@@ -615,6 +615,9 @@ async function main() {
   console.log("Manager:  manager@digitixlabs.com / Welcome@123");
   console.log("Employee: priya.sharma@digitixlabs.com / Welcome@123");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  const { execSync } = await import("child_process");
+  execSync("tsx scripts/seed-worknest.ts", { stdio: "inherit", cwd: process.cwd() });
 }
 
 main()

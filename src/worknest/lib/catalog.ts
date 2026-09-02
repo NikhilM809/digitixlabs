@@ -42,13 +42,13 @@ export async function ensureCatalog() {
     });
   }
   await prisma.$executeRawUnsafe(
-    `UPDATE Project SET initialSellValue = sellValue WHERE initialSellValue = 0 AND sellValue > 0`,
+    `UPDATE "WnProject" SET "initialSellValue" = "sellValue" WHERE "initialSellValue" = 0 AND "sellValue" > 0`,
   );
   await prisma.$executeRawUnsafe(
-    `UPDATE Project SET initialEstimatedHours = estimatedHours WHERE initialEstimatedHours = 0 AND estimatedHours > 0`,
+    `UPDATE "WnProject" SET "initialEstimatedHours" = "estimatedHours" WHERE "initialEstimatedHours" = 0 AND "estimatedHours" > 0`,
   );
   await prisma.$executeRawUnsafe(
-    `UPDATE Project SET programmerHours = ROUND(estimatedHours * 0.6, 1), qaHours = ROUND(estimatedHours * 0.3, 1), marginHours = ROUND(estimatedHours - ROUND(estimatedHours * 0.6, 1) - ROUND(estimatedHours * 0.3, 1), 1) WHERE programmerHours = 0 AND estimatedHours > 0`,
+    `UPDATE "WnProject" SET "programmerHours" = ROUND("estimatedHours" * 0.6, 1), "qaHours" = ROUND("estimatedHours" * 0.3, 1), "marginHours" = ROUND("estimatedHours" - ROUND("estimatedHours" * 0.6, 1) - ROUND("estimatedHours" * 0.3, 1), 1) WHERE "programmerHours" = 0 AND "estimatedHours" > 0`,
   );
   return {
     clients: await prisma.wnClient.findMany({ where: { active: true }, orderBy: { name: "asc" } }),

@@ -15,6 +15,7 @@
     "db:sync": "npm run db:fix-kra && prisma db push && prisma generate",
     "db:import-kra": "tsx scripts/import-kra-from-excel.ts",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-worknest": "tsx scripts/seed-worknest.ts",
     "db:seed-policies": "tsx scripts/seed-company-policies.ts",
     "db:import-employees": "tsx scripts/import-employees-from-sheet.ts",
     "db:studio": "prisma studio",
