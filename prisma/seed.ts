@@ -325,7 +325,7 @@ async function main() {
       where: { email: "sneha.gupta@digitixlabs.com" },
       update: {},
       create: {
-        employeeId: "DXL0005",
+        employeeId: "DXL0007",
         email: "sneha.gupta@digitixlabs.com",
         password: employeePassword,
         firstName: "Sneha",
