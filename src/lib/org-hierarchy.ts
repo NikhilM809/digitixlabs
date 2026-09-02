@@ -297,26 +297,8 @@ export function buildOrgTree(
         ),
     };
 
-    if (topLevelEmployeeId && tree.length === 1) {
-      tree = [
-        {
-          ...tree[0],
-          children: [...tree[0].children, placeholderNode].sort((a, b) => {
-            if (a.isAdministrativePlaceholder) return 1;
-            if (b.isAdministrativePlaceholder) return -1;
-            return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-          }),
-          directReportCount:
-            tree[0].directReportCount + placeholderAssignees.length,
-        },
-      ];
-    } else {
-      tree = [...tree, placeholderNode].sort((a, b) => {
-        if (a.isAdministrativePlaceholder) return 1;
-        if (b.isAdministrativePlaceholder) return -1;
-        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-      });
-    }
+    // DR placeholder is always a separate top-level root (right column in chart layout).
+    tree = [...tree, placeholderNode];
   }
 
   return tree;

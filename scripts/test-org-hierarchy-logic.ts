@@ -108,13 +108,15 @@ const adminTree = buildOrgTree(withAssignee, {
     name: "DR (Administrative Placeholder)",
   },
 });
-const placeholderNode = adminTree[0].children.find((c) => c.isAdministrativePlaceholder);
-assert(!!placeholderNode, "admin tree includes placeholder node");
+const placeholderNode = adminTree.find((c) => c.isAdministrativePlaceholder);
+assert(!!placeholderNode, "admin tree includes placeholder as separate top-level root");
 assert(
   placeholderNode!.id === getAdministrativePlaceholderNodeId(placeholderId),
   "placeholder node uses stable id"
 );
 assert(placeholderNode!.children.length === 1, "placeholder contains assigned employee");
+assert(adminTree[0].id === "ceo", "system org root stays separate from DR placeholder");
+assert(adminTree.length === 2, "admin tree has system root and DR placeholder root");
 
 const publicTree = buildOrgTree(withAssignee, {
   topLevelEmployeeId: "ceo",

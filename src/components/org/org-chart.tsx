@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Search, ZoomIn, ZoomOut, Users } from "lucide-react";
+import { GripVertical, Search, ZoomIn, ZoomOut, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { cn, getInitials } from "@/lib/utils";
 import {
   DEFAULT_ORG_CHART_LAYOUT,
   getOrgChartDensityClass,
+  reorderSiblingIds,
+  splitOrgChartRoots,
   type OrgChartLayoutSettings,
 } from "@/lib/org-chart-layout";
 
@@ -37,35 +39,93 @@ interface OrgChartProps {
   layout?: Pick<OrgChartLayoutSettings, "direction" | "density">;
   showToolbar?: boolean;
   className?: string;
+  editable?: boolean;
+  siblingOrders?: Record<string, string[]>;
+  onSiblingReorder?: (parentKey: string, childIds: string[]) => void;
 }
 
-function OrgChartNode({
-  node,
-  currentUserId,
-  layout,
-  densityClass,
-}: {
-  node: OrgChartNodeData;
+type DropPosition = "before" | "after";
+
+interface NodeRenderContext {
   currentUserId: string;
   layout: Pick<OrgChartLayoutSettings, "direction" | "density">;
   densityClass: ReturnType<typeof getOrgChartDensityClass>;
+  editable?: boolean;
+  siblingOrders?: Record<string, string[]>;
+  onSiblingReorder?: (parentKey: string, childIds: string[]) => void;
+}
+
+function orderNodes(
+  nodes: OrgChartNodeData[],
+  parentKey: string,
+  siblingOrders?: Record<string, string[]>
+) {
+  const orderedIds = siblingOrders?.[parentKey] ?? nodes.map((n) => n.id);
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const orderedNodes = orderedIds
+    .map((id) => nodeById.get(id))
+    .filter((n): n is OrgChartNodeData => !!n);
+  for (const node of nodes) {
+    if (!orderedIds.includes(node.id)) orderedNodes.push(node);
+  }
+  return { orderedNodes, orderedIds };
+}
+
+function OrgChartNodeCard({
+  node,
+  currentUserId,
+  densityClass,
+  editable,
+  isDraggable,
+  dragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: {
+  node: OrgChartNodeData;
+  currentUserId: string;
+  densityClass: ReturnType<typeof getOrgChartDensityClass>;
+  editable?: boolean;
+  isDraggable: boolean;
+  dragOver?: { id: string; position: DropPosition } | null;
+  onDragStart?: (event: React.DragEvent) => void;
+  onDragOver?: (event: React.DragEvent) => void;
+  onDragLeave?: () => void;
+  onDrop?: (event: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }) {
   const isSelf = node.id === currentUserId;
-  const hasChildren = node.children.length > 0;
-  const isHorizontal = layout.direction === "horizontal";
 
-  const card = (
+  return (
     <div
       data-org-self={isSelf ? "true" : undefined}
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       className={cn(
-        "org-chart-card relative z-10 rounded-xl border bg-card/95 shadow-sm shrink-0",
+        "org-chart-card relative z-10 rounded-xl border bg-card/95 shadow-sm shrink-0 transition-shadow",
         densityClass.card,
         isSelf
           ? "border-brand-500 ring-2 ring-brand-500/30"
           : "border-border/60",
-        node.isAdministrativePlaceholder && "border-amber-500/40 bg-amber-500/5"
+        node.isAdministrativePlaceholder && "border-amber-500/40 bg-amber-500/5",
+        isDraggable && "cursor-grab active:cursor-grabbing hover:shadow-md",
+        dragOver?.id === node.id &&
+          dragOver.position === "before" &&
+          "-translate-y-0.5 ring-2 ring-brand-400/60 ring-offset-2",
+        dragOver?.id === node.id &&
+          dragOver.position === "after" &&
+          "translate-y-0.5 ring-2 ring-brand-400/60 ring-offset-2"
       )}
     >
+      {isDraggable && (
+        <GripVertical className="absolute left-1 top-1 h-3.5 w-3.5 text-muted-foreground/70" />
+      )}
       {isSelf && (
         <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-brand-600 text-[9px] px-1.5 py-0">
           You
@@ -99,6 +159,94 @@ function OrgChartNode({
       </div>
     </div>
   );
+}
+
+function OrgChartNode({
+  node,
+  parentKey,
+  ctx,
+}: {
+  node: OrgChartNodeData;
+  parentKey: string;
+  ctx: NodeRenderContext;
+}) {
+  const hasChildren = node.children.length > 0;
+  const isHorizontal = ctx.layout.direction === "horizontal";
+  const isDraggable = !!ctx.editable && !node.isAdministrativePlaceholder;
+  const [dragOver, setDragOver] = useState<{ id: string; position: DropPosition } | null>(null);
+
+  const readDragPayload = (event: React.DragEvent) => {
+    const raw = event.dataTransfer.getData("application/x-org-chart-node");
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as { nodeId: string; parentKey: string };
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDragStart = (event: React.DragEvent) => {
+    if (!isDraggable) return;
+    event.dataTransfer.setData(
+      "application/x-org-chart-node",
+      JSON.stringify({ nodeId: node.id, parentKey })
+    );
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    if (!ctx.editable || node.isAdministrativePlaceholder) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const position: DropPosition =
+      isHorizontal
+        ? event.clientX < rect.left + rect.width / 2
+          ? "before"
+          : "after"
+        : event.clientY < rect.top + rect.height / 2
+          ? "before"
+          : "after";
+    setDragOver({ id: node.id, position });
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    if (!ctx.editable || !ctx.onSiblingReorder || !dragOver) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const payload = readDragPayload(event);
+    if (!payload || payload.parentKey !== parentKey || payload.nodeId === node.id) return;
+
+    const listEl = (event.currentTarget as HTMLElement).closest("[data-sibling-ids]");
+    const siblingIdsRaw = listEl?.getAttribute("data-sibling-ids");
+    if (!siblingIdsRaw) return;
+    const currentOrder = siblingIdsRaw.split(",").filter(Boolean);
+
+    ctx.onSiblingReorder(
+      parentKey,
+      reorderSiblingIds(currentOrder, payload.nodeId, node.id, dragOver.position)
+    );
+    setDragOver(null);
+  };
+
+  const card = (
+    <OrgChartNodeCard
+      node={node}
+      currentUserId={ctx.currentUserId}
+      densityClass={ctx.densityClass}
+      editable={ctx.editable}
+      isDraggable={isDraggable}
+      dragOver={dragOver}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={() => setDragOver(null)}
+      onDrop={handleDrop}
+      onDragEnd={() => setDragOver(null)}
+    />
+  );
 
   if (!hasChildren) {
     return (
@@ -109,23 +257,12 @@ function OrgChartNode({
   }
 
   const childList = (
-    <ul
-      className={cn(
-        isHorizontal
-          ? "flex flex-col gap-4 border-l border-border pl-6 ml-4"
-          : cn("flex flex-wrap justify-center pt-1", densityClass.gap)
-      )}
-    >
-      {node.children.map((child) => (
-        <OrgChartNode
-          key={child.id}
-          node={child}
-          currentUserId={currentUserId}
-          layout={layout}
-          densityClass={densityClass}
-        />
-      ))}
-    </ul>
+    <OrgChartSiblingList
+      nodes={node.children}
+      parentKey={node.id}
+      ctx={ctx}
+      isHorizontal={isHorizontal}
+    />
   );
 
   if (isHorizontal) {
@@ -140,11 +277,72 @@ function OrgChartNode({
   return (
     <li className="org-chart-node flex flex-col items-center">
       {card}
-      <div className={cn("org-chart-children relative w-full flex justify-center", densityClass.connector)}>
+      <div className={cn("org-chart-children relative w-full flex justify-center", ctx.densityClass.connector)}>
         <div className="absolute top-0 left-1/2 h-5 w-px -translate-x-1/2 bg-border" />
         {childList}
       </div>
     </li>
+  );
+}
+
+function OrgChartSiblingList({
+  nodes,
+  parentKey,
+  ctx,
+  isHorizontal,
+}: {
+  nodes: OrgChartNodeData[];
+  parentKey: string;
+  ctx: NodeRenderContext;
+  isHorizontal: boolean;
+}) {
+  const { orderedNodes, orderedIds } = orderNodes(nodes, parentKey, ctx.siblingOrders);
+
+  return (
+    <ul
+      data-sibling-ids={orderedIds.join(",")}
+      className={cn(
+        isHorizontal
+          ? "flex flex-col gap-4 border-l border-border pl-6 ml-4"
+          : cn("flex flex-wrap justify-center pt-1", ctx.densityClass.gap)
+      )}
+    >
+      {orderedNodes.map((child) => (
+        <OrgChartNode key={child.id} node={child} parentKey={parentKey} ctx={ctx} />
+      ))}
+    </ul>
+  );
+}
+
+function OrgChartRootSection({
+  roots,
+  parentKey,
+  ctx,
+  title,
+  className,
+}: {
+  roots: OrgChartNodeData[];
+  parentKey: string;
+  ctx: NodeRenderContext;
+  title?: string;
+  className?: string;
+}) {
+  if (!roots.length) return null;
+
+  return (
+    <div className={cn("flex flex-col items-center gap-2", className)}>
+      {title && (
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </p>
+      )}
+      <OrgChartSiblingList
+        nodes={roots}
+        parentKey={parentKey}
+        ctx={ctx}
+        isHorizontal={ctx.layout.direction === "horizontal"}
+      />
+    </div>
   );
 }
 
@@ -156,6 +354,9 @@ export function OrgChart({
   layout = DEFAULT_ORG_CHART_LAYOUT,
   showToolbar = true,
   className,
+  editable = false,
+  siblingOrders,
+  onSiblingReorder,
 }: OrgChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -164,6 +365,17 @@ export function OrgChart({
   const [zoom, setZoom] = useState(1);
 
   const densityClass = getOrgChartDensityClass(layout.density);
+  const { systemRoots, administrativeRoots } = splitOrgChartRoots(tree);
+  const hasSplitRoots = administrativeRoots.length > 0;
+
+  const ctx: NodeRenderContext = {
+    currentUserId,
+    layout,
+    densityClass,
+    editable,
+    siblingOrders,
+    onSiblingReorder,
+  };
 
   const recomputeFit = useCallback(() => {
     const container = containerRef.current;
@@ -205,6 +417,33 @@ export function OrgChart({
       </p>
     );
   }
+
+  const rootContent = hasSplitRoots ? (
+    <div
+      className={cn(
+        "org-chart-split flex w-full items-start justify-center gap-8 px-2",
+        layout.direction === "horizontal" ? "flex-col" : "flex-row flex-wrap"
+      )}
+    >
+      <OrgChartRootSection
+        roots={systemRoots}
+        parentKey="root"
+        ctx={ctx}
+        title="Organization"
+        className="flex-1 min-w-0"
+      />
+      <div className="hidden sm:block w-px self-stretch bg-border/80 shrink-0" aria-hidden />
+      <OrgChartRootSection
+        roots={administrativeRoots}
+        parentKey="admin-root"
+        ctx={ctx}
+        title="DR (Admin Placeholder)"
+        className="shrink-0"
+      />
+    </div>
+  ) : (
+    <OrgChartRootSection roots={tree} parentKey="root" ctx={ctx} />
+  );
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -256,6 +495,13 @@ export function OrgChart({
         </div>
       )}
 
+      {editable && (
+        <p className="text-xs text-muted-foreground">
+          Drag cards to reorder siblings within the same team. DR placeholder stays on the right.
+          Layout changes are visual only and do not change reporting lines.
+        </p>
+      )}
+
       <div
         ref={containerRef}
         className="relative h-[min(520px,58vh)] w-full overflow-auto rounded-xl border border-border/50 bg-muted/10"
@@ -269,24 +515,7 @@ export function OrgChart({
             }}
             className="transition-transform duration-200"
           >
-            <ul
-              className={cn(
-                "org-chart-root flex px-2",
-                layout.direction === "horizontal"
-                  ? "flex-col items-start gap-6"
-                  : cn("flex-wrap justify-center", densityClass.rootGap)
-              )}
-            >
-              {tree.map((root) => (
-                <OrgChartNode
-                  key={root.id}
-                  node={root}
-                  currentUserId={currentUserId}
-                  layout={layout}
-                  densityClass={densityClass}
-                />
-              ))}
-            </ul>
+            {rootContent}
           </div>
         </div>
       </div>

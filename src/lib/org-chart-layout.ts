@@ -74,11 +74,41 @@ function sortNodesWithLayout<T extends LayoutNode>(
 }
 
 /** Reorder displayed siblings only — does not change managerId / reporting. */
-export function applyOrgChartLayoutToTree<T extends LayoutNode>(
+export function applyOrgChartLayoutToTree<T extends LayoutNode & { isAdministrativePlaceholder?: boolean }>(
   nodes: T[],
   layout: OrgChartLayoutSettings
 ): T[] {
-  return sortNodesWithLayout(nodes, "root", layout.siblingOrders);
+  const { systemRoots, administrativeRoots } = splitOrgChartRoots(nodes);
+  const sortedSystem = sortNodesWithLayout(systemRoots, "root", layout.siblingOrders);
+  const sortedAdmin = administrativeRoots.map((root) => ({
+    ...root,
+    children: sortNodesWithLayout(root.children as T[], root.id, layout.siblingOrders),
+  }));
+  return [...sortedSystem, ...sortedAdmin];
+}
+
+export function splitOrgChartRoots<T extends LayoutNode & { isAdministrativePlaceholder?: boolean }>(
+  nodes: T[]
+) {
+  const systemRoots = nodes.filter((n) => !n.isAdministrativePlaceholder);
+  const administrativeRoots = nodes.filter((n) => n.isAdministrativePlaceholder);
+  return { systemRoots, administrativeRoots };
+}
+
+export function reorderSiblingIds(
+  currentOrder: string[],
+  draggedId: string,
+  targetId: string,
+  position: "before" | "after"
+) {
+  const without = currentOrder.filter((id) => id !== draggedId);
+  const targetIndex = without.indexOf(targetId);
+  if (targetIndex < 0) return currentOrder;
+
+  const insertAt = position === "before" ? targetIndex : targetIndex + 1;
+  const next = [...without];
+  next.splice(insertAt, 0, draggedId);
+  return next;
 }
 
 export function getOrgChartDensityClass(density: OrgChartLayoutSettings["density"]) {
