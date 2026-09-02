@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { amountInWordsIndian } from "@/lib/number-to-words";
+import { calculateGrossEarnings, normalizePayslipEarnings } from "@/lib/payslip-calc";
 
 export interface PayslipLineItem {
   label: string;
@@ -19,9 +20,14 @@ export interface PayslipPdfData {
   month: number;
   year: number;
   salary: number;
-  bonus: number;
-  incentive: number;
-  reimbursement: number;
+  hra?: number;
+  specialAllowance?: number;
+  internetAllowance?: number;
+  performanceBonus?: number;
+  /** @deprecated legacy fields for older payslips */
+  bonus?: number;
+  incentive?: number;
+  reimbursement?: number;
   deductions: number;
   netSalary: number;
   payableDays?: number;
@@ -46,11 +52,9 @@ function formatCurrency(amount: number) {
 }
 
 function formatCurrencyDisplay(amount: number) {
-  // Use "Rs." — Helvetica in jsPDF cannot render ₹ (shows as superscript "1")
   return `Rs. ${formatCurrency(amount)}`;
 }
 
-/** Build earnings/deduction rows using explicit string keys — avoids autoTable numeric-key "1" bug */
 function toTableRows(items: PayslipLineItem[]) {
   return items.map((item) => ({
     particulars: item.label,
@@ -62,7 +66,6 @@ export function generatePayslipPdfBuffer(data: PayslipPdfData): Buffer {
   return Buffer.from(buildPayslipDoc(data).output("arraybuffer"));
 }
 
-/** Client-side download using jsPDF save (no Node Buffer) */
 export function downloadPayslipPdfClient(data: PayslipPdfData, filename: string) {
   buildPayslipDoc(data).save(filename);
 }
@@ -72,18 +75,16 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
   const monthName = MONTHS[data.month - 1] ?? String(data.month);
-  const gross = data.salary + data.bonus + data.incentive + data.reimbursement;
+  const earningsData = normalizePayslipEarnings(data);
+  const gross = calculateGrossEarnings(data);
 
   const earnings: PayslipLineItem[] = [
-    { label: "Basic Salary", amount: data.salary },
-  ];
-  if (data.bonus > 0) {
-    earnings.push({ label: "Bonus", amount: data.bonus });
-  }
-  earnings.push(
-    { label: "Incentive", amount: data.incentive },
-    { label: "Reimbursement", amount: data.reimbursement }
-  );
+    { label: "Basic Salary", amount: earningsData.salary },
+    { label: "HRA", amount: earningsData.hra },
+    { label: "Special Allowance", amount: earningsData.specialAllowance },
+    { label: "Internet Allowance", amount: earningsData.internetAllowance },
+    { label: "Performance Bonus", amount: earningsData.performanceBonus },
+  ].filter((item) => item.amount > 0 || item.label === "Basic Salary");
 
   const deductionItems: PayslipLineItem[] = [
     { label: "Tax", amount: 0 },
@@ -93,7 +94,6 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
     deductionItems.push({ label: "Other Deductions", amount: data.deductions });
   }
 
-  // Header band
   doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
   doc.rect(0, 0, pageWidth, 28, "F");
   doc.setTextColor(255, 255, 255);

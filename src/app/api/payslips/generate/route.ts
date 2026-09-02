@@ -19,7 +19,7 @@ function daysInMonth(month: number, year: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const { error, user } = await requireAuth(["ADMIN"]);
+  const { error, user } = await requireAuth(["ADMIN", "HR"]);
   if (error) return error;
 
   if (!canGeneratePayslip(user!.role)) {
@@ -33,13 +33,23 @@ export async function POST(req: NextRequest) {
       return apiError(parsed.error.errors[0].message, 400);
     }
 
-    const { userId, month, year, salary, bonus, incentive, reimbursement, deductions } =
-      parsed.data;
+    const {
+      userId,
+      month,
+      year,
+      salary,
+      hra,
+      specialAllowance,
+      internetAllowance,
+      performanceBonus,
+      deductions,
+    } = parsed.data;
     const netSalary = calculateNetSalary({
       salary,
-      bonus,
-      incentive,
-      reimbursement,
+      hra,
+      specialAllowance,
+      internetAllowance,
+      performanceBonus,
       deductions,
     });
 
@@ -94,9 +104,10 @@ export async function POST(req: NextRequest) {
       month,
       year,
       salary,
-      bonus,
-      incentive,
-      reimbursement,
+      hra,
+      specialAllowance,
+      internetAllowance,
+      performanceBonus,
       deductions,
       netSalary,
       payableDays,
@@ -122,9 +133,10 @@ export async function POST(req: NextRequest) {
         month,
         year,
         salary,
-        bonus,
-        incentive,
-        reimbursement,
+        hra,
+        specialAllowance,
+        internetAllowance,
+        performanceBonus,
         deductions,
         netSalary,
         fileUrl,
@@ -132,9 +144,10 @@ export async function POST(req: NextRequest) {
       },
       update: {
         salary,
-        bonus,
-        incentive,
-        reimbursement,
+        hra,
+        specialAllowance,
+        internetAllowance,
+        performanceBonus,
         deductions,
         netSalary,
         fileUrl,

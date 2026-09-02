@@ -10,6 +10,7 @@ import {
 import { employeeSchema } from "@/lib/validations";
 import { resolveOrgRole } from "@/lib/employee-roles";
 import type { Prisma } from "@prisma/client";
+import { normalizeEmail } from "@/lib/email-utils";
 
 function generateEmployeeId() {
   return `EMP${Date.now().toString().slice(-8)}`;
@@ -36,9 +37,14 @@ const employeeSelect = {
   bankAccountNumber: true,
   ifscCode: true,
   baseSalary: true,
+  hra: true,
+  specialAllowance: true,
+  internetAllowance: true,
+  performanceBonus: true,
   ctc: true,
   incentive: true,
   reimbursement: true,
+  profileEditingEnabled: true,
   departmentId: true,
   designationId: true,
   managerId: true,
@@ -105,9 +111,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = employeeSchema.parse(body);
+    const email = normalizeEmail(parsed.email);
 
     const existing = await prisma.user.findUnique({
-      where: { email: parsed.email },
+      where: { email },
     });
     if (existing) {
       return apiError("An employee with this email already exists", 409);
@@ -124,11 +131,14 @@ export async function POST(req: NextRequest) {
     }
 
     const defaultPassword = await bcrypt.hash("Digitix@123", 12);
+    const companySettings = await prisma.companySettings.findFirst({
+      select: { defaultEmployeeProfileEditingEnabled: true },
+    });
 
     const employee = await prisma.user.create({
       data: {
         employeeId,
-        email: parsed.email,
+        email,
         password: defaultPassword,
         firstName: parsed.firstName,
         lastName: parsed.lastName,
@@ -148,9 +158,15 @@ export async function POST(req: NextRequest) {
         bankAccountNumber: parsed.bankAccountNumber || null,
         ifscCode: parsed.ifscCode?.toUpperCase() || null,
         baseSalary: parsed.baseSalary ?? 0,
+        hra: parsed.hra ?? 0,
+        specialAllowance: parsed.specialAllowance ?? 0,
+        internetAllowance: parsed.internetAllowance ?? 0,
+        performanceBonus: parsed.performanceBonus ?? 0,
         ctc: parsed.ctc ?? 0,
         incentive: parsed.incentive ?? 0,
         reimbursement: parsed.reimbursement ?? 0,
+        profileEditingEnabled:
+          companySettings?.defaultEmployeeProfileEditingEnabled ?? false,
         mustChangePassword: true,
       },
       select: employeeSelect,

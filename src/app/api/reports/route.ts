@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiSuccess, apiError } from "@/lib/api-utils";
+import {
+  getCompanyTimezone,
+  formatDateTimeInZone,
+  attendanceDateFromString,
+} from "@/lib/company-timezone";
 
 async function getManagerUserFilter(userId: string) {
   const team = await prisma.user.findMany({
@@ -20,11 +25,13 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
+    const timeZone = await getCompanyTimezone();
+
     const dateFilter =
       from && to
         ? {
-            gte: new Date(from),
-            lte: new Date(to),
+            gte: attendanceDateFromString(from),
+            lte: attendanceDateFromString(to),
           }
         : undefined;
 
@@ -59,8 +66,8 @@ export async function GET(req: NextRequest) {
             employeeName: `${r.user.firstName} ${r.user.lastName}`,
             department: r.user.department?.name ?? "-",
             status: r.status,
-            checkIn: r.checkIn?.toISOString() ?? "-",
-            checkOut: r.checkOut?.toISOString() ?? "-",
+            checkIn: r.checkIn ? formatDateTimeInZone(r.checkIn, timeZone) : "-",
+            checkOut: r.checkOut ? formatDateTimeInZone(r.checkOut, timeZone) : "-",
             workingHours: r.workingHours ?? 0,
             isLate: r.isLate,
           }))

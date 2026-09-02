@@ -25,6 +25,10 @@ export async function PATCH(
     const body = await req.json();
     const parsed = companyPolicySchema.partial().parse(body);
 
+    if (Object.keys(parsed).length === 0) {
+      return apiError("No valid fields to update", 400);
+    }
+
     const policy = await prisma.companyPolicy.update({
       where: { id },
       data: parsed,
@@ -35,10 +39,14 @@ export async function PATCH(
       action: "UPDATE",
       entity: "CompanyPolicy",
       entityId: policy.id,
+      details: `Updated policy: ${policy.title}`,
     });
 
     return apiSuccess(policy);
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "ZodError") {
+      return apiError("Invalid policy data", 422);
+    }
     return apiError("Failed to update policy", 500);
   }
 }

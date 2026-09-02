@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-utils";
 import { employeeSchema } from "@/lib/validations";
 import { resolveOrgRole } from "@/lib/employee-roles";
+import { normalizeEmail } from "@/lib/email-utils";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -31,9 +32,14 @@ const employeeSelect = {
   bankAccountNumber: true,
   ifscCode: true,
   baseSalary: true,
+  hra: true,
+  specialAllowance: true,
+  internetAllowance: true,
+  performanceBonus: true,
   ctc: true,
   incentive: true,
   reimbursement: true,
+  profileEditingEnabled: true,
   departmentId: true,
   designationId: true,
   managerId: true,
@@ -72,9 +78,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   try {
     const body = await req.json();
     const parsed = employeeSchema.parse(body);
+    const email = normalizeEmail(parsed.email);
 
     const existing = await prisma.user.findFirst({
-      where: { email: parsed.email, NOT: { id } },
+      where: { email, NOT: { id } },
     });
     if (existing) {
       return apiError("An employee with this email already exists", 409);
@@ -83,7 +90,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const orgRole = await resolveOrgRole(parsed.orgRoleId);
 
     const updateData: Parameters<typeof prisma.user.update>[0]["data"] = {
-      email: parsed.email,
+      email,
       firstName: parsed.firstName,
       lastName: parsed.lastName,
       phone: parsed.phone,
@@ -102,11 +109,19 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       bankAccountNumber: parsed.bankAccountNumber || null,
       ifscCode: parsed.ifscCode?.toUpperCase() || null,
       baseSalary: parsed.baseSalary ?? 0,
+      hra: parsed.hra ?? 0,
+      specialAllowance: parsed.specialAllowance ?? 0,
+      internetAllowance: parsed.internetAllowance ?? 0,
+      performanceBonus: parsed.performanceBonus ?? 0,
       ctc: parsed.ctc ?? 0,
       incentive: parsed.incentive ?? 0,
       reimbursement: parsed.reimbursement ?? 0,
       ...(parsed.status ? { status: parsed.status } : {}),
     };
+
+    if (user!.role === "ADMIN" && parsed.profileEditingEnabled !== undefined) {
+      updateData.profileEditingEnabled = parsed.profileEditingEnabled;
+    }
 
     if (user!.role === "ADMIN" && parsed.employeeId?.trim()) {
       const employeeId = parsed.employeeId.trim();

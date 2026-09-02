@@ -5,11 +5,16 @@ export interface ApiResponse<T> {
 }
 
 export async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+  } catch {
+    throw new Error("Unable to reach the server. Please check your connection.");
+  }
 
   const contentType = res.headers.get("content-type") ?? "";
   const json: ApiResponse<T> = contentType.includes("application/json")
@@ -17,7 +22,10 @@ export async function fetchApi<T>(url: string, options?: RequestInit): Promise<T
     : ({} as ApiResponse<T>);
 
   if (!res.ok || !json.success) {
-    throw new Error(json.error ?? "Request failed");
+    if (res.status === 401) {
+      throw new Error("Your session has expired. Please sign in again.");
+    }
+    throw new Error(json.error ?? `Request failed (${res.status})`);
   }
 
   if (json.data === undefined) {

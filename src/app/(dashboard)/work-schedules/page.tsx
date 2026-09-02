@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -26,7 +27,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { canManageWorkSchedules } from "@/lib/permissions";
+import {
+  canManageWorkSchedules,
+  canAccessWorkSchedules,
+  canBulkManageWorkSchedules,
+} from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
 import { formatScheduleRange, formatScheduleTime12h } from "@/lib/work-schedule-client";
@@ -59,9 +64,13 @@ interface CompanySettings {
 }
 
 export default function WorkSchedulesPage() {
+  const searchParams = useSearchParams();
+  const deepLinkEmployeeId = searchParams.get("employeeId");
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const canManage = role ? canManageWorkSchedules(role) : false;
+  const canManage = role ? canAccessWorkSchedules(role) : false;
+  const canBulkManage = role ? canBulkManageWorkSchedules(role) : false;
+  const isAdminUser = role ? canManageWorkSchedules(role) : false;
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -78,8 +87,16 @@ export default function WorkSchedulesPage() {
   const { data: settings } = useQuery({
     queryKey: ["company-settings"],
     queryFn: () => apiFetch<CompanySettings>("/api/settings"),
-    enabled: canManage,
+    enabled: isAdminUser,
   });
+
+  const { data: scheduleDefaults } = useQuery({
+    queryKey: ["work-schedule-defaults"],
+    queryFn: () => apiFetch<CompanySettings>("/api/work-schedules?defaults=true"),
+    enabled: canManage && !isAdminUser,
+  });
+
+  const effectiveDefaults = settings ?? scheduleDefaults;
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ["employees-schedules"],
@@ -131,11 +148,19 @@ export default function WorkSchedulesPage() {
     setHistoryEmployee(emp);
     setScheduleForm({
       effectiveFrom: new Date().toISOString().slice(0, 10),
-      workStartTime: emp.workStartTime ?? settings?.workStartTime ?? "09:00",
-      workEndTime: emp.workEndTime ?? settings?.workEndTime ?? "18:00",
-      lateThreshold: emp.lateThreshold ?? settings?.lateThreshold ?? 15,
+      workStartTime: emp.workStartTime ?? effectiveDefaults?.workStartTime ?? "09:00",
+      workEndTime: emp.workEndTime ?? effectiveDefaults?.workEndTime ?? "18:00",
+      lateThreshold: emp.lateThreshold ?? effectiveDefaults?.lateThreshold ?? 15,
     });
   };
+
+  useEffect(() => {
+    if (!deepLinkEmployeeId || employees.length === 0 || historyEmployee) return;
+    const match = employees.find((e) => e.id === deepLinkEmployeeId);
+    if (match) {
+      openHistory(match);
+    }
+  }, [deepLinkEmployeeId, employees, historyEmployee]);
 
   const filtered = employees.filter((e) => {
     if (!search) return true;
@@ -167,9 +192,12 @@ export default function WorkSchedulesPage() {
             Work Schedules
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage employee schedules with effective dates and history
+            {isAdminUser
+              ? "Manage employee schedules with effective dates and history"
+              : "Update work schedules for your direct reports"}
           </p>
         </div>
+        {canBulkManage && (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => download(true)}>
             <Download className="h-4 w-4" />
@@ -184,9 +212,10 @@ export default function WorkSchedulesPage() {
             Import Excel
           </Button>
         </div>
+        )}
       </div>
 
-      {settings && (
+      {effectiveDefaults && (
         <Card glass>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Company Default Schedule</CardTitle>
@@ -197,15 +226,15 @@ export default function WorkSchedulesPage() {
           <CardContent className="text-sm flex flex-wrap gap-6">
             <span>
               <span className="text-muted-foreground">Start: </span>
-              {formatScheduleTime12h(settings.workStartTime)}
+              {formatScheduleTime12h(effectiveDefaults.workStartTime)}
             </span>
             <span>
               <span className="text-muted-foreground">End: </span>
-              {formatScheduleTime12h(settings.workEndTime)}
+              {formatScheduleTime12h(effectiveDefaults.workEndTime)}
             </span>
             <span>
               <span className="text-muted-foreground">Late threshold: </span>
-              {settings.lateThreshold} min
+              {effectiveDefaults.lateThreshold} min
             </span>
           </CardContent>
         </Card>
@@ -258,13 +287,13 @@ export default function WorkSchedulesPage() {
                         <p className="text-xs text-muted-foreground">{emp.employeeId}</p>
                       </td>
                       <td className="px-4 py-3">
-                        {formatScheduleTime12h(emp.workStartTime ?? settings?.workStartTime ?? "09:00")}
+                        {formatScheduleTime12h(emp.workStartTime ?? effectiveDefaults?.workStartTime ?? "09:00")}
                       </td>
                       <td className="px-4 py-3">
-                        {formatScheduleTime12h(emp.workEndTime ?? settings?.workEndTime ?? "18:00")}
+                        {formatScheduleTime12h(emp.workEndTime ?? effectiveDefaults?.workEndTime ?? "18:00")}
                       </td>
                       <td className="px-4 py-3">
-                        {emp.lateThreshold ?? settings?.lateThreshold ?? 15}
+                        {emp.lateThreshold ?? effectiveDefaults?.lateThreshold ?? 15}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <Button variant="outline" size="sm" onClick={() => openHistory(emp)}>
@@ -425,6 +454,7 @@ export default function WorkSchedulesPage() {
         </DialogContent>
       </Dialog>
 
+      {canBulkManage && (
       <ExcelImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
@@ -435,6 +465,7 @@ export default function WorkSchedulesPage() {
           queryClient.invalidateQueries({ queryKey: ["employees-schedules"] })
         }
       />
+      )}
     </motion.div>
   );
 }

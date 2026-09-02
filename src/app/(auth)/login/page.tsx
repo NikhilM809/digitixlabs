@@ -31,7 +31,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const result = await signIn("credentials", {
-        email: data.email,
+        email: data.email.trim().toLowerCase(),
         password: data.password,
         redirect: false,
       });
@@ -44,7 +44,14 @@ export default function LoginPage() {
       toast.success("Welcome back!");
       const session = await getSession();
       const role = session?.user?.role;
-      router.push(role === "EMPLOYEE" ? "/leave" : "/dashboard");
+      const needsProfileSetup =
+        role === "EMPLOYEE" && !session?.user?.profileCompletedAt;
+
+      if (needsProfileSetup) {
+        router.push("/profile?setup=1");
+      } else {
+        router.push(role === "EMPLOYEE" ? "/attendance" : "/dashboard");
+      }
       router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -108,14 +115,11 @@ export default function LoginPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 placeholder="you@digitixlabs.com"
-                autoComplete="email"
+                autoComplete="username"
                 {...register("email")}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
             </div>
 
             <div className="space-y-2">

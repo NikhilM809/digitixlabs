@@ -17,13 +17,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { apiFetch } from "@/lib/client-api";
+import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import {
   companySettingsSchema,
   type CompanySettingsInput,
@@ -31,6 +38,13 @@ import {
 
 interface CompanySettings extends CompanySettingsInput {
   id: string;
+}
+
+interface ActiveEmployeeOption {
+  id: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
 }
 
 export default function SettingsPage() {
@@ -62,7 +76,16 @@ export default function SettingsPage() {
       orgHierarchyVisibleToEmployees: true,
       orgHierarchyVisibleToManagers: true,
       dependentDetailsEnabled: false,
+      topLevelEmployeeId: null,
+      defaultEmployeeProfileEditingEnabled: false,
     },
+  });
+
+  const { data: activeEmployees = [] } = useQuery({
+    queryKey: ["employees", "active", "settings-top-level"],
+    queryFn: () =>
+      apiFetchArray<ActiveEmployeeOption>("/api/employees?activeOnly=true"),
+    enabled: isAdmin,
   });
 
   useEffect(() => {
@@ -84,6 +107,9 @@ export default function SettingsPage() {
         orgHierarchyVisibleToManagers:
           settings.orgHierarchyVisibleToManagers ?? true,
         dependentDetailsEnabled: settings.dependentDetailsEnabled ?? false,
+        topLevelEmployeeId: settings.topLevelEmployeeId ?? null,
+        defaultEmployeeProfileEditingEnabled:
+          settings.defaultEmployeeProfileEditingEnabled ?? false,
       });
     }
   }, [settings, form]);
@@ -97,6 +123,8 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       queryClient.invalidateQueries({ queryKey: ["org-hierarchy-visibility"] });
+      queryClient.invalidateQueries({ queryKey: ["org-hierarchy"] });
+      queryClient.invalidateQueries({ queryKey: ["org-chart"] });
       queryClient.invalidateQueries({ queryKey: ["dependents-settings"] });
       toast.success("Settings saved successfully");
     },
@@ -181,6 +209,90 @@ export default function SettingsPage() {
           onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))}
           className="space-y-6"
         >
+          <Card glass>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                Organization Hierarchy Visibility
+              </CardTitle>
+              <CardDescription>
+                Show or hide Organization Structure and My Team for employees and managers
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="org-visible-employees" className="font-medium">
+                    Show to Employees
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    When off, employees cannot see Organization Structure in the menu
+                  </p>
+                </div>
+                <Switch
+                  id="org-visible-employees"
+                  checked={form.watch("orgHierarchyVisibleToEmployees") ?? true}
+                  onCheckedChange={(checked) =>
+                    form.setValue("orgHierarchyVisibleToEmployees", checked, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                <div>
+                  <Label htmlFor="org-visible-managers" className="font-medium">
+                    Show to Managers
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    When off, managers cannot see Organization Structure or My Team
+                  </p>
+                </div>
+                <Switch
+                  id="org-visible-managers"
+                  checked={form.watch("orgHierarchyVisibleToManagers") ?? true}
+                  onCheckedChange={(checked) =>
+                    form.setValue("orgHierarchyVisibleToManagers", checked, {
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Admin and HR always have access.
+              </p>
+              <div className="space-y-2 pt-2 border-t border-border/40">
+                <Label htmlFor="top-level-employee">Top-Level Employee</Label>
+                <Select
+                  value={form.watch("topLevelEmployeeId") ?? "none"}
+                  onValueChange={(value) =>
+                    form.setValue(
+                      "topLevelEmployeeId",
+                      value === "none" ? null : value,
+                      { shouldDirty: true }
+                    )
+                  }
+                >
+                  <SelectTrigger id="top-level-employee">
+                    <SelectValue placeholder="Select top-level employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not set (multiple roots allowed)</SelectItem>
+                    {activeEmployees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.firstName} {employee.lastName} ({employee.employeeId})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Organization View always starts from this employee and shows only their
+                  reporting subtree.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card glass>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -346,53 +458,21 @@ export default function SettingsPage() {
                   }
                 />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card glass>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Network className="h-4 w-4" />
-                Organization Hierarchy Visibility
-              </CardTitle>
-              <CardDescription>
-                Control who can view the organization structure chart
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
                 <div>
-                  <Label htmlFor="org-visible-employees" className="font-medium">
-                    Show to Employees
+                  <Label htmlFor="default-profile-editing" className="font-medium">
+                    Default Profile Editing for New Employees
                   </Label>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Employees can access Organization Structure from the menu
+                    When enabled, newly created employees can edit their profile details
+                    after first login. Admins can override this per employee.
                   </p>
                 </div>
                 <Switch
-                  id="org-visible-employees"
-                  checked={form.watch("orgHierarchyVisibleToEmployees") ?? true}
+                  id="default-profile-editing"
+                  checked={form.watch("defaultEmployeeProfileEditingEnabled") ?? false}
                   onCheckedChange={(checked) =>
-                    form.setValue("orgHierarchyVisibleToEmployees", checked, {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
-                <div>
-                  <Label htmlFor="org-visible-managers" className="font-medium">
-                    Show to Managers
-                  </Label>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Managers can access Organization Structure from the menu
-                  </p>
-                </div>
-                <Switch
-                  id="org-visible-managers"
-                  checked={form.watch("orgHierarchyVisibleToManagers") ?? true}
-                  onCheckedChange={(checked) =>
-                    form.setValue("orgHierarchyVisibleToManagers", checked, {
+                    form.setValue("defaultEmployeeProfileEditingEnabled", checked, {
                       shouldDirty: true,
                     })
                   }

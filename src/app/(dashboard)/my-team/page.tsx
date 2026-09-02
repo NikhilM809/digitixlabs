@@ -3,7 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { UsersRound, ShieldAlert } from "lucide-react";
+import { UsersRound, ShieldAlert, Clock } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { apiFetch } from "@/lib/client-api";
-import { canViewTeam } from "@/lib/permissions";
+import { canViewTeam, canAccessWorkSchedules, isManagerRole } from "@/lib/permissions";
 import type { UserStatus } from "@prisma/client";
 
 interface TeamMember {
@@ -50,13 +51,23 @@ export default function MyTeamPage() {
   const router = useRouter();
   const role = session?.user?.role;
 
+  const { data: access } = useQuery({
+    queryKey: ["org-hierarchy-visibility"],
+    queryFn: () => apiFetch<{ canView: boolean }>("/api/org-hierarchy/visibility"),
+    enabled: status === "authenticated" && !!role,
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["my-team"],
     queryFn: () => apiFetch<TeamResponse>("/api/org-hierarchy/team"),
-    enabled: status === "authenticated" && !!role && canViewTeam(role),
+    enabled:
+      status === "authenticated" &&
+      !!role &&
+      canViewTeam(role) &&
+      (role === "ADMIN" || role === "HR" || access?.canView === true),
   });
 
-  if (status === "loading") {
+  if (status === "loading" || (role && role !== "ADMIN" && role !== "HR" && access === undefined)) {
     return <Skeleton className="h-96 w-full rounded-2xl" />;
   }
 
@@ -66,6 +77,21 @@ export default function MyTeamPage() {
         <ShieldAlert className="h-16 w-16 text-destructive/60 mb-4" />
         <h1 className="text-2xl font-bold">Access Denied</h1>
         <Button className="mt-6" variant="outline" onClick={() => router.push("/leave")}>
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  if (role !== "ADMIN" && role !== "HR" && !access?.canView) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive/60 mb-4" />
+        <h1 className="text-2xl font-bold">My Team Unavailable</h1>
+        <p className="text-muted-foreground mt-2 max-w-md">
+          Your administrator has disabled organization hierarchy visibility for your role.
+        </p>
+        <Button className="mt-6" variant="outline" onClick={() => router.push("/dashboard")}>
           Go Back
         </Button>
       </div>
@@ -124,6 +150,11 @@ export default function MyTeamPage() {
                     <th className="h-11 px-3 text-left font-medium text-muted-foreground">
                       Status
                     </th>
+                    {role && isManagerRole(role) && canAccessWorkSchedules(role) && (
+                      <th className="h-11 px-3 text-right font-medium text-muted-foreground">
+                        Actions
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -153,6 +184,18 @@ export default function MyTeamPage() {
                           {member.status}
                         </Badge>
                       </td>
+                      {role && isManagerRole(role) && canAccessWorkSchedules(role) && (
+                        <td className="px-3 py-3 text-right">
+                          {member.status === "ACTIVE" && (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/work-schedules?employeeId=${member.id}`}>
+                                <Clock className="h-4 w-4" />
+                                Work Schedule
+                              </Link>
+                            </Button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

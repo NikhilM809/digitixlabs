@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string(),
   password: z.string().min(1, "Password is required"),
   rememberMe: z.boolean().optional(),
 });
@@ -46,6 +46,52 @@ export const profileSchema = z.object({
   phone: z.string().optional(),
   emergencyContact: z.string().optional(),
 });
+
+export const profileDetailsSchema = z.object({
+  phone: z.string().optional(),
+  emergencyContact: z.string().optional(),
+  dateOfBirth: z.string().optional().or(z.literal("")),
+  joiningDate: z.string().min(1, "Date of joining is required"),
+  pan: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v),
+      "Invalid PAN format (e.g. ABCDE1234F) or use 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  aadhaarNumber: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^\d{12}$/.test(v),
+      "Aadhaar must be 12 digits or 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  bankAccountNumber: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^\d{1,20}$/.test(v),
+      "Use digits only, or 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+  bankName: z.string().max(120, "Bank name is too long").optional().or(z.literal("")),
+  ifscCode: z
+    .string()
+    .refine(
+      (v) => !v || v === "0" || /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(v),
+      "Invalid IFSC format (e.g. SBIN0001234) or use 0 if unknown"
+    )
+    .optional()
+    .or(z.literal("")),
+});
+
+/** @deprecated Use profileDetailsSchema */
+export const profileFirstLoginSchema = profileDetailsSchema;
+
+export type ProfileDetailsInput = z.infer<typeof profileDetailsSchema>;
+export type ProfileFirstLoginInput = ProfileDetailsInput;
 
 export const employeeSchema = z.object({
   employeeId: z
@@ -96,9 +142,14 @@ export const employeeSchema = z.object({
     .optional()
     .or(z.literal("")),
   baseSalary: z.coerce.number().min(0).optional(),
+  hra: z.coerce.number().min(0).optional(),
+  specialAllowance: z.coerce.number().min(0).optional(),
+  internetAllowance: z.coerce.number().min(0).optional(),
+  performanceBonus: z.coerce.number().min(0).optional(),
   ctc: z.coerce.number().min(0, "CTC must be a positive amount").optional(),
   incentive: z.coerce.number().min(0).optional(),
   reimbursement: z.coerce.number().min(0).optional(),
+  profileEditingEnabled: z.boolean().optional(),
   status: z.enum(["ACTIVE", "LEFT", "TERMINATED"]).optional(),
 });
 
@@ -262,15 +313,20 @@ export const kraReviewSubmitSchema = z.object({
   ).min(1),
 });
 
+const payslipComponentsSchema = {
+  salary: z.number().positive("Basic salary must be greater than 0"),
+  hra: z.number().min(0).default(0),
+  specialAllowance: z.number().min(0).default(0),
+  internetAllowance: z.number().min(0).default(0),
+  performanceBonus: z.number().min(0).default(0),
+  deductions: z.number().min(0).default(0),
+};
+
 export const payslipGenerateSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2020),
-  salary: z.number().positive("Basic salary must be greater than 0"),
-  bonus: z.number().min(0).default(0),
-  incentive: z.number().min(0).default(0),
-  reimbursement: z.number().min(0).default(0),
-  deductions: z.number().min(0).default(0),
+  ...payslipComponentsSchema,
 });
 
 export const companyPolicySchema = z.object({
@@ -302,11 +358,7 @@ export const payslipSchema = z.object({
   userId: z.string().min(1, "Employee is required"),
   month: z.number().min(1).max(12),
   year: z.number().min(2020),
-  salary: z.number().positive("Basic salary must be greater than 0"),
-  bonus: z.number().min(0).default(0),
-  incentive: z.number().min(0).default(0),
-  reimbursement: z.number().min(0).default(0),
-  deductions: z.number().min(0).default(0),
+  ...payslipComponentsSchema,
   fileUrl: z.string().optional(),
 });
 
@@ -330,6 +382,8 @@ export const companySettingsSchema = z.object({
   orgHierarchyVisibleToEmployees: z.boolean().optional(),
   orgHierarchyVisibleToManagers: z.boolean().optional(),
   dependentDetailsEnabled: z.boolean().optional(),
+  topLevelEmployeeId: z.string().nullable().optional(),
+  defaultEmployeeProfileEditingEnabled: z.boolean().optional(),
 });
 
 export const employeeDependentSchema = z.object({
@@ -344,6 +398,40 @@ export const attendanceCheckInSchema = z.object({
   action: z.enum(["check-in", "check-out"]),
   notes: z.string().optional(),
   lateReason: z.string().optional(),
+});
+
+export const manualAttendanceSchema = z.object({
+  userId: z.string().min(1, "Employee is required"),
+  action: z.enum(["check-in", "check-out"]),
+  timestamp: z.string().min(1, "Timestamp is required"),
+  notes: z.string().optional(),
+  lateReason: z.string().optional(),
+  isLate: z.boolean().optional(),
+  mode: z.enum(["record", "update"]).optional().default("record"),
+});
+
+export const manualAttendanceUpdateSchema = z
+  .object({
+    userId: z.string().min(1, "Employee is required"),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+    checkIn: z.string().optional(),
+    checkOut: z.string().optional(),
+    notes: z.string().optional(),
+    lateReason: z.string().optional(),
+    isLate: z.boolean().optional(),
+  })
+  .refine((data) => data.checkIn || data.checkOut || data.isLate !== undefined, {
+    message: "Provide check-in/check-out time or late flag to update",
+  });
+
+export const adminResetPasswordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Must contain uppercase letter")
+    .regex(/[a-z]/, "Must contain lowercase letter")
+    .regex(/[0-9]/, "Must contain a number")
+    .optional(),
 });
 
 export const assignManagerSchema = z.object({

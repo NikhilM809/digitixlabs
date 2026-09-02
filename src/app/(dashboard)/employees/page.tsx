@@ -30,6 +30,9 @@ import {
   ArrowUpDown,
   Loader2,
   Users,
+  Download,
+  Upload,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -37,6 +40,7 @@ import type { EmploymentType, RoleName, UserStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -60,11 +64,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { canManageEmployees, isAdminOrHr } from "@/lib/permissions";
+import { canManageEmployees, isAdminOrHr, canExportEmployees, canBulkImportEmployees } from "@/lib/permissions";
 import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import { employeeSchema, type EmployeeInput } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { ProfileAvatarUpload } from "@/components/profile/profile-avatar-upload";
+import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
 
 const EMPTY_EMPLOYEES: Employee[] = [];
 
@@ -104,9 +109,12 @@ interface Employee {
   designation: { id: string; name: string } | null;
   manager: { id: string; firstName: string; lastName: string } | null;
   baseSalary?: number;
+  hra?: number;
+  specialAllowance?: number;
+  internetAllowance?: number;
+  performanceBonus?: number;
   ctc?: number;
-  incentive?: number;
-  reimbursement?: number;
+  profileEditingEnabled?: boolean;
 }
 
 interface EmployeeDependent {
@@ -165,6 +173,8 @@ export default function EmployeesPage() {
     ? isAdminOrHr(session.user.role)
     : false;
   const isAdmin = session?.user?.role === "ADMIN";
+  const canExport = isAdmin && canExportEmployees("ADMIN");
+  const canImport = isAdmin && canBulkImportEmployees("ADMIN");
   const canEditSalary = canCreateEmployee;
   const canManage = session?.user?.role
     ? canManageEmployees(session.user.role)
@@ -177,6 +187,7 @@ export default function EmployeesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [employmentFilter, setEmploymentFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
@@ -237,9 +248,11 @@ export default function EmployeesPage() {
       bankAccountNumber: "",
       ifscCode: "",
       baseSalary: 0,
+      hra: 0,
+      specialAllowance: 0,
+      internetAllowance: 0,
+      performanceBonus: 0,
       ctc: 0,
-      incentive: 0,
-      reimbursement: 0,
     },
   });
 
@@ -281,6 +294,22 @@ export default function EmployeesPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ message: string; usedDefaultPassword: boolean }>(
+        `/api/employees/${id}/reset-password`,
+        { method: "POST", body: JSON.stringify({}) }
+      ),
+    onSuccess: (data) => {
+      toast.success(
+        data.usedDefaultPassword
+          ? "Password reset to default (Digitix@123). Employee must change it on next login."
+          : "Password reset successfully. Employee must change it on next login."
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const openCreate = () => {
     setEditingEmployee(null);
     form.reset({
@@ -301,8 +330,11 @@ export default function EmployeesPage() {
       bankAccountNumber: "",
       ifscCode: "",
       baseSalary: 0,
-      incentive: 0,
-      reimbursement: 0,
+      hra: 0,
+      specialAllowance: 0,
+      internetAllowance: 0,
+      performanceBonus: 0,
+      ctc: 0,
     });
     setDialogOpen(true);
   };
@@ -331,9 +363,12 @@ export default function EmployeesPage() {
       bankAccountNumber: employee.bankAccountNumber ?? "",
       ifscCode: employee.ifscCode ?? "",
       baseSalary: employee.baseSalary ?? 0,
+      hra: employee.hra ?? 0,
+      specialAllowance: employee.specialAllowance ?? 0,
+      internetAllowance: employee.internetAllowance ?? 0,
+      performanceBonus: employee.performanceBonus ?? 0,
       ctc: employee.ctc ?? 0,
-      incentive: employee.incentive ?? 0,
-      reimbursement: employee.reimbursement ?? 0,
+      profileEditingEnabled: employee.profileEditingEnabled ?? false,
       status: employee.status,
     });
     setDialogOpen(true);
@@ -343,6 +378,11 @@ export default function EmployeesPage() {
     setDialogOpen(false);
     setEditingEmployee(null);
     form.reset();
+  };
+
+  const downloadEmployees = (template: boolean) => {
+    const url = template ? "/api/employees/bulk?template=true" : "/api/employees/bulk";
+    window.open(url, "_blank");
   };
 
   const columnHelper = useMemo(
@@ -486,12 +526,32 @@ export default function EmployeesPage() {
             Manage your workforce directory
           </p>
         </div>
-        {canCreateEmployee && (
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Add Employee
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canExport && (
+            <>
+              <Button variant="outline" onClick={() => downloadEmployees(true)}>
+                <Download className="h-4 w-4" />
+                Template
+              </Button>
+              <Button variant="outline" onClick={() => downloadEmployees(false)}>
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </>
+          )}
+          {canImport && (
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import Excel
+            </Button>
+          )}
+          {canCreateEmployee && (
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Add Employee
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card glass>
@@ -1049,23 +1109,45 @@ export default function EmployeesPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="incentive">Incentive</Label>
+                    <Label htmlFor="hra">HRA</Label>
                     <Input
-                      id="incentive"
+                      id="hra"
                       type="number"
                       min={0}
                       step={0.01}
-                      {...form.register("incentive", { valueAsNumber: true })}
+                      {...form.register("hra", { valueAsNumber: true })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reimbursement">Reimbursement</Label>
+                    <Label htmlFor="specialAllowance">Special Allowance</Label>
                     <Input
-                      id="reimbursement"
+                      id="specialAllowance"
                       type="number"
                       min={0}
                       step={0.01}
-                      {...form.register("reimbursement", { valueAsNumber: true })}
+                      {...form.register("specialAllowance", { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="internetAllowance">Internet Allowance</Label>
+                    <Input
+                      id="internetAllowance"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("internetAllowance", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="performanceBonus">Performance Bonus</Label>
+                    <Input
+                      id="performanceBonus"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      {...form.register("performanceBonus", { valueAsNumber: true })}
                     />
                   </div>
                 </div>
@@ -1092,6 +1174,61 @@ export default function EmployeesPage() {
                         Current CTC: {formatCurrency(editingEmployee.ctc)}
                       </p>
                     )}
+                  </div>
+                )}
+                {editingEmployee && isAdmin && (
+                  <div className="rounded-xl border border-border/50 p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium">Reset Password</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Reset this employee&apos;s password to the default temporary password.
+                        They will be required to change it on next login.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={resetPasswordMutation.isPending}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Reset password for ${editingEmployee.firstName} ${editingEmployee.lastName}?`
+                          )
+                        ) {
+                          return;
+                        }
+                        resetPasswordMutation.mutate(editingEmployee.id);
+                      }}
+                    >
+                      {resetPasswordMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <KeyRound className="h-4 w-4" />
+                      )}
+                      Reset to Default Password
+                    </Button>
+                  </div>
+                )}
+                {editingEmployee && isAdmin && (
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 p-4">
+                    <div>
+                      <Label htmlFor="profile-editing-enabled" className="font-medium">
+                        Allow Profile Editing
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        When enabled, this employee can update profile details (except name and
+                        email) from the Profile page.
+                      </p>
+                    </div>
+                    <Switch
+                      id="profile-editing-enabled"
+                      checked={form.watch("profileEditingEnabled") ?? false}
+                      onCheckedChange={(checked) =>
+                        form.setValue("profileEditingEnabled", checked, {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
                   </div>
                 )}
                 {editingEmployee &&
@@ -1135,6 +1272,17 @@ export default function EmployeesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {canImport && (
+        <ExcelImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          title="Import Employees"
+          description="Upload Excel to create or update employees. For updates, only Employee ID is required — include just the columns you want to change (e.g. Employee ID + Joining Date). Dates accept YYYY-MM-DD, DD/MM/YYYY, or Excel date cells."
+          uploadUrl="/api/employees/bulk"
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["employees"] })}
+        />
+      )}
     </motion.div>
   );
 }

@@ -135,6 +135,16 @@ export function ExcelImportDialog({
                 </p>
               </div>
             </div>
+            <ul className="max-h-40 overflow-y-auto space-y-1 text-sm text-muted-foreground">
+              {(preview as Array<{ employeeId?: string; action?: string; fields?: string[] }>).map(
+                (row, i) => (
+                  <li key={i}>
+                    {row.employeeId ?? `Row ${i + 1}`}: {row.action ?? "import"}
+                    {row.fields?.length ? ` — ${row.fields.join(", ")}` : ""}
+                  </li>
+                )
+              )}
+            </ul>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={reset}>
                 Back

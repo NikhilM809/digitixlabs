@@ -1,21 +1,27 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiSuccess, apiError, createAuditLog } from "@/lib/api-utils";
-import { canManageWorkSchedules } from "@/lib/permissions";
 import { workScheduleEntrySchema } from "@/lib/validations";
+import { canAccessWorkSchedules } from "@/lib/permissions";
+import { canManageEmployeeWorkSchedule } from "@/lib/work-schedule-access";
 import { createWorkScheduleEntry, getWorkScheduleHistory } from "@/lib/work-schedule";
 
 export async function GET(request: NextRequest) {
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
-  if (!canManageWorkSchedules(user.role)) {
+  if (!canAccessWorkSchedules(user.role)) {
     return apiError("Forbidden", 403);
   }
 
   const userId = request.nextUrl.searchParams.get("userId");
   if (!userId) {
     return apiError("userId is required", 400);
+  }
+
+  const allowed = await canManageEmployeeWorkSchedule(user.role, user.id, userId);
+  if (!allowed) {
+    return apiError("Forbidden", 403);
   }
 
   const history = await getWorkScheduleHistory(userId);
@@ -26,7 +32,7 @@ export async function POST(request: NextRequest) {
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
-  if (!canManageWorkSchedules(user.role)) {
+  if (!canAccessWorkSchedules(user.role)) {
     return apiError("Forbidden", 403);
   }
 
@@ -38,6 +44,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { userId, effectiveFrom, workStartTime, workEndTime, lateThreshold } = parsed.data;
+
+    const allowed = await canManageEmployeeWorkSchedule(user.role, user.id, userId);
+    if (!allowed) {
+      return apiError("Forbidden", 403);
+    }
 
     const startMinutes =
       parseInt(workStartTime.split(":")[0], 10) * 60 +

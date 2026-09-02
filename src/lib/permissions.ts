@@ -34,7 +34,7 @@ export function canManageEmployees(role: RoleName) {
 }
 
 export function canManagePolicies(role: RoleName) {
-  return isAdminOrHr(role);
+  return role === "ADMIN";
 }
 
 export function canViewPolicies(role: RoleName) {
@@ -90,7 +90,7 @@ export function canAccessReports(role: RoleName) {
 }
 
 export function canGeneratePayslip(role: RoleName) {
-  return role === "ADMIN";
+  return isAdminOrHr(role);
 }
 
 export function canManageWorkSchedules(role: RoleName) {
@@ -99,6 +99,27 @@ export function canManageWorkSchedules(role: RoleName) {
 
 export function canBulkImportLeave(role: RoleName) {
   return role === "ADMIN";
+}
+
+/** Admin bulk export/import of leave balances via Excel */
+export function canBulkManageLeaveBalances(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canBulkImportEmployees(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canExportEmployees(role: RoleName) {
+  return role === "ADMIN";
+}
+
+export function canAccessWorkSchedules(role: RoleName) {
+  return canManageWorkSchedules(role) || isManagerRole(role);
+}
+
+export function canBulkManageWorkSchedules(role: RoleName) {
+  return canManageWorkSchedules(role);
 }
 
 export function canAccessKra(role: RoleName) {
@@ -111,6 +132,14 @@ export function canReviewKra(role: RoleName) {
 
 export function canReopenKra(role: RoleName) {
   return role === "ADMIN" || role === "HR";
+}
+
+export function canManageManualAttendance(role: RoleName) {
+  return role === "ADMIN" || role === "HR" || role === "MANAGER";
+}
+
+export function canResetEmployeePassword(role: RoleName) {
+  return role === "ADMIN";
 }
 
 export function canConfigureKra(role: RoleName) {

@@ -1,5 +1,3 @@
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import {
   requireAuth,
@@ -7,6 +5,7 @@ import {
   apiError,
   createAuditLog,
 } from "@/lib/api-utils";
+import { canEmployeeEditOwnProfile } from "@/lib/profile-editing";
 import { saveAvatarFile } from "@/lib/avatar-upload";
 
 export async function POST(request: Request) {
@@ -14,6 +13,22 @@ export async function POST(request: Request) {
   if (error || !user) return error;
 
   try {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        role: true,
+        profileCompletedAt: true,
+        profileEditingEnabled: true,
+      },
+    });
+
+    if (currentUser && !canEmployeeEditOwnProfile(currentUser)) {
+      return apiError(
+        "Your profile is read-only. Contact Admin to enable profile editing.",
+        403
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 

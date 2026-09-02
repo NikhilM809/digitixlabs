@@ -59,9 +59,13 @@ interface Payslip {
   month: number;
   year: number;
   salary: number;
-  bonus: number;
-  incentive: number;
-  reimbursement: number;
+  hra?: number;
+  specialAllowance?: number;
+  internetAllowance?: number;
+  performanceBonus?: number;
+  bonus?: number;
+  incentive?: number;
+  reimbursement?: number;
   deductions: number;
   netSalary: number;
   fileUrl: string | null;
@@ -83,8 +87,10 @@ interface Employee {
   firstName: string;
   lastName: string;
   baseSalary?: number;
-  incentive?: number;
-  reimbursement?: number;
+  hra?: number;
+  specialAllowance?: number;
+  internetAllowance?: number;
+  performanceBonus?: number;
 }
 
 type PayslipFormValues = {
@@ -92,9 +98,10 @@ type PayslipFormValues = {
   month: number;
   year: number;
   salary: number;
-  bonus: number;
-  incentive: number;
-  reimbursement: number;
+  hra: number;
+  specialAllowance: number;
+  internetAllowance: number;
+  performanceBonus: number;
   deductions: number;
   fileUrl?: string;
 };
@@ -136,6 +143,10 @@ function downloadPayslipPdf(payslip: Payslip) {
       month: payslip.month,
       year: payslip.year,
       salary: payslip.salary,
+      hra: payslip.hra ?? 0,
+      specialAllowance: payslip.specialAllowance ?? 0,
+      internetAllowance: payslip.internetAllowance ?? 0,
+      performanceBonus: payslip.performanceBonus ?? 0,
       bonus: payslip.bonus,
       incentive: payslip.incentive ?? 0,
       reimbursement: payslip.reimbursement ?? 0,
@@ -186,9 +197,10 @@ export default function PayslipsPage() {
       month: new Date().getMonth() + 1,
       year: currentYear,
       salary: 0,
-      bonus: 0,
-      incentive: 0,
-      reimbursement: 0,
+      hra: 0,
+      specialAllowance: 0,
+      internetAllowance: 0,
+      performanceBonus: 0,
       deductions: 0,
       fileUrl: "",
     },
@@ -216,9 +228,10 @@ export default function PayslipsPage() {
       month: new Date().getMonth() + 1,
       year: currentYear,
       salary: 0,
-      bonus: 0,
-      incentive: 0,
-      reimbursement: 0,
+      hra: 0,
+      specialAllowance: 0,
+      internetAllowance: 0,
+      performanceBonus: 0,
       deductions: 0,
     },
   });
@@ -264,8 +277,10 @@ export default function PayslipsPage() {
     setValues({
       userId: emp.id,
       salary,
-      incentive: emp.incentive ?? 0,
-      reimbursement: emp.reimbursement ?? 0,
+      hra: emp.hra ?? 0,
+      specialAllowance: emp.specialAllowance ?? 0,
+      internetAllowance: emp.internetAllowance ?? 0,
+      performanceBonus: emp.performanceBonus ?? 0,
     });
   }
 
@@ -563,30 +578,39 @@ export default function PayslipsPage() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="bonus">Bonus</Label>
+                <Label htmlFor="hra">HRA</Label>
                 <Input
-                  id="bonus"
+                  id="hra"
                   type="number"
                   min={0}
-                  {...form.register("bonus", { valueAsNumber: true })}
+                  {...form.register("hra", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="incentive">Incentive</Label>
+                <Label htmlFor="specialAllowance">Special Allowance</Label>
                 <Input
-                  id="incentive"
+                  id="specialAllowance"
                   type="number"
                   min={0}
-                  {...form.register("incentive", { valueAsNumber: true })}
+                  {...form.register("specialAllowance", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reimbursement">Reimbursement</Label>
+                <Label htmlFor="internetAllowance">Internet Allowance</Label>
                 <Input
-                  id="reimbursement"
+                  id="internetAllowance"
                   type="number"
                   min={0}
-                  {...form.register("reimbursement", { valueAsNumber: true })}
+                  {...form.register("internetAllowance", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="performanceBonus">Performance Bonus</Label>
+                <Input
+                  id="performanceBonus"
+                  type="number"
+                  min={0}
+                  {...form.register("performanceBonus", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
@@ -616,9 +640,10 @@ export default function PayslipsPage() {
                   {formatCurrency(
                     calculateGrossEarnings({
                       salary: form.watch("salary") || 0,
-                      bonus: form.watch("bonus") || 0,
-                      incentive: form.watch("incentive") || 0,
-                      reimbursement: form.watch("reimbursement") || 0,
+                      hra: form.watch("hra") || 0,
+                      specialAllowance: form.watch("specialAllowance") || 0,
+                      internetAllowance: form.watch("internetAllowance") || 0,
+                      performanceBonus: form.watch("performanceBonus") || 0,
                     })
                   )}
                 </span>
@@ -629,9 +654,10 @@ export default function PayslipsPage() {
                   {formatCurrency(
                     calculateNetSalary({
                       salary: form.watch("salary") || 0,
-                      bonus: form.watch("bonus") || 0,
-                      incentive: form.watch("incentive") || 0,
-                      reimbursement: form.watch("reimbursement") || 0,
+                      hra: form.watch("hra") || 0,
+                      specialAllowance: form.watch("specialAllowance") || 0,
+                      internetAllowance: form.watch("internetAllowance") || 0,
+                      performanceBonus: form.watch("performanceBonus") || 0,
                       deductions: form.watch("deductions") || 0,
                     })
                   )}
@@ -750,30 +776,39 @@ export default function PayslipsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="gen-bonus">Bonus</Label>
+                <Label htmlFor="gen-hra">HRA</Label>
                 <Input
-                  id="gen-bonus"
+                  id="gen-hra"
                   type="number"
                   min={0}
-                  {...generateForm.register("bonus", { valueAsNumber: true })}
+                  {...generateForm.register("hra", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="gen-incentive">Incentive</Label>
+                <Label htmlFor="gen-specialAllowance">Special Allowance</Label>
                 <Input
-                  id="gen-incentive"
+                  id="gen-specialAllowance"
                   type="number"
                   min={0}
-                  {...generateForm.register("incentive", { valueAsNumber: true })}
+                  {...generateForm.register("specialAllowance", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="gen-reimbursement">Reimbursement</Label>
+                <Label htmlFor="gen-internetAllowance">Internet Allowance</Label>
                 <Input
-                  id="gen-reimbursement"
+                  id="gen-internetAllowance"
                   type="number"
                   min={0}
-                  {...generateForm.register("reimbursement", { valueAsNumber: true })}
+                  {...generateForm.register("internetAllowance", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gen-performanceBonus">Performance Bonus</Label>
+                <Input
+                  id="gen-performanceBonus"
+                  type="number"
+                  min={0}
+                  {...generateForm.register("performanceBonus", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
@@ -794,9 +829,10 @@ export default function PayslipsPage() {
                   {formatCurrency(
                     calculateGrossEarnings({
                       salary: generateForm.watch("salary") || 0,
-                      bonus: generateForm.watch("bonus") || 0,
-                      incentive: generateForm.watch("incentive") || 0,
-                      reimbursement: generateForm.watch("reimbursement") || 0,
+                      hra: generateForm.watch("hra") || 0,
+                      specialAllowance: generateForm.watch("specialAllowance") || 0,
+                      internetAllowance: generateForm.watch("internetAllowance") || 0,
+                      performanceBonus: generateForm.watch("performanceBonus") || 0,
                     })
                   )}
                 </span>
@@ -807,9 +843,10 @@ export default function PayslipsPage() {
                   {formatCurrency(
                     calculateNetSalary({
                       salary: generateForm.watch("salary") || 0,
-                      bonus: generateForm.watch("bonus") || 0,
-                      incentive: generateForm.watch("incentive") || 0,
-                      reimbursement: generateForm.watch("reimbursement") || 0,
+                      hra: generateForm.watch("hra") || 0,
+                      specialAllowance: generateForm.watch("specialAllowance") || 0,
+                      internetAllowance: generateForm.watch("internetAllowance") || 0,
+                      performanceBonus: generateForm.watch("performanceBonus") || 0,
                       deductions: generateForm.watch("deductions") || 0,
                     })
                   )}

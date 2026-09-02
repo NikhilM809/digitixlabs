@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, apiSuccess, apiError, createAuditLog } from "@/lib/api-utils";
 import { workScheduleUpdateSchema } from "@/lib/validations";
-import { isAdmin, canManageWorkSchedules } from "@/lib/permissions";
+import {
+  canAccessWorkSchedules,
+  canBulkManageWorkSchedules,
+} from "@/lib/permissions";
+import { canManageEmployeeWorkSchedule } from "@/lib/work-schedule-access";
 import {
   buildExcelBuffer,
   getRowValue,
@@ -15,17 +19,31 @@ export async function GET(request: NextRequest) {
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
-  if (!isAdmin(user.role)) {
+  if (!canAccessWorkSchedules(user.role)) {
     return apiError("Forbidden", 403);
   }
 
   const templateOnly = request.nextUrl.searchParams.get("template") === "true";
   const listOnly = request.nextUrl.searchParams.get("list") === "true";
+  const defaultsOnly = request.nextUrl.searchParams.get("defaults") === "true";
   const settings = await prisma.companySettings.findFirst();
+
+  if (defaultsOnly) {
+    return apiSuccess({
+      workStartTime: settings?.workStartTime ?? "09:00",
+      workEndTime: settings?.workEndTime ?? "18:00",
+      lateThreshold: settings?.lateThreshold ?? 15,
+    });
+  }
+
+  const employeeWhere =
+    user.role === "MANAGER"
+      ? { status: "ACTIVE" as const, managerId: user.id }
+      : { status: "ACTIVE" as const };
 
   if (listOnly) {
     const employees = await prisma.user.findMany({
-      where: { status: "ACTIVE" },
+      where: employeeWhere,
       select: {
         id: true,
         employeeId: true,
@@ -39,6 +57,10 @@ export async function GET(request: NextRequest) {
       orderBy: { employeeId: "asc" },
     });
     return apiSuccess(employees);
+  }
+
+  if (!canBulkManageWorkSchedules(user.role)) {
+    return apiError("Forbidden", 403);
   }
 
   if (templateOnly) {
@@ -95,7 +117,7 @@ export async function PATCH(request: NextRequest) {
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
-  if (!canManageWorkSchedules(user.role)) {
+  if (!canAccessWorkSchedules(user.role)) {
     return apiError("Forbidden", 403);
   }
 
@@ -107,6 +129,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { userId, workStartTime, workEndTime, lateThreshold } = parsed.data;
+
+    const allowed = await canManageEmployeeWorkSchedule(user.role, user.id, userId);
+    if (!allowed) {
+      return apiError("Forbidden", 403);
+    }
 
     const employee = await prisma.user.update({
       where: { id: userId },
@@ -144,7 +171,7 @@ export async function POST(request: NextRequest) {
   const { error, user } = await requireAuth();
   if (error || !user) return error;
 
-  if (!canManageWorkSchedules(user.role)) {
+  if (!canBulkManageWorkSchedules(user.role)) {
     return apiError("Forbidden", 403);
   }
 
