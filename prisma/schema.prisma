@@ -169,6 +169,20 @@ model User {
   dependents        EmployeeDependent[]
   topLevelCompanySettings CompanySettings[] @relation("CompanyTopLevelEmployee")
 
+  // Worknest (Project Management)
+  wnManagedProjects       WnProject[]              @relation("WnProjectManager")
+  wnProjectAssignments    WnProjectAssignment[]      @relation("WnProjectAssignmentEmployee")
+  wnAssignmentsCreated    WnProjectAssignment[]      @relation("WnProjectAssignmentAssigner")
+  wnAssignedTasks         WnTask[]                   @relation("WnTaskAssignee")
+  wnCreatedTasks          WnTask[]                   @relation("WnTaskAssigner")
+  wnTimeEntries           WnTimeEntry[]              @relation("WnTimeEntryEmployee")
+  wnReviewedHours         WnTimeEntry[]              @relation("WnHourReviewer")
+  wnProjectNotes          WnProjectNote[]            @relation("WnProjectNoteAuthor")
+  worknestNotifications   WorknestNotification[]     @relation("WorknestNotifications")
+  wnProjectExports        WnProjectExport[]          @relation("WnProjectExporter")
+  wnStatusChangedProjects WnProject[]                @relation("WnStatusChanger")
+  wnProjectStatusChanges  WnProjectStatusChange[]    @relation("WnProjectStatusChanger")
+
   @@index([departmentId])
   @@index([managerId])
   @@index([orgRoleId])
@@ -612,4 +626,301 @@ model RolePermission {
   permissionId String
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   @@unique([role, permissionId])
+}
+
+// ─── Worknest (Project Management) ─────────────────────────────────────────
+
+enum WnProjectStatus {
+  BID
+  NEED_TO_START
+  SCRIPT_WIP
+  CHANGES
+  LIVE
+  HOLD
+  CLOSE
+  CANCEL
+}
+
+enum WnTaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+}
+
+enum WnInvoiceStatus {
+  GENERATED
+  PAID
+}
+
+enum WnBillingStage {
+  NONE
+  PENDING
+  APPROVAL_REQUIRED
+  APPROVED
+}
+
+enum WnHourStatus {
+  SUBMITTED
+  REVIEWED
+}
+
+model WnProject {
+  id                    String          @id @default(cuid())
+  code                  String          @unique
+  name                  String
+  clientName            String
+  description           String          @default("")
+  status                WnProjectStatus @default(BID)
+  managerId             String
+  manager               User            @relation("WnProjectManager", fields: [managerId], references: [id])
+  sellValue             Float
+  initialSellValue      Float           @default(0)
+  programmerHours       Float           @default(0)
+  qaHours               Float           @default(0)
+  marginHours           Float           @default(0)
+  initialEstimatedHours Float           @default(0)
+  valueAlertSent        Boolean         @default(false)
+  changesAlertSent      Boolean         @default(false)
+  currencyId            String?
+  currency              WnCurrency?     @relation(fields: [currencyId], references: [id])
+  billingStage          WnBillingStage  @default(NONE)
+  estimatedHours        Float
+  startDate             DateTime?
+  eta                   DateTime
+  actualStartDate       DateTime?
+  actualCompletionDate  DateTime?
+  selfAssignEnabled     Boolean         @default(true)
+  statusChangedAt       DateTime?
+  statusChangedById     String?
+  statusChangedBy       User?           @relation("WnStatusChanger", fields: [statusChangedById], references: [id])
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  assignments   WnProjectAssignment[]
+  tasks         WnTask[]
+  timeEntries   WnTimeEntry[]
+  notes         WnProjectNote[]
+  invoices      WnInvoice[]
+  exports       WnProjectExport[]
+  statusChanges WnProjectStatusChange[]
+
+  @@index([status])
+  @@index([managerId])
+  @@index([clientName])
+}
+
+model WnProjectAssignment {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      WnProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     User      @relation("WnProjectAssignmentEmployee", fields: [employeeId], references: [id])
+  assignedById String
+  assignedBy   User      @relation("WnProjectAssignmentAssigner", fields: [assignedById], references: [id])
+  assignedAt   DateTime  @default(now())
+
+  @@unique([projectId, employeeId])
+}
+
+model WnTask {
+  id                 String       @id @default(cuid())
+  projectId          String
+  project            WnProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name               String
+  description        String       @default("")
+  assignedEmployeeId String?
+  assignedEmployee   User?        @relation("WnTaskAssignee", fields: [assignedEmployeeId], references: [id])
+  assignedById       String?
+  assignedBy         User?        @relation("WnTaskAssigner", fields: [assignedById], references: [id])
+  assignedAt         DateTime?
+  estimatedHours     Float        @default(0)
+  startDate          DateTime?
+  dueDate            DateTime?
+  status             WnTaskStatus @default(NOT_STARTED)
+  notes              String       @default("")
+  selfAssignEnabled  Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  timeEntries WnTimeEntry[]
+}
+
+model WnTimeEntry {
+  id           String       @id @default(cuid())
+  projectId    String
+  project      WnProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId       String?
+  task         WnTask?      @relation(fields: [taskId], references: [id])
+  employeeId   String
+  employee     User         @relation("WnTimeEntryEmployee", fields: [employeeId], references: [id])
+  date         DateTime
+  workType     String
+  hours        Float
+  notes        String       @default("")
+  status       WnHourStatus @default(SUBMITTED)
+  reviewedById String?
+  reviewedBy   User?        @relation("WnHourReviewer", fields: [reviewedById], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([projectId])
+  @@index([employeeId])
+  @@index([date])
+}
+
+model WnProjectNote {
+  id        String    @id @default(cuid())
+  projectId String
+  project   WnProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation("WnProjectNoteAuthor", fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime  @default(now())
+}
+
+model WnProjectStatusChange {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     WnProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromStatus  String
+  toStatus    String
+  changedById String
+  changedBy   User      @relation("WnProjectStatusChanger", fields: [changedById], references: [id])
+  changedAt   DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+model WnInvoice {
+  id             String          @id @default(cuid())
+  invoiceNumber  String          @unique
+  projectId      String
+  project        WnProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  batchId        String?
+  batch          WnInvoiceBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  billingMonth   Int
+  billingYear    Int
+  invoiceDate    DateTime
+  amount         Float
+  currencyCode   String          @default("INR")
+  currencySymbol String          @default("Rs.")
+  status         WnInvoiceStatus @default(GENERATED)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([projectId, billingMonth, billingYear])
+}
+
+model WnInvoiceBatch {
+  id                  String          @id @default(cuid())
+  invoiceNumber       String          @unique
+  clientName          String
+  billingMonth        Int
+  billingYear         Int
+  invoiceDate         DateTime
+  currencyCode        String
+  currencySymbol      String
+  discount            Float           @default(0)
+  gstRate             Float           @default(0)
+  status              WnInvoiceStatus @default(GENERATED)
+  source              String          @default("GENERATED")
+  pdfPath             String          @default("")
+  servicesDescription String          @default("")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  invoices            WnInvoice[]
+}
+
+model WnProjectExport {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      WnProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  exportedById String
+  exportedBy   User      @relation("WnProjectExporter", fields: [exportedById], references: [id])
+  exportedAt   DateTime  @default(now())
+  billingMonth Int
+  billingYear  Int
+  exportType   String    @default("APPROVAL")
+}
+
+model WnClient {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  legalName String   @default("")
+  address   String   @default("")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WnInvoiceService {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model WnWorkTypeOption {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  category  String   @default("other")
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model WnCurrency {
+  id        String      @id @default(cuid())
+  name      String
+  code      String      @unique
+  symbol    String
+  active    Boolean     @default(true)
+  isDefault Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  projects  WnProject[]
+}
+
+model WorknestNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("WorknestNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  href      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model WorknestSetting {
+  id                  String @id @default("default")
+  companyName         String @default("Digitix Labs")
+  companyAddress      String @default("")
+  companyEmail        String @default("")
+  companyPhone        String @default("")
+  logoUrl             String @default("")
+  panNumber           String @default("")
+  tanNumber           String @default("")
+  gstin               String @default("")
+  lutNumber           String @default("")
+  servicesDescription String @default("Survey Programming and Consulting")
+  gstRate             Float  @default(0)
+  bankAccountName     String @default("")
+  bankName            String @default("")
+  bankAccountNumber   String @default("")
+  bankIfsc            String @default("")
+  bankSwift           String @default("")
+  bankMicr            String @default("")
+  bankBranch          String @default("")
+  bankBranchCode      String @default("")
+  bankCountry         String @default("India")
+  billToName          String @default("")
+  billToAddress       String @default("")
+  currency            String @default("INR")
+  etaWarningDays      Int    @default(7)
+  invoicePrefix       String @default("PP/DXL")
 }

@@ -27,6 +27,7 @@ import {
   GitBranch,
   FolderOpen,
   FolderArchive,
+  FolderKanban,
   Briefcase,
   UserCheck,
 } from "lucide-react";
@@ -64,6 +65,7 @@ const navItems: NavItem[] = [
   { title: "Departments", href: "/departments", icon: Building2, roles: ["ADMIN"] },
   { title: "Designations", href: "/designations", icon: Briefcase, roles: ["ADMIN"] },
   { title: "Manage Hierarchy", href: "/org-hierarchy", icon: GitBranch, roles: ["ADMIN"] },
+  { title: "Worknest", href: "/worknest/dashboard", icon: FolderKanban, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },
   { title: "My Team", href: "/my-team", icon: UsersRound, roles: ["ADMIN", "HR", "MANAGER"], requiresOrgVisibility: true },
   { title: "Reports", href: "/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { title: "Notifications", href: "/notifications", icon: Bell, roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"] },

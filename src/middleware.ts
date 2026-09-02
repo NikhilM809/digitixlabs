@@ -71,6 +71,18 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(homePathForRole(role), req.url));
   }
 
+  // Worknest PM: employee-only routes
+  if (pathname.startsWith("/worknest")) {
+    const wnStaffOnly = ["/worknest/employees", "/worknest/reports", "/worknest/billing", "/worknest/settings", "/worknest/sales"];
+    const wnManagerOnly = ["/worknest/team", "/worknest/hours", "/worknest/closed", "/worknest/projects/new"];
+    if (wnStaffOnly.some((p) => pathname === p || pathname.startsWith(`${p}/`)) && role !== "ADMIN" && role !== "HR") {
+      return NextResponse.redirect(new URL("/worknest/dashboard", req.url));
+    }
+    if (wnManagerOnly.some((p) => pathname === p || pathname.startsWith(`${p}/`)) && role === "EMPLOYEE") {
+      return NextResponse.redirect(new URL("/worknest/dashboard", req.url));
+    }
+  }
+
   return NextResponse.next();
 });
 

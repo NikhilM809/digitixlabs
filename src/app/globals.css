@@ -159,3 +159,57 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--foreground);
 }
+
+/* Worknest (Project Management) theme */
+.worknest-theme {
+  --paper: #f3efe6;
+  --paper-card: #fffcf7;
+  --ink: #1b2430;
+  --muted: #5b6573;
+  --line: #ddd4c4;
+  --teal: #0b6e6a;
+  --teal-dark: #085753;
+  --navy: #15202e;
+  --navy-2: #1d2b3d;
+  --gold: #c47b1a;
+  --danger: #b42318;
+}
+
+.dark .worknest-theme {
+  --paper: #10151c;
+  --paper-card: #171e28;
+  --ink: #e8e4db;
+  --muted: #9aa3b0;
+  --line: #2a3544;
+  --teal: #3cb8b1;
+  --teal-dark: #2a9e98;
+  --navy: #0c1117;
+  --navy-2: #141b24;
+  --gold: #e0a04a;
+  --danger: #f97066;
+}
+
+.worknest-theme {
+  @theme inline {
+    --color-paper: var(--paper);
+    --color-paper-card: var(--paper-card);
+    --color-ink: var(--ink);
+    --color-muted: var(--muted);
+    --color-line: var(--line);
+    --color-teal: var(--teal);
+    --color-teal-dark: var(--teal-dark);
+    --color-navy: var(--navy);
+    --color-navy-2: var(--navy-2);
+    --color-gold: var(--gold);
+    --color-danger: var(--danger);
+  }
+}
+
+.worknest-theme,
+.worknest-theme .bg-paper { background: var(--paper); color: var(--ink); }
+.worknest-theme .bg-paper-card { background: var(--paper-card); }
+.worknest-theme .bg-navy { background: var(--navy); }
+.worknest-theme .text-teal { color: var(--teal); }
+.worknest-theme .bg-gold { background: var(--gold); }
+.worknest-theme .border-line { border-color: var(--line); }
+.worknest-theme .font-display { font-family: var(--font-inter), system-ui, sans-serif; }
