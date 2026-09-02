@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { apiFetch } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
+import { OrgChartLayoutEditor } from "@/components/org/org-chart-layout-editor";
 import { formatDate } from "@/lib/utils";
 import type { UserStatus } from "@prisma/client";
 
@@ -224,6 +225,7 @@ export default function OrgHierarchyPage() {
   );
 
   const [drAssignUserId, setDrAssignUserId] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"reporting" | "layout">("reporting");
 
   const { data, isLoading } = useQuery({
     queryKey: ["org-hierarchy", search],
@@ -324,8 +326,30 @@ export default function OrgHierarchyPage() {
         <p className="text-muted-foreground mt-1">
           View and manage reporting relationships. KRA, leave, and other workflows use the assigned manager.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={viewMode === "reporting" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("reporting")}
+          >
+            Reporting Management
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === "layout" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("layout")}
+          >
+            Chart Layout
+          </Button>
+        </div>
       </div>
 
+      {viewMode === "layout" ? (
+        <OrgChartLayoutEditor currentUserId={session!.user!.id} />
+      ) : (
+      <>
       <div className="grid gap-6 lg:grid-cols-5">
         <Card glass className="lg:col-span-2">
           <CardHeader className="pb-3">
@@ -568,6 +592,8 @@ export default function OrgHierarchyPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </>
+      )}
     </motion.div>
   );
 }

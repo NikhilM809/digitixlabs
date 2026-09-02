@@ -9,6 +9,10 @@ import {
   getDirectReports,
   prepareOrgHierarchyDataset,
 } from "@/lib/org-hierarchy";
+import {
+  applyOrgChartLayoutToTree,
+} from "@/lib/org-chart-layout";
+import { getOrgChartLayout } from "@/lib/org-chart-layout-server";
 
 export async function GET(request: NextRequest) {
   const { error, user } = await requireAuth();
@@ -35,7 +39,9 @@ export async function GET(request: NextRequest) {
       topLevelEmployeeId,
       includeAdministrativePlaceholder: false,
     });
-    const filtered = filterOrgTree(tree, search);
+    const layout = await getOrgChartLayout();
+    const laidOut = applyOrgChartLayoutToTree(tree, layout);
+    const filtered = filterOrgTree(laidOut, search);
     const chart = enrichOrgChartTree(filtered, employees);
 
     const ancestorIds = findAncestorIds(tree, user.id) ?? [];
@@ -48,6 +54,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({
       tree: chart,
+      layout,
       currentUserId: user.id,
       expandPath: [...ancestorIds, user.id],
       topLevelEmployeeId,
