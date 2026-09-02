@@ -1,9 +1,20 @@
 /**
  * Seed or refresh the default Employee & Corporate Policy Handbook.
- * Run: npx tsx scripts/seed-company-policies.ts
+ * Run: npm run db:seed-policies
  */
-import { prisma } from "../src/lib/prisma";
+import "../scripts/load-env";
+import { requireDatabaseUrl } from "../scripts/load-env";
+
+requireDatabaseUrl();
+
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { DEFAULT_COMPANY_POLICIES } from "../src/lib/default-company-policies";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   for (const policy of DEFAULT_COMPANY_POLICIES) {
@@ -32,4 +43,7 @@ main()
     console.error(err);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  });
