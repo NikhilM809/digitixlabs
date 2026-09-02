@@ -34,7 +34,7 @@ export function canManageEmployees(role: RoleName) {
 }
 
 export function canManagePolicies(role: RoleName) {
-  return isAdminOrHr(role);
+  return role === "ADMIN";
 }
 
 export function canViewPolicies(role: RoleName) {

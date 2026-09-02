@@ -8,6 +8,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { ensureEmployeeRoles } from "../src/lib/employee-roles";
+import { DEFAULT_COMPANY_POLICIES } from "../src/lib/default-company-policies";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -577,25 +578,22 @@ async function main() {
     }
   }
 
-  // Seed company policies from default settings text
-  const settings = await prisma.companySettings.findFirst({ where: { id: "default" } });
-  if (settings?.leavePolicy) {
+  // Seed company policy handbook
+  for (const policy of DEFAULT_COMPANY_POLICIES) {
     await prisma.companyPolicy.upsert({
-      where: { id: "policy-leave" },
-      update: {},
-      create: {
-        id: "policy-leave",
-        title: "Leave Policy",
-        content: settings.leavePolicy,
-        sortOrder: 0,
+      where: { id: policy.id },
+      update: {
+        title: policy.title,
+        content: policy.content,
+        sortOrder: policy.sortOrder,
+        isActive: true,
       },
-    }).catch(async () => {
-      const existing = await prisma.companyPolicy.findFirst({ where: { title: "Leave Policy" } });
-      if (!existing) {
-        await prisma.companyPolicy.create({
-          data: { title: "Leave Policy", content: settings.leavePolicy!, sortOrder: 0 },
-        });
-      }
+      create: {
+        id: policy.id,
+        title: policy.title,
+        content: policy.content,
+        sortOrder: policy.sortOrder,
+      },
     });
   }
 
