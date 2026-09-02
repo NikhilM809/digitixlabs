@@ -5,8 +5,19 @@
  *   npx tsx scripts/reset-admin-password.ts
  *   npx tsx scripts/reset-admin-password.ts "YourNewPassword"
  */
+import "../scripts/load-env";
+import { requireDatabaseUrl } from "../scripts/load-env";
+
+requireDatabaseUrl();
+
 import bcrypt from "bcryptjs";
-import { prisma } from "../src/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 const ADMIN_EMAIL = "admin@digitixlabs.com";
 const DEFAULT_PASSWORD = "Admin@123";
@@ -48,4 +59,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });
