@@ -9,6 +9,11 @@ import {
   getDirectReports,
   prepareOrgHierarchyDataset,
 } from "@/lib/org-hierarchy";
+import {
+  applyOrgChartLayoutToTree,
+} from "@/lib/org-chart-layout";
+import { getOrgChartLayout } from "@/lib/org-chart-layout-server";
+import { wrapOrgTreeWithCompanyRoot } from "@/lib/org-company-root";
 
 export async function GET(request: NextRequest) {
   const { error, user } = await requireAuth();
@@ -25,17 +30,27 @@ export async function GET(request: NextRequest) {
 
   try {
     const search = request.nextUrl.searchParams.get("search") ?? "";
-    const { employees, topLevelEmployeeId } = await prepareOrgHierarchyDataset({
+    const { employees, topLevelEmployeeId, companyName } = await prepareOrgHierarchyDataset({
       includeInactive: false,
       viewerIsAdmin: false,
     });
 
-    const tree = buildOrgTree(employees, {
-      activeDirectReportsOnly: true,
-      topLevelEmployeeId,
-      includeAdministrativePlaceholder: false,
-    });
-    const filtered = filterOrgTree(tree, search);
+    const tree = wrapOrgTreeWithCompanyRoot(
+      buildOrgTree(employees, {
+        activeDirectReportsOnly: true,
+        topLevelEmployeeId,
+        includeAdministrativePlaceholder: false,
+      }),
+      companyName,
+      topLevelEmployeeId
+    );
+    const layout = await getOrgChartLayout();
+    const laidOut = applyOrgChartLayoutToTree(
+      tree,
+      layout,
+      topLevelEmployeeId
+    );
+    const filtered = filterOrgTree(laidOut, search);
     const chart = enrichOrgChartTree(filtered, employees);
 
     const ancestorIds = findAncestorIds(tree, user.id) ?? [];
@@ -48,6 +63,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({
       tree: chart,
+      layout,
       currentUserId: user.id,
       expandPath: [...ancestorIds, user.id],
       topLevelEmployeeId,

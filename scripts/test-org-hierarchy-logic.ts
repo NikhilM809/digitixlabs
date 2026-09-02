@@ -9,6 +9,10 @@ import {
   type OrgEmployee,
 } from "../src/lib/org-hierarchy";
 import { getAdministrativePlaceholderNodeId } from "../src/lib/org-administrative-position";
+import {
+  wrapOrgTreeWithCompanyRoot,
+  COMPANY_ROOT_NODE_ID,
+} from "../src/lib/org-company-root";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -108,13 +112,22 @@ const adminTree = buildOrgTree(withAssignee, {
     name: "DR (Administrative Placeholder)",
   },
 });
-const placeholderNode = adminTree[0].children.find((c) => c.isAdministrativePlaceholder);
-assert(!!placeholderNode, "admin tree includes placeholder node");
+const placeholderNode = adminTree.find((c) => c.isAdministrativePlaceholder);
+assert(!!placeholderNode, "admin tree includes placeholder as separate top-level root");
 assert(
   placeholderNode!.id === getAdministrativePlaceholderNodeId(placeholderId),
   "placeholder node uses stable id"
 );
 assert(placeholderNode!.children.length === 1, "placeholder contains assigned employee");
+assert(adminTree[0].id === "ceo", "system org root stays separate from DR placeholder");
+assert(adminTree.length === 2, "admin tree has system root and DR placeholder root");
+
+const companyTree = wrapOrgTreeWithCompanyRoot(topLevelTree, "DigitixLabs", "ceo");
+assert(companyTree.length === 1, "company wrap yields single company root");
+assert(companyTree[0].id === COMPANY_ROOT_NODE_ID, "company root id is stable");
+assert(companyTree[0].firstName === "DigitixLabs", "company root shows company name");
+assert(companyTree[0].children.length === 1, "company root keeps former top-level branches");
+assert(companyTree[0].isCompanyRoot === true, "company root flag set");
 
 const publicTree = buildOrgTree(withAssignee, {
   topLevelEmployeeId: "ceo",
