@@ -29,6 +29,18 @@ A modern, enterprise-grade Employee Leave & Attendance Management web applicatio
 - **DR (Administrative Placeholder)** — Admin-only planning node, shown separately on the right at top level; not visible to employees/managers
 - **My Team** — Managers/HR view direct and indirect reports
 
+### Worknest Project Management (`/worknest/*`)
+Integrated PM module (ported from digitix_flow) with Worknest branding, sharing HRMS auth and PostgreSQL:
+
+- **Projects** — Bid-to-close lifecycle, tasks, team assignments, status history
+- **Hours** — Time entry, review workflow, work-type breakdown
+- **Billing** — Unbilled tracking, approval exports, invoice generation (Admin)
+- **Dashboard** — Role-based views for Admin, Manager, and Employee
+- **Unified auth** — Same NextAuth session; HRMS roles map to Worknest Admin/Manager/Employee
+- **App switcher** — HRMS sidebar links to Worknest; Worknest shell links back to HRMS
+
+Routes live under `/worknest/*` (e.g. `/worknest/dashboard`, `/worknest/projects`) so they do not collide with HRMS paths.
+
 ### User Roles
 | Role | Capabilities |
 |------|-------------|
