@@ -48,7 +48,7 @@ export async function ensureCatalog() {
     `UPDATE "WnProject" SET "initialEstimatedHours" = "estimatedHours" WHERE "initialEstimatedHours" = 0 AND "estimatedHours" > 0`,
   );
   await prisma.$executeRawUnsafe(
-    `UPDATE "WnProject" SET "programmerHours" = ROUND("estimatedHours" * 0.6, 1), "qaHours" = ROUND("estimatedHours" * 0.3, 1), "marginHours" = ROUND("estimatedHours" - ROUND("estimatedHours" * 0.6, 1) - ROUND("estimatedHours" * 0.3, 1), 1) WHERE "programmerHours" = 0 AND "estimatedHours" > 0`,
+    `UPDATE "WnProject" SET "programmerHours" = ROUND(("estimatedHours" * 0.6)::numeric, 1)::double precision, "qaHours" = ROUND(("estimatedHours" * 0.3)::numeric, 1)::double precision, "marginHours" = ROUND(("estimatedHours" - ROUND(("estimatedHours" * 0.6)::numeric, 1) - ROUND(("estimatedHours" * 0.3)::numeric, 1))::numeric, 1)::double precision WHERE "programmerHours" = 0 AND "estimatedHours" > 0`,
   );
   return {
     clients: await prisma.wnClient.findMany({ where: { active: true }, orderBy: { name: "asc" } }),

@@ -74,7 +74,7 @@ export async function getSettings() {
       etaWarningDays: 7,
       invoicePrefix: "PP/DXL",
       currency: "INR",
-      logoUrl: "/logo.png",
+      logoUrl: "/digitix-logo.png",
     },
   });
 }
