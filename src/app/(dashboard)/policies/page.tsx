@@ -17,6 +17,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -38,6 +39,11 @@ interface CompanyPolicy {
   content: string;
   sortOrder: number;
 }
+
+type SavePolicyPayload = {
+  data: CompanyPolicyInput;
+  policyId?: string;
+};
 
 export default function PoliciesPage() {
   const { data: session, status } = useSession();
@@ -83,9 +89,9 @@ export default function PoliciesPage() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: (data: CompanyPolicyInput) => {
-      if (editingPolicy) {
-        return apiFetch<CompanyPolicy>(`/api/policies/${editingPolicy.id}`, {
+    mutationFn: ({ data, policyId }: SavePolicyPayload) => {
+      if (policyId) {
+        return apiFetch<CompanyPolicy>(`/api/policies/${policyId}`, {
           method: "PATCH",
           body: JSON.stringify(data),
         });
@@ -95,9 +101,9 @@ export default function PoliciesPage() {
         body: JSON.stringify(data),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["policies"] });
-      toast.success(editingPolicy ? "Policy updated" : "Policy added");
+      toast.success(variables.policyId ? "Policy updated" : "Policy added");
       closeDialog();
     },
     onError: (err: Error) => toast.error(err.message),
@@ -112,6 +118,13 @@ export default function PoliciesPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const handleSave = (data: CompanyPolicyInput) => {
+    saveMutation.mutate({
+      data,
+      policyId: editingPolicy?.id,
+    });
+  };
 
   if (status === "loading") {
     return <Skeleton className="h-96 w-full rounded-2xl" />;
@@ -168,45 +181,43 @@ export default function PoliciesPage() {
           {policies.map((policy) => (
             <Card key={policy.id} glass>
               <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-base">{policy.title}</CardTitle>
-                    {!canManage && (
-                      <CardDescription className="mt-1">Company policy</CardDescription>
-                    )}
-                  </div>
-                  {canManage && (
-                    <div className="flex shrink-0 gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(policy)}
-                        aria-label={`Edit ${policy.title}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (confirm(`Remove policy section "${policy.title}"?`)) {
-                            deleteMutation.mutate(policy.id);
-                          }
-                        }}
-                        aria-label={`Remove ${policy.title}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <CardTitle className="text-base">{policy.title}</CardTitle>
+                {!canManage && (
+                  <CardDescription className="mt-1">Company policy</CardDescription>
+                )}
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
                   {policy.content}
                 </p>
               </CardContent>
+              {canManage && (
+                <CardFooter className="flex justify-end gap-2 border-t border-border/50 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditDialog(policy)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Section
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (confirm(`Remove policy section "${policy.title}"?`)) {
+                        deleteMutation.mutate(policy.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           ))}
         </div>
@@ -225,10 +236,7 @@ export default function PoliciesPage() {
                   : "Create a new section in the Employee & Corporate Policy Handbook"}
               </DialogDescription>
             </DialogHeader>
-            <form
-              onSubmit={form.handleSubmit((data) => saveMutation.mutate(data))}
-              className="space-y-4"
-            >
+            <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Section Title</Label>
                 <Input id="title" placeholder="e.g. 9. Travel Policy" {...form.register("title")} />
