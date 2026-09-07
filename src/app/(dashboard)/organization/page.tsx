@@ -16,11 +16,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { OrgChart, type OrgChartNodeData } from "@/components/org/org-chart";
+import type { OrgChartLayoutSettings } from "@/lib/org-chart-layout";
 import { apiFetch } from "@/lib/client-api";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface ChartResponse {
   tree: OrgChartNodeData[];
+  layout?: OrgChartLayoutSettings;
   currentUserId: string;
   expandPath: string[];
   self: {
@@ -157,6 +159,7 @@ export default function OrganizationPage() {
             <OrgChart
               tree={data.tree}
               currentUserId={data.currentUserId}
+              layout={data.layout}
               searchQuery={search}
               onSearch={setSearch}
             />

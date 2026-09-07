@@ -62,7 +62,7 @@ export default function SettingsPage() {
   const form = useForm<CompanySettingsInput>({
     resolver: zodResolver(companySettingsSchema),
     defaultValues: {
-      companyName: "Digitix Labs",
+      companyName: "DigitixLabs",
       companyEmail: "",
       companyTan: "",
       companyLogo: "",
@@ -286,8 +286,8 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Organization View always starts from this employee and shows only their
-                  reporting subtree.
+                  Organization View starts from this employee&apos;s subtree, displayed under the
+                  company name ({form.watch("companyName") || "DigitixLabs"}) at the top of the chart.
                 </p>
               </div>
             </CardContent>

@@ -16,15 +16,16 @@ function endOfDay(date = new Date()) {
   return d;
 }
 
+
 function getLast6Months() {
   const months: { label: string; year: number; month: number }[] = [];
   const now = new Date();
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() - i, 1));
     months.push({
-      label: d.toLocaleString("en-IN", { month: "short" }),
-      year: d.getFullYear(),
-      month: d.getMonth(),
+      label: d.toLocaleString("en-IN", { month: "short", timeZone: "UTC" }),
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth(),
     });
   }
   return months;
@@ -36,6 +37,9 @@ function buildEmployeeScope(role: RoleName, userId: string) {
   }
   if (role === RoleName.MANAGER) {
     return { OR: [{ managerId: userId }, { id: userId }], status: "ACTIVE" as const };
+  }
+  if (role === RoleName.HR) {
+    return { status: "ACTIVE" as const };
   }
   return { id: userId };
 }
@@ -133,7 +137,7 @@ export async function GET() {
             gte: new Date(today.getFullYear(), today.getMonth() - 5, 1),
           },
         },
-        select: { date: true, status: true },
+        select: { date: true, status: true, isLate: true },
       }),
 
       prisma.leaveRequest.findMany({
@@ -234,15 +238,23 @@ export async function GET() {
     const attendanceTrend = months.map(({ label, year, month }) => {
       const monthAttendances = attendances.filter((a) => {
         const d = new Date(a.date);
-        return d.getFullYear() === year && d.getMonth() === month;
+        return d.getUTCFullYear() === year && d.getUTCMonth() === month;
       });
+      const present = monthAttendances.filter(
+        (a) =>
+          ["PRESENT", "WORK_FROM_HOME", "HALF_DAY"].includes(a.status) &&
+          a.status !== "LATE" &&
+          !a.isLate,
+      ).length;
+      const late = monthAttendances.filter(
+        (a) => a.status === "LATE" || a.isLate,
+      ).length;
+      const absent = monthAttendances.filter((a) => a.status === "ABSENT").length;
       return {
         month: label,
-        present: monthAttendances.filter((a) =>
-          ["PRESENT", "WORK_FROM_HOME"].includes(a.status)
-        ).length,
-        absent: monthAttendances.filter((a) => a.status === "ABSENT").length,
-        late: monthAttendances.filter((a) => a.status === "LATE").length,
+        present,
+        absent,
+        late,
       };
     });
 

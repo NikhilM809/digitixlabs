@@ -50,6 +50,7 @@ import {
 } from "@/lib/permissions";
 import { apiFetchArray } from "@/lib/client-api";
 import { ExcelImportDialog } from "@/components/admin/excel-import-dialog";
+import { LeaveAttachmentField } from "@/components/leave/leave-attachment-field";
 
 interface LeaveType {
   id: string;
@@ -119,6 +120,7 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
     control,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<LeaveApplicationInput>({
     resolver: zodResolver(leaveApplicationSchema) as Resolver<LeaveApplicationInput>,
@@ -189,21 +191,13 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="attachment">Supporting Document (optional)</Label>
-            <Input
-              id="attachment"
-              type="url"
-              placeholder="Paste document URL (required for Sick Leave)"
-              {...register("attachment")}
-            />
-            {errors.attachment && (
-              <p className="text-sm text-destructive">{errors.attachment.message}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Required for leave types that need medical or supporting documents.
-            </p>
-          </div>
+          <LeaveAttachmentField
+            value={watch("attachment")}
+            onChange={(url) => setValue("attachment", url)}
+          />
+          {errors.attachment && (
+            <p className="text-sm text-destructive">{errors.attachment.message}</p>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="reason">Reason</Label>
@@ -245,9 +239,11 @@ function ApplyLeaveForm({ leaveTypes }: { leaveTypes: LeaveType[] }) {
 function AdminApplyLeaveForm({
   leaveTypes,
   employees,
+  isAdmin,
 }: {
   leaveTypes: LeaveType[];
   employees: EmployeeOption[];
+  isAdmin?: boolean;
 }) {
   const queryClient = useQueryClient();
 
@@ -284,7 +280,10 @@ function AdminApplyLeaveForm({
     <Card glass>
       <CardHeader>
         <CardTitle>Apply Leave on Behalf</CardTitle>
-        <CardDescription>Submit a leave request for an employee (including back dates)</CardDescription>
+        <CardDescription>
+          Submit a leave request for an employee
+          {isAdmin ? " (admin: balance and document rules are not enforced)" : ", including back dates"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
@@ -348,6 +347,11 @@ function AdminApplyLeaveForm({
               )}
             </div>
           </div>
+
+          <LeaveAttachmentField
+            value={watch("attachment")}
+            onChange={(url) => setValue("attachment", url)}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="admin-reason">Reason</Label>
@@ -478,6 +482,7 @@ export default function LeavePage() {
   const role = session?.user?.role;
   const isMgr = role ? canApproveLeave(role) : false;
   const canApplyForOthers = role ? canApplyLeaveOnBehalf(role) : false;
+  const isAdmin = role === "ADMIN";
   const canEditBalance = role ? canEditLeaveBalance(role) : false;
   const canBulkManage = role ? canBulkManageLeaveBalances(role) : false;
   const userId = session?.user?.id;
@@ -631,7 +636,11 @@ export default function LeavePage() {
             {typesLoading ? (
               <Skeleton className="h-96 rounded-2xl" />
             ) : visibleLeaveTypes.length > 0 ? (
-              <AdminApplyLeaveForm leaveTypes={visibleLeaveTypes} employees={employees} />
+              <AdminApplyLeaveForm
+                leaveTypes={visibleLeaveTypes}
+                employees={employees}
+                isAdmin={isAdmin}
+              />
             ) : (
               <EmptyState
                 icon={CalendarDays}

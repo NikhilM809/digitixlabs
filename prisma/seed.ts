@@ -25,7 +25,7 @@ async function main() {
     update: {},
     create: {
       id: "default",
-      companyName: "Digitix Labs",
+      companyName: "DigitixLabs",
       companyLogo: "/digitix-logo.png",
       companyEmail: "info@digitixlabs.com",
       companyTan: "DELD12345A",
@@ -325,7 +325,7 @@ async function main() {
       where: { email: "sneha.gupta@digitixlabs.com" },
       update: {},
       create: {
-        employeeId: "DXL0005",
+        employeeId: "DXL0007",
         email: "sneha.gupta@digitixlabs.com",
         password: employeePassword,
         firstName: "Sneha",

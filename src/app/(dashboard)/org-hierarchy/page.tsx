@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { apiFetch } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
+import { OrgChartLayoutEditor } from "@/components/org/org-chart-layout-editor";
 import { formatDate } from "@/lib/utils";
 import type { UserStatus } from "@prisma/client";
 
@@ -59,7 +60,7 @@ interface OrgTreeNode {
   designation: { name: string } | null;
   children: OrgTreeNode[];
   isAdministrativePlaceholder?: boolean;
-  placeholderId?: string;
+  isCompanyRoot?: boolean;
 }
 
 interface ManagerOption {
@@ -172,13 +173,22 @@ function TreeNode({
           <span className="w-5" />
         )}
         <span className="font-medium truncate">
-          {node.isAdministrativePlaceholder
+          {node.isCompanyRoot
             ? node.firstName
-            : `${node.firstName} ${node.lastName}`}
+            : node.isAdministrativePlaceholder
+              ? node.firstName
+              : `${node.firstName} ${node.lastName}`}
         </span>
-        <span className="text-xs text-muted-foreground truncate">
-          ({node.employeeId})
-        </span>
+        {!node.isCompanyRoot && (
+          <span className="text-xs text-muted-foreground truncate">
+            ({node.employeeId})
+          </span>
+        )}
+        {node.isCompanyRoot && (
+          <Badge variant="outline" className="text-[10px]">
+            Company Root
+          </Badge>
+        )}
         {node.isAdministrativePlaceholder && (
           <Badge variant="warning" className="text-[10px]">
             Admin Placeholder
@@ -224,6 +234,7 @@ export default function OrgHierarchyPage() {
   );
 
   const [drAssignUserId, setDrAssignUserId] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"reporting" | "layout">("reporting");
 
   const { data, isLoading } = useQuery({
     queryKey: ["org-hierarchy", search],
@@ -240,7 +251,7 @@ export default function OrgHierarchyPage() {
       apiFetch<EmployeeDetailResponse>(
         `/api/org-hierarchy?userId=${selected!.id}`
       ),
-    enabled: !!selected?.id && isAdmin && !selected?.isAdministrativePlaceholder,
+    enabled: !!selected?.id && isAdmin && !selected?.isAdministrativePlaceholder && !selected?.isCompanyRoot,
   });
 
   const drAssignMutation = useMutation({
@@ -324,8 +335,30 @@ export default function OrgHierarchyPage() {
         <p className="text-muted-foreground mt-1">
           View and manage reporting relationships. KRA, leave, and other workflows use the assigned manager.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={viewMode === "reporting" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("reporting")}
+          >
+            Reporting Management
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === "layout" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("layout")}
+          >
+            Chart Layout
+          </Button>
+        </div>
       </div>
 
+      {viewMode === "layout" ? (
+        <OrgChartLayoutEditor currentUserId={session!.user!.id} />
+      ) : (
+      <>
       <div className="grid gap-6 lg:grid-cols-5">
         <Card glass className="lg:col-span-2">
           <CardHeader className="pb-3">
@@ -374,6 +407,31 @@ export default function OrgHierarchyPage() {
               <p className="py-12 text-center text-muted-foreground">
                 Select an employee from the tree to manage their reporting relationship.
               </p>
+            ) : selected.isCompanyRoot ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">{selected.firstName}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Company root shown at the top of the organization chart. The branches below
+                    belong to the configured top-level employee behind this node.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-brand-500/30 bg-brand-500/5 p-4 text-sm">
+                  <p className="font-medium mb-2">Direct branches ({selected.directReportCount})</p>
+                  <ul className="space-y-1">
+                    {selected.children.map((child) => (
+                      <li key={child.id}>
+                        {child.firstName} {child.lastName}
+                        {child.designation?.name ? ` · ${child.designation.name}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Change the company name in Settings → Company Profile. Change top-level employee
+                  in Settings → Organization Hierarchy.
+                </p>
+              </div>
             ) : selected.isAdministrativePlaceholder ? (
               <div className="space-y-4">
                 <div>
@@ -568,6 +626,8 @@ export default function OrgHierarchyPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </>
+      )}
     </motion.div>
   );
 }

@@ -15,6 +15,7 @@ import {
   getReportingHistory,
   prepareOrgHierarchyDataset,
 } from "@/lib/org-hierarchy";
+import { wrapOrgTreeWithCompanyRoot } from "@/lib/org-company-root";
 
 export async function GET(request: NextRequest) {
   const { error, user } = await requireAuth(["ADMIN"]);
@@ -81,18 +82,22 @@ export async function GET(request: NextRequest) {
       return apiSuccess({ employee, history });
     }
 
-    const { employees, topLevelEmployeeId, administrativePosition } =
+    const { employees, topLevelEmployeeId, companyName, administrativePosition } =
       await prepareOrgHierarchyDataset({
         includeInactive: false,
         viewerIsAdmin: true,
       });
 
-    const tree = buildOrgTree(employees, {
-      activeDirectReportsOnly: true,
-      topLevelEmployeeId,
-      includeAdministrativePlaceholder: true,
-      administrativePosition,
-    });
+    const tree = wrapOrgTreeWithCompanyRoot(
+      buildOrgTree(employees, {
+        activeDirectReportsOnly: true,
+        topLevelEmployeeId,
+        includeAdministrativePlaceholder: true,
+        administrativePosition,
+      }),
+      companyName,
+      topLevelEmployeeId
+    );
     const filtered = filterOrgTree(tree, search);
 
     const managerOptions = employees

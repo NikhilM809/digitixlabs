@@ -409,7 +409,7 @@ model LoginHistory {
 
 model CompanySettings {
   id              String   @id @default(cuid())
-  companyName     String   @default("Digitix Labs")
+  companyName     String   @default("DigitixLabs")
   companyLogo     String?
   companyEmail    String?
   companyTan      String?
@@ -426,6 +426,7 @@ model CompanySettings {
   orgHierarchyVisibleToManagers  Boolean @default(true)
   dependentDetailsEnabled        Boolean @default(false)
   topLevelEmployeeId             String?
+  orgChartLayoutJson             String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

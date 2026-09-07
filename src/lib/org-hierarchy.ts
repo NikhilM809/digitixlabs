@@ -28,6 +28,8 @@ export interface OrgTreeNode extends OrgEmployee {
   directReportCount: number;
   children: OrgTreeNode[];
   isAdministrativePlaceholder?: boolean;
+  isCompanyRoot?: boolean;
+  topLevelEmployeeId?: string;
   placeholderId?: string;
   placeholderCode?: string;
 }
@@ -62,6 +64,13 @@ export async function getTopLevelEmployeeId() {
     select: { topLevelEmployeeId: true },
   });
   return settings?.topLevelEmployeeId ?? null;
+}
+
+export async function getCompanyName() {
+  const settings = await prisma.companySettings.findFirst({
+    select: { companyName: true },
+  });
+  return settings?.companyName?.trim() || "DigitixLabs";
 }
 
 export async function fetchOrgEmployees(includeInactive = false) {
@@ -157,7 +166,7 @@ export function enrichOrgChartTree(
   const byId = new Map(employees.map((e) => [e.id, e]));
 
   function enrich(node: OrgTreeNode): OrgChartNode {
-    if (node.isAdministrativePlaceholder) {
+    if (node.isAdministrativePlaceholder || node.isCompanyRoot) {
       return {
         ...node,
         avatar: null,
@@ -297,26 +306,8 @@ export function buildOrgTree(
         ),
     };
 
-    if (topLevelEmployeeId && tree.length === 1) {
-      tree = [
-        {
-          ...tree[0],
-          children: [...tree[0].children, placeholderNode].sort((a, b) => {
-            if (a.isAdministrativePlaceholder) return 1;
-            if (b.isAdministrativePlaceholder) return -1;
-            return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-          }),
-          directReportCount:
-            tree[0].directReportCount + placeholderAssignees.length,
-        },
-      ];
-    } else {
-      tree = [...tree, placeholderNode].sort((a, b) => {
-        if (a.isAdministrativePlaceholder) return 1;
-        if (b.isAdministrativePlaceholder) return -1;
-        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-      });
-    }
+    // DR placeholder is always a separate top-level root (right column in chart layout).
+    tree = [...tree, placeholderNode];
   }
 
   return tree;
@@ -330,6 +321,7 @@ export function filterOrgTree(nodes: OrgTreeNode[], query: string): OrgTreeNode[
     const label = `${node.firstName} ${node.lastName}`.toLowerCase();
     const matches =
       node.isAdministrativePlaceholder ||
+      node.isCompanyRoot ||
       node.firstName.toLowerCase().includes(q) ||
       node.lastName.toLowerCase().includes(q) ||
       node.employeeId.toLowerCase().includes(q) ||
@@ -575,6 +567,7 @@ export async function prepareOrgHierarchyDataset(options: {
   }
 
   const topLevelEmployeeId = await getTopLevelEmployeeId();
+  const companyName = await getCompanyName();
   const administrativePosition =
     viewerIsAdmin ? await prisma.orgAdministrativePosition.findFirst({
       where: { code: "DR", isActive: true },
@@ -591,6 +584,7 @@ export async function prepareOrgHierarchyDataset(options: {
   return {
     employees,
     topLevelEmployeeId,
+    companyName,
     administrativePosition,
   };
 }

@@ -62,7 +62,7 @@ export function canEditLeaveBalance(role: RoleName) {
 }
 
 export function canApplyLeaveOnBehalf(role: RoleName) {
-  return isAdminOrHr(role);
+  return role === "ADMIN" || role === "HR" || role === "MANAGER";
 }
 
 export function canUploadPayslip(role: RoleName) {
