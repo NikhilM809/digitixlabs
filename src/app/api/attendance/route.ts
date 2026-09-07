@@ -18,6 +18,7 @@ import {
   parseScheduleTimeToMinutes,
 } from "@/lib/company-timezone";
 import { calculateWorkingHours } from "@/lib/attendance-hours";
+import { autoCloseForgottenCheckouts } from "@/lib/forgotten-checkout";
 
 async function getAttendanceUserFilter(role: RoleName, userId: string, requestedUserId?: string | null) {
   if (role === RoleName.ADMIN || role === RoleName.HR) {
@@ -171,6 +172,8 @@ export async function POST(request: Request) {
         return apiError("Already checked in today", 400);
       }
 
+      await autoCloseForgottenCheckouts(user.id, now, timeZone, "check-in");
+
       const isLate = isLateForSchedule(
         now,
         workStartTime,
@@ -238,8 +241,7 @@ export async function POST(request: Request) {
       new Date(existing.checkIn),
       now,
       today,
-      timeZone,
-      workEndTime
+      timeZone
     );
 
     const attendance = await prisma.attendance.update({

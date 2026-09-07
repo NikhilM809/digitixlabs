@@ -79,8 +79,7 @@ export async function computeAttendanceMetrics(params: {
       checkIn,
       checkOut,
       attendanceDate,
-      timeZone,
-      schedule.workEndTime
+      timeZone
     );
     const checkoutMinutes = getMinutesSinceMidnightInZone(checkOut, timeZone);
     const workEndMinutes = parseScheduleTimeToMinutes(schedule.workEndTime);
