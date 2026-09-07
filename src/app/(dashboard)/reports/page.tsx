@@ -141,11 +141,20 @@ function ReportTable({
               key={i}
               className="border-b border-border/50 hover:bg-muted/30 transition-colors"
             >
-              {headers.map((header) => (
-                <td key={header} className="px-4 py-2.5 whitespace-nowrap">
-                  {String(row[header] ?? "-")}
-                </td>
-              ))}
+              {headers.map((header) => {
+                const value = row[header];
+                const display =
+                  value === "" || value === null || value === undefined
+                    ? "—"
+                    : typeof value === "number"
+                      ? value.toFixed(2)
+                      : String(value);
+                return (
+                  <td key={header} className="px-4 py-2.5 whitespace-nowrap">
+                    {display}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

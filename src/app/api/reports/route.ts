@@ -5,7 +5,16 @@ import {
   getCompanyTimezone,
   formatDateTimeInZone,
   attendanceDateFromString,
+  getDateStringInZone,
 } from "@/lib/company-timezone";
+import {
+  expandToMonthBounds,
+  expandToWeekBounds,
+  monthKeyInZone,
+  resolveWorkingHours,
+  roundHours,
+  weekKeyInZone,
+} from "@/lib/attendance-hours";
 
 async function getManagerUserFilter(userId: string) {
   const team = await prisma.user.findMany({
@@ -15,32 +24,59 @@ async function getManagerUserFilter(userId: string) {
   return { in: [userId, ...team.map((t) => t.id)] };
 }
 
-function weekKey(date: Date) {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() - day + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-function monthKey(date: Date) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
 function buildHoursTotals(
-  records: { userId: string; date: Date; workingHours: number | null }[],
+  records: {
+    userId: string;
+    date: Date;
+    checkIn: Date | null;
+    checkOut: Date | null;
+    workingHours: number | null;
+  }[],
+  timeZone: string,
 ) {
   const weekly = new Map<string, number>();
   const monthly = new Map<string, number>();
 
   for (const record of records) {
-    const hours = record.workingHours ?? 0;
-    const wKey = `${record.userId}:${weekKey(record.date)}`;
-    const mKey = `${record.userId}:${monthKey(record.date)}`;
-    weekly.set(wKey, (weekly.get(wKey) ?? 0) + hours);
-    monthly.set(mKey, (monthly.get(mKey) ?? 0) + hours);
+    const hours = resolveWorkingHours(
+      record.date,
+      record.checkIn,
+      record.checkOut,
+      record.workingHours,
+      timeZone,
+    );
+    const wKey = `${record.userId}:${weekKeyInZone(record.date, timeZone)}`;
+    const mKey = `${record.userId}:${monthKeyInZone(record.date, timeZone)}`;
+    weekly.set(wKey, roundHours((weekly.get(wKey) ?? 0) + hours));
+    monthly.set(mKey, roundHours((monthly.get(mKey) ?? 0) + hours));
   }
 
   return { weekly, monthly };
+}
+
+function getExpandedHoursRange(
+  records: { date: Date }[],
+  timeZone: string,
+) {
+  if (records.length === 0) return null;
+
+  let min = records[0].date;
+  let max = records[0].date;
+  for (const record of records) {
+    if (record.date < min) min = record.date;
+    if (record.date > max) max = record.date;
+  }
+
+  const minMonth = expandToMonthBounds(monthKeyInZone(min, timeZone));
+  const maxMonth = expandToMonthBounds(monthKeyInZone(max, timeZone));
+  const minWeek = expandToWeekBounds(weekKeyInZone(min, timeZone));
+  const maxWeek = expandToWeekBounds(weekKeyInZone(max, timeZone));
+
+  const start = new Date(Math.min(minMonth.start.getTime(), minWeek.start.getTime()));
+  const end = new Date(Math.max(maxMonth.end.getTime(), maxWeek.end.getTime()));
+  end.setUTCHours(23, 59, 59, 999);
+
+  return { start, end };
 }
 
 export async function GET(req: NextRequest) {
@@ -99,29 +135,74 @@ export async function GET(req: NextRequest) {
         });
 
         const userIds = [...new Set(records.map((r) => r.userId))];
-        const hoursSource = await prisma.attendance.findMany({
-          where: {
-            userId: { in: userIds },
-            ...(dateFilter ? { date: dateFilter } : {}),
-          },
-          select: { userId: true, date: true, workingHours: true },
-        });
-        const { weekly, monthly } = buildHoursTotals(hoursSource);
+        const expandedRange = getExpandedHoursRange(records, timeZone);
+
+        const hoursSource = expandedRange
+          ? await prisma.attendance.findMany({
+              where: {
+                userId: { in: userIds },
+                date: { gte: expandedRange.start, lte: expandedRange.end },
+              },
+              select: {
+                userId: true,
+                date: true,
+                checkIn: true,
+                checkOut: true,
+                workingHours: true,
+              },
+            })
+          : [];
+
+        const { weekly, monthly } = buildHoursTotals(hoursSource, timeZone);
+
+        const lastWeeklyRow = new Map<string, string>();
+        const lastMonthlyRow = new Map<string, string>();
+
+        for (const record of records) {
+          const dateKey = getDateStringInZone(record.date, timeZone);
+          const weekKey = `${record.userId}:${weekKeyInZone(record.date, timeZone)}`;
+          const monthKey = `${record.userId}:${monthKeyInZone(record.date, timeZone)}`;
+
+          const existingWeek = lastWeeklyRow.get(weekKey);
+          if (!existingWeek || dateKey > existingWeek) {
+            lastWeeklyRow.set(weekKey, dateKey);
+          }
+
+          const existingMonth = lastMonthlyRow.get(monthKey);
+          if (!existingMonth || dateKey > existingMonth) {
+            lastMonthlyRow.set(monthKey, dateKey);
+          }
+        }
 
         return apiSuccess(
-          records.map((r) => ({
-            date: r.date.toISOString().split("T")[0],
-            employeeId: r.user.employeeId,
-            employeeName: `${r.user.firstName} ${r.user.lastName}`,
-            department: r.user.department?.name ?? "-",
-            status: r.status,
-            checkIn: r.checkIn ? formatDateTimeInZone(r.checkIn, timeZone) : "-",
-            checkOut: r.checkOut ? formatDateTimeInZone(r.checkOut, timeZone) : "-",
-            workingHours: r.workingHours ?? 0,
-            weeklyHours: weekly.get(`${r.userId}:${weekKey(r.date)}`) ?? 0,
-            monthlyHours: monthly.get(`${r.userId}:${monthKey(r.date)}`) ?? 0,
-            isLate: r.isLate,
-          }))
+          records.map((r) => {
+            const dateKey = getDateStringInZone(r.date, timeZone);
+            const weekKey = `${r.userId}:${weekKeyInZone(r.date, timeZone)}`;
+            const monthKey = `${r.userId}:${monthKeyInZone(r.date, timeZone)}`;
+            const workingHours = resolveWorkingHours(
+              r.date,
+              r.checkIn,
+              r.checkOut,
+              r.workingHours,
+              timeZone,
+            );
+            const weeklyTotal = weekly.get(weekKey) ?? 0;
+            const monthlyTotal = monthly.get(monthKey) ?? 0;
+
+            return {
+              date: r.date.toISOString().split("T")[0],
+              employeeId: r.user.employeeId,
+              employeeName: `${r.user.firstName} ${r.user.lastName}`,
+              department: r.user.department?.name ?? "-",
+              status: r.status,
+              checkIn: r.checkIn ? formatDateTimeInZone(r.checkIn, timeZone) : "-",
+              checkOut: r.checkOut ? formatDateTimeInZone(r.checkOut, timeZone) : "-",
+              workingHours,
+              weeklyHours: lastWeeklyRow.get(weekKey) === dateKey ? weeklyTotal : "",
+              monthlyHours: lastMonthlyRow.get(monthKey) === dateKey ? monthlyTotal : "",
+              isLate: r.isLate,
+            };
+          })
         );
       }
 

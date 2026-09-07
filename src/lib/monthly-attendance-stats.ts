@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { resolveWorkingHours, roundHours } from "@/lib/attendance-hours";
+import { getCompanyTimezone } from "@/lib/company-timezone";
 import { formatLocalDate, parseLocalDate } from "@/lib/utils";
 
 /** Show monthly working hours on payslips from September 2026 onwards */
@@ -57,13 +59,15 @@ export async function computeMonthlyPayslipAttendance(
   const monthStartUtc = new Date(Date.UTC(year, month - 1, 1));
   const monthEndUtc = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
+  const timeZone = await getCompanyTimezone();
+
   const [attendanceRecords, balances, leaveTypes] = await Promise.all([
     prisma.attendance.findMany({
       where: {
         userId,
         date: { gte: monthStartUtc, lte: monthEndUtc },
       },
-      select: { workingHours: true },
+      select: { workingHours: true, checkIn: true, checkOut: true, date: true },
     }),
     prisma.leaveBalance.findMany({
       where: { userId, year },
@@ -75,9 +79,19 @@ export async function computeMonthlyPayslipAttendance(
     }),
   ]);
 
-  const monthlyWorkingHours = attendanceRecords.reduce(
-    (sum, record) => sum + (record.workingHours ?? 0),
-    0
+  const monthlyWorkingHours = roundHours(
+    attendanceRecords.reduce(
+      (sum, record) =>
+        sum +
+        resolveWorkingHours(
+          record.date,
+          record.checkIn,
+          record.checkOut,
+          record.workingHours,
+          timeZone,
+        ),
+      0,
+    ),
   );
 
   const leaveTypeMap = new Map(leaveTypes.map((type) => [type.id, type]));
@@ -145,7 +159,7 @@ export async function computeMonthlyPayslipAttendance(
   return {
     daysPresent,
     totalDaysInMonth,
-    monthlyWorkingHours: Math.round(monthlyWorkingHours * 100) / 100,
+    monthlyWorkingHours,
     showMonthlyWorkingHours: shouldShowMonthlyWorkingHours(month, year),
   };
 }
