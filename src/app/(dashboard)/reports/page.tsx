@@ -29,7 +29,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiFetch } from "@/lib/client-api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { apiFetch, apiFetchArray } from "@/lib/client-api";
 import {
   exportToCsv,
   exportToExcel,
@@ -147,15 +154,29 @@ function ReportTable({
   );
 }
 
-function ReportPanel({ type, from, to }: { type: ReportType; from: string; to: string }) {
+function ReportPanel({
+  type,
+  from,
+  to,
+  employeeId,
+  isLate,
+}: {
+  type: ReportType;
+  from: string;
+  to: string;
+  employeeId: string;
+  isLate: string;
+}) {
   const params = new URLSearchParams({ type });
   if (from && to) {
     params.set("from", from);
     params.set("to", to);
   }
+  if (employeeId) params.set("employeeId", employeeId);
+  if (type === "attendance" && isLate !== "all") params.set("isLate", isLate);
 
   const { data: rows = [], isLoading, isFetching } = useQuery({
-    queryKey: ["reports", type, from, to],
+    queryKey: ["reports", type, from, to, employeeId, isLate],
     queryFn: () => apiFetch<ExportRow[]>(`/api/reports?${params.toString()}`),
   });
 
@@ -184,6 +205,17 @@ export default function ReportsPage() {
   );
   const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [activeTab, setActiveTab] = useState<ReportType>("attendance");
+  const [employeeId, setEmployeeId] = useState("all");
+  const [isLate, setIsLate] = useState("all");
+
+  const { data: employees = [] } = useQuery({
+    queryKey: ["report-employees"],
+    queryFn: () =>
+      apiFetchArray<{ id: string; employeeId: string; firstName: string; lastName: string }>(
+        "/api/employees?activeOnly=true"
+      ),
+    enabled: canAccess,
+  });
 
   if (status === "loading") {
     return <Skeleton className="h-96 w-full rounded-2xl" />;
@@ -225,11 +257,11 @@ export default function ReportsPage() {
             Date Range
           </CardTitle>
           <CardDescription>
-            Applies to Attendance and Leave reports
+            Applies to Attendance and Leave reports. Attendance also supports employee and late filters.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 max-w-md">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 max-w-4xl">
             <div className="space-y-2">
               <Label htmlFor="fromDate">From</Label>
               <Input
@@ -248,6 +280,39 @@ export default function ReportsPage() {
                 onChange={(e) => setToDate(e.target.value)}
               />
             </div>
+            {(activeTab === "attendance" || activeTab === "leave") && (
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Select value={employeeId} onValueChange={setEmployeeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All employees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All employees</SelectItem>
+                    {employees.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeId})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {activeTab === "attendance" && (
+              <div className="space-y-2">
+                <Label>Late status</Label>
+                <Select value={isLate} onValueChange={setIsLate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All records" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All records</SelectItem>
+                    <SelectItem value="true">Late only</SelectItem>
+                    <SelectItem value="false">On time only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -266,16 +331,28 @@ export default function ReportsPage() {
             </TabsList>
 
             <TabsContent value="attendance">
-              <ReportPanel type="attendance" from={fromDate} to={toDate} />
+              <ReportPanel
+                type="attendance"
+                from={fromDate}
+                to={toDate}
+                employeeId={employeeId === "all" ? "" : employeeId}
+                isLate={isLate}
+              />
             </TabsContent>
             <TabsContent value="leave">
-              <ReportPanel type="leave" from={fromDate} to={toDate} />
+              <ReportPanel
+                type="leave"
+                from={fromDate}
+                to={toDate}
+                employeeId={employeeId === "all" ? "" : employeeId}
+                isLate="all"
+              />
             </TabsContent>
             <TabsContent value="employee">
-              <ReportPanel type="employee" from={fromDate} to={toDate} />
+              <ReportPanel type="employee" from={fromDate} to={toDate} employeeId="" isLate="all" />
             </TabsContent>
             <TabsContent value="department">
-              <ReportPanel type="department" from={fromDate} to={toDate} />
+              <ReportPanel type="department" from={fromDate} to={toDate} employeeId="" isLate="all" />
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -67,8 +67,9 @@ export function AttendanceTrendChart({ data }: AttendanceTrendChartProps) {
               borderRadius: "12px",
             }}
           />
-          <Area type="monotone" dataKey="present" stroke="#0693e3" fill="url(#colorPresent)" strokeWidth={2} />
-          <Area type="monotone" dataKey="late" stroke="#ff6900" fill="transparent" strokeWidth={2} />
+          <Area type="monotone" dataKey="present" name="Present" stroke="#0693e3" fill="url(#colorPresent)" strokeWidth={2} />
+          <Area type="monotone" dataKey="late" name="Late" stroke="#ff6900" fill="transparent" strokeWidth={2} />
+          <Area type="monotone" dataKey="absent" name="Absent" stroke="#ef4444" fill="transparent" strokeWidth={2} strokeDasharray="4 4" />
         </AreaChart>
       </ResponsiveContainer>
     </ChartCard>

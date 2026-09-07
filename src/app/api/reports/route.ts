@@ -15,6 +15,34 @@ async function getManagerUserFilter(userId: string) {
   return { in: [userId, ...team.map((t) => t.id)] };
 }
 
+function weekKey(date: Date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() - day + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function monthKey(date: Date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function buildHoursTotals(
+  records: { userId: string; date: Date; workingHours: number | null }[],
+) {
+  const weekly = new Map<string, number>();
+  const monthly = new Map<string, number>();
+
+  for (const record of records) {
+    const hours = record.workingHours ?? 0;
+    const wKey = `${record.userId}:${weekKey(record.date)}`;
+    const mKey = `${record.userId}:${monthKey(record.date)}`;
+    weekly.set(wKey, (weekly.get(wKey) ?? 0) + hours);
+    monthly.set(mKey, (monthly.get(mKey) ?? 0) + hours);
+  }
+
+  return { weekly, monthly };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { error, user } = await requireAuth(["ADMIN", "MANAGER"]);
@@ -24,6 +52,8 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get("type") ?? "attendance";
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const employeeId = searchParams.get("employeeId");
+    const isLateParam = searchParams.get("isLate");
 
     const timeZone = await getCompanyTimezone();
 
@@ -40,14 +70,23 @@ export async function GET(req: NextRequest) {
 
     switch (type) {
       case "attendance": {
+        const where = {
+          ...(dateFilter ? { date: dateFilter } : {}),
+          ...(managerUserFilter ? { userId: managerUserFilter } : {}),
+          ...(employeeId ? { userId: employeeId } : {}),
+          ...(isLateParam === "true"
+            ? { isLate: true }
+            : isLateParam === "false"
+              ? { isLate: false }
+              : {}),
+        };
+
         const records = await prisma.attendance.findMany({
-          where: {
-            ...(dateFilter ? { date: dateFilter } : {}),
-            ...(managerUserFilter ? { userId: managerUserFilter } : {}),
-          },
+          where,
           include: {
             user: {
               select: {
+                id: true,
                 employeeId: true,
                 firstName: true,
                 lastName: true,
@@ -55,9 +94,19 @@ export async function GET(req: NextRequest) {
               },
             },
           },
-          orderBy: { date: "desc" },
+          orderBy: [{ date: "desc" }, { user: { firstName: "asc" } }],
           take: 500,
         });
+
+        const userIds = [...new Set(records.map((r) => r.userId))];
+        const hoursSource = await prisma.attendance.findMany({
+          where: {
+            userId: { in: userIds },
+            ...(dateFilter ? { date: dateFilter } : {}),
+          },
+          select: { userId: true, date: true, workingHours: true },
+        });
+        const { weekly, monthly } = buildHoursTotals(hoursSource);
 
         return apiSuccess(
           records.map((r) => ({
@@ -69,6 +118,8 @@ export async function GET(req: NextRequest) {
             checkIn: r.checkIn ? formatDateTimeInZone(r.checkIn, timeZone) : "-",
             checkOut: r.checkOut ? formatDateTimeInZone(r.checkOut, timeZone) : "-",
             workingHours: r.workingHours ?? 0,
+            weeklyHours: weekly.get(`${r.userId}:${weekKey(r.date)}`) ?? 0,
+            monthlyHours: monthly.get(`${r.userId}:${monthKey(r.date)}`) ?? 0,
             isLate: r.isLate,
           }))
         );
@@ -78,6 +129,7 @@ export async function GET(req: NextRequest) {
         const records = await prisma.leaveRequest.findMany({
           where: {
             ...(managerUserFilter ? { userId: managerUserFilter } : {}),
+            ...(employeeId ? { userId: employeeId } : {}),
             ...(dateFilter
               ? {
                   fromDate: { lte: dateFilter.lte },

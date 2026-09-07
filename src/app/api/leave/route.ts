@@ -127,10 +127,13 @@ export async function POST(request: Request) {
     if (onBehalf) {
       const employee = await prisma.user.findUnique({
         where: { id: targetUserId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, managerId: true },
       });
       if (!employee || employee.status !== "ACTIVE") {
         return apiError("Invalid employee", 400);
+      }
+      if (user.role === RoleName.MANAGER && employee.managerId !== user.id) {
+        return apiError("You can only apply leave for your direct reports", 403);
       }
     }
 
@@ -149,9 +152,7 @@ export async function POST(request: Request) {
       return apiError("This leave type is no longer available", 400);
     }
 
-    if (leaveType.requiresAttachment && !data.attachment) {
-      return apiError("Attachment is required for this leave type", 400);
-    }
+    const skipLeaveValidations = onBehalf && user.role === RoleName.ADMIN;
 
     const totalDays = calculateLeaveDays(fromDate, toDate);
 
@@ -174,7 +175,7 @@ export async function POST(request: Request) {
       ? balance.totalDays - balance.usedDays - balance.pendingDays
       : leaveType.defaultDays;
 
-    if (totalDays > availableDays) {
+    if (!skipLeaveValidations && totalDays > availableDays) {
       return apiError(
         `Insufficient leave balance. Available: ${availableDays} days`,
         400
