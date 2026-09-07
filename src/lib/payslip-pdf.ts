@@ -30,8 +30,11 @@ export interface PayslipPdfData {
   reimbursement?: number;
   deductions: number;
   netSalary: number;
+  /** @deprecated use daysPresent */
   payableDays?: number;
+  daysPresent?: number;
   totalDaysInMonth?: number;
+  monthlyWorkingHours?: number;
   generatedAt?: Date;
 }
 
@@ -118,7 +121,7 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
   doc.setTextColor(0, 0, 0);
   doc.setDrawColor(BORDER.r, BORDER.g, BORDER.b);
   doc.setLineWidth(0.3);
-  doc.roundedRect(margin, y, pageWidth - margin * 2, 40, 2, 2);
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 46, 2, 2);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -137,8 +140,15 @@ function buildPayslipDoc(data: PayslipPdfData): jsPDF {
     ["PAN", data.employeePan?.trim() || "-"],
     ["Company TAN", data.companyTan?.trim() || "-"],
   ];
-  if (data.payableDays !== undefined && data.totalDaysInMonth !== undefined) {
-    details.push(["Payable Days", `${data.payableDays} / ${data.totalDaysInMonth}`]);
+  const daysPresent = data.daysPresent ?? data.payableDays;
+  if (daysPresent !== undefined && data.totalDaysInMonth !== undefined) {
+    details.push(["Days Present", `${daysPresent} / ${data.totalDaysInMonth}`]);
+  }
+  if (data.monthlyWorkingHours !== undefined) {
+    details.push([
+      "Monthly Working Hours",
+      `${data.monthlyWorkingHours.toFixed(2)} hrs`,
+    ]);
   }
   if (data.generatedAt) {
     details.push([
