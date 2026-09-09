@@ -17,6 +17,8 @@ import {
   getMinutesSinceMidnightInZone,
   parseScheduleTimeToMinutes,
 } from "@/lib/company-timezone";
+import { calculateWorkingHours } from "@/lib/attendance-hours";
+import { autoCloseForgottenCheckouts } from "@/lib/forgotten-checkout";
 
 async function getAttendanceUserFilter(role: RoleName, userId: string, requestedUserId?: string | null) {
   if (role === RoleName.ADMIN || role === RoleName.HR) {
@@ -170,6 +172,8 @@ export async function POST(request: Request) {
         return apiError("Already checked in today", 400);
       }
 
+      await autoCloseForgottenCheckouts(user.id, now, timeZone, "check-in");
+
       const isLate = isLateForSchedule(
         now,
         workStartTime,
@@ -227,20 +231,24 @@ export async function POST(request: Request) {
       return apiError("Already checked out today", 400);
     }
 
-    const workingHours =
-      (now.getTime() - new Date(existing.checkIn).getTime()) / (1000 * 60 * 60);
-
     const checkoutSchedule = await getWorkScheduleForUserOnDate(user.id, today);
     const workEndTime = checkoutSchedule.workEndTime;
     const nowMinutes = getMinutesSinceMidnightInZone(now, timeZone);
     const workEndMinutes = parseScheduleTimeToMinutes(workEndTime);
     const overtimeHours = Math.max(0, (nowMinutes - workEndMinutes) / 60);
 
+    const workingHours = calculateWorkingHours(
+      new Date(existing.checkIn),
+      now,
+      today,
+      timeZone
+    );
+
     const attendance = await prisma.attendance.update({
       where: { id: existing.id },
       data: {
         checkOut: now,
-        workingHours: Math.round(workingHours * 100) / 100,
+        workingHours,
         overtimeHours: Math.round(overtimeHours * 100) / 100,
         notes: notes || existing.notes,
       },

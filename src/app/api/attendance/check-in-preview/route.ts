@@ -6,6 +6,7 @@ import {
   isLateForSchedule,
   startOfDayInZone,
 } from "@/lib/company-timezone";
+import { autoCloseForgottenCheckouts } from "@/lib/forgotten-checkout";
 
 export async function GET() {
   const { error, user } = await requireAuth();
@@ -14,6 +15,14 @@ export async function GET() {
   const now = new Date();
   const timeZone = await getCompanyTimezone();
   const today = startOfDayInZone(now, timeZone);
+
+  const autoClosed = await autoCloseForgottenCheckouts(
+    user.id,
+    now,
+    timeZone,
+    "saturday-preview"
+  );
+
   const schedule = await getWorkScheduleForUserOnDate(user.id, today);
   const isLateNow = isLateForSchedule(
     now,
@@ -35,5 +44,6 @@ export async function GET() {
     isLateNow,
     alreadyCheckedIn: !!existing?.checkIn,
     timezone: timeZone,
+    autoClosedForgottenCheckouts: autoClosed,
   });
 }

@@ -5,6 +5,7 @@ import {
   getMinutesSinceMidnightInZone,
   parseScheduleTimeToMinutes,
 } from "@/lib/company-timezone";
+import { calculateWorkingHours } from "@/lib/attendance-hours";
 
 export function buildManualAuditNote(
   action: string,
@@ -73,11 +74,13 @@ export async function computeAttendanceMetrics(params: {
   let overtimeHours: number | null = null;
 
   if (checkIn && checkOut) {
-    workingHours = Math.round(
-      ((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60)) * 100
-    ) / 100;
-
     const schedule = await getWorkScheduleForUserOnDate(userId, attendanceDate);
+    workingHours = calculateWorkingHours(
+      checkIn,
+      checkOut,
+      attendanceDate,
+      timeZone
+    );
     const checkoutMinutes = getMinutesSinceMidnightInZone(checkOut, timeZone);
     const workEndMinutes = parseScheduleTimeToMinutes(schedule.workEndTime);
     overtimeHours = Math.max(0, Math.round(((checkoutMinutes - workEndMinutes) / 60) * 100) / 100);
