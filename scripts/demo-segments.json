@@ -1,0 +1,42 @@
+[
+  {
+    "text": "Welcome to Digitix Labs H R M S, your complete human resource management platform.",
+    "screen": "login-then-dashboard",
+    "pauseAfter": 2
+  },
+  {
+    "text": "The dashboard shows attendance trends, pending approvals, and team stats in real time.",
+    "screen": "dashboard",
+    "pauseAfter": 2
+  },
+  {
+    "text": "Employees check in and check out easily, with working hours and late arrivals tracked automatically.",
+    "screen": "attendance-reports",
+    "pauseAfter": 2
+  },
+  {
+    "text": "Apply for leave, view balances, and let managers approve or apply leave on behalf of their team.",
+    "screen": "leave",
+    "pauseAfter": 2
+  },
+  {
+    "text": "Manage employee profiles, departments, designations, and your full organization hierarchy.",
+    "screen": "employees-org",
+    "pauseAfter": 2
+  },
+  {
+    "text": "Generate and manage payslips with salary, net pay, and one-click P D F download.",
+    "screen": "payslips",
+    "pauseAfter": 2
+  },
+  {
+    "text": "Run detailed reports on attendance, leave, and employees, and export to Excel, C S V, or P D F.",
+    "screen": "reports",
+    "pauseAfter": 2
+  },
+  {
+    "text": "Digitix Labs H R M S. Simplify H R operations and empower your workforce.",
+    "screen": "dashboard-close",
+    "pauseAfter": 1
+  }
+]
